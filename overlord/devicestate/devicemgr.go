@@ -46,6 +46,7 @@ import (
 	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/overlord/configstate"
 	"github.com/snapcore/snapd/overlord/hookstate"
+	"github.com/snapcore/snapd/overlord/hookstate/hook"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/partition"
@@ -63,7 +64,7 @@ type DeviceManager struct {
 }
 
 // Manager returns a new device manager.
-func Manager(s *state.State, hookManager *hookstate.HookManager) (*DeviceManager, error) {
+func Manager(s *state.State, hookManager *hook.HookManager) (*DeviceManager, error) {
 	runner := state.NewTaskRunner(s)
 
 	keypairMgr, err := asserts.OpenFSKeypairManager(dirs.SnapDeviceDir)
@@ -74,31 +75,13 @@ func Manager(s *state.State, hookManager *hookstate.HookManager) (*DeviceManager
 
 	m := &DeviceManager{state: s, keypairMgr: keypairMgr, runner: runner}
 
-	hookManager.Register(regexp.MustCompile("^prepare-device$"), newPrepareDeviceHandler)
+	hookManager.Register(regexp.MustCompile("^prepare-device$"), hookstate.NewNoOpHandler)
 
 	runner.AddHandler("generate-device-key", m.doGenerateDeviceKey, nil)
 	runner.AddHandler("request-serial", m.doRequestSerial, nil)
 	runner.AddHandler("mark-seeded", m.doMarkSeeded, nil)
 
 	return m, nil
-}
-
-type prepareDeviceHandler struct{}
-
-func newPrepareDeviceHandler(context *hookstate.Context) hookstate.Handler {
-	return prepareDeviceHandler{}
-}
-
-func (h prepareDeviceHandler) Before() error {
-	return nil
-}
-
-func (h prepareDeviceHandler) Done() error {
-	return nil
-}
-
-func (h prepareDeviceHandler) Error(err error) error {
-	return nil
 }
 
 func (m *DeviceManager) changeInFlight(kind string) bool {
