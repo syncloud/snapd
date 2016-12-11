@@ -25,6 +25,7 @@ import (
 
 var supportedHooks = []*HookType{
 	newHookType(regexp.MustCompile("^prepare-device$")),
+	newHookType(regexp.MustCompile("^post-install$")),
 	newHookType(regexp.MustCompile("^configure$")),
 }
 
