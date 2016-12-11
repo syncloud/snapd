@@ -1,6 +1,8 @@
 package hookstate
 
 import (
+	"fmt"
+	"github.com/snapcore/snapd/i18n/dumb"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
 )
@@ -24,4 +26,14 @@ func HookTask(st *state.State, summary string, setup *HookSetup, contextData map
 		task.Set("hook-context", contextData)
 	}
 	return task
+}
+
+func PostInstall(s *state.State, snapName string) *state.Task {
+	var summary = fmt.Sprintf(i18n.G("Run post-install hook of %q snap if present"), snapName)
+	hooksup := &HookSetup{
+		Snap:     snapName,
+		Hook:     "post-install",
+		Optional: true,
+	}
+	return HookTask(s, summary, hooksup, nil)
 }
