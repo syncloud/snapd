@@ -76,7 +76,7 @@ func (r *Repository) GenerateHandlers(context *Context) []Handler {
 // HandlerGenerator is the function signature required to register for hooks.
 type HandlerGenerator func(*Context) Handler
 
-// Handler is the interface a client must satify to handle hooks.
+// Handler is the interface a client must satisfy to handle hooks.
 type Handler interface {
 	// Before is called right before the hook is to be run.
 	Before() error
@@ -86,4 +86,22 @@ type Handler interface {
 
 	// Error is called if the hook encounters an error while running.
 	Error(err error) error
+}
+
+type NoOpHandler struct{}
+
+func NewNoOpHandler(_ *Context) Handler {
+	return NoOpHandler{}
+}
+
+func (h NoOpHandler) Before() error {
+	return nil
+}
+
+func (h NoOpHandler) Done() error {
+	return nil
+}
+
+func (h NoOpHandler) Error(err error) error {
+	return nil
 }

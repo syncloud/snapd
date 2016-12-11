@@ -75,31 +75,13 @@ func Manager(s *state.State, hookManager *hook.HookManager) (*DeviceManager, err
 
 	m := &DeviceManager{state: s, keypairMgr: keypairMgr, runner: runner}
 
-	hookManager.Register(regexp.MustCompile("^prepare-device$"), newPrepareDeviceHandler)
+	hookManager.Register(regexp.MustCompile("^prepare-device$"), hookstate.NewNoOpHandler)
 
 	runner.AddHandler("generate-device-key", m.doGenerateDeviceKey, nil)
 	runner.AddHandler("request-serial", m.doRequestSerial, nil)
 	runner.AddHandler("mark-seeded", m.doMarkSeeded, nil)
 
 	return m, nil
-}
-
-type prepareDeviceHandler struct{}
-
-func newPrepareDeviceHandler(context *hookstate.Context) hookstate.Handler {
-	return prepareDeviceHandler{}
-}
-
-func (h prepareDeviceHandler) Before() error {
-	return nil
-}
-
-func (h prepareDeviceHandler) Done() error {
-	return nil
-}
-
-func (h prepareDeviceHandler) Error(err error) error {
-	return nil
 }
 
 func (m *DeviceManager) changeInFlight(kind string) bool {

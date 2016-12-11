@@ -53,14 +53,16 @@ type HookManager struct {
 // Manager returns a new HookManager.
 func Manager(s *state.State) (*HookManager, error) {
 	runner := state.NewTaskRunner(s)
+	repository := hookstate.NewRepository()
 	manager := &HookManager{
 		state:      s,
 		runner:     runner,
-		repository: hookstate.NewRepository(),
+		repository: repository,
 		contexts:   make(map[string]*hookstate.Context),
 	}
 
 	runner.AddHandler("run-hook", manager.doRunHook, nil)
+	repository.AddHandlerGenerator(regexp.MustCompile("^post-install$"), hookstate.NewNoOpHandler)
 
 	return manager, nil
 }
