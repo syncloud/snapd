@@ -40,6 +40,7 @@ import (
 
 	// So it registers Configure.
 	_ "github.com/snapcore/snapd/overlord/configstate"
+	"github.com/snapcore/snapd/overlord/hookstate"
 )
 
 func TestSnapManager(t *testing.T) { TestingT(t) }
@@ -156,6 +157,7 @@ func verifyInstallUpdateTasks(c *C, opts, discards int, ts *state.TaskSet, st *s
 		"link-snap",
 		"set-auto-aliases",
 		"setup-aliases",
+		"run-hook",
 		"start-snap-services",
 	)
 	for i := 0; i < discards; i++ {
@@ -223,6 +225,7 @@ func (s *snapmgrTestSuite) TestRevertTasks(c *C) {
 		"link-snap",
 		"set-auto-aliases",
 		"setup-aliases",
+		"run-hook",
 		"start-snap-services",
 		"run-hook",
 	})
@@ -436,6 +439,7 @@ func (s *snapmgrTestSuite) TestRevertCreatesNoGCTasks(c *C) {
 		"link-snap",
 		"set-auto-aliases",
 		"setup-aliases",
+		"run-hook",
 		"start-snap-services",
 		"run-hook",
 	})
@@ -916,7 +920,7 @@ func (s *snapmgrTestSuite) TestInstallRunThrough(c *C) {
 	c.Check(task.Summary(), Equals, `Download snap "some-snap" (42) from channel "some-channel"`)
 
 	// check link/start snap summary
-	linkTask := ta[len(ta)-5]
+	linkTask := ta[len(ta)-6]
 	c.Check(linkTask.Summary(), Equals, `Make snap "some-snap" (42) available to the system`)
 	startTask := ta[len(ta)-2]
 	c.Check(startTask.Summary(), Equals, `Start snap "some-snap" (42) services`)
@@ -4214,10 +4218,18 @@ func (s *snapmgrTestSuite) TestRemoveMany(c *C) {
 	}
 }
 
-func taskWithKind(ts *state.TaskSet, kind string) *state.Task {
+func findHook(ts *state.TaskSet, hookName string) *state.Task {
+	//var m map[string]interface{}
 	for _, task := range ts.Tasks() {
-		if task.Kind() == kind {
-			return task
+		if task.Kind() == "run-hook" {
+
+			var setup hookstate.HookSetup
+			task.Get("hook-setup", &setup)
+			if setup.Hook == hookName {
+				return task
+			}
+			//return task
+
 		}
 	}
 	return nil
@@ -4263,7 +4275,7 @@ func (s *snapmgrTestSuite) TestGadgetDefaults(c *C) {
 	c.Assert(err, IsNil)
 
 	var m map[string]interface{}
-	runHook := taskWithKind(ts, "run-hook")
+	runHook := findHook(ts, "configure")
 	c.Assert(runHook.Kind(), Equals, "run-hook")
 	err = runHook.Get("hook-context", &m)
 	c.Assert(err, IsNil)
@@ -4292,7 +4304,7 @@ func (s *snapmgrTestSuite) TestGadgetDefaultsInstalled(c *C) {
 	c.Assert(err, IsNil)
 
 	var m map[string]interface{}
-	runHook := taskWithKind(ts, "run-hook")
+	runHook := findHook(ts, "configure")
 	c.Assert(runHook.Kind(), Equals, "run-hook")
 	err = runHook.Get("hook-context", &m)
 	c.Assert(err, Equals, state.ErrNoState)
