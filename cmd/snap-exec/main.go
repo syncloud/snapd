@@ -172,7 +172,7 @@ func snapExecHook(snapName, revision, hookName string) error {
 
 	hook := info.Hooks[hookName]
 	if hook == nil {
-		return fmt.Errorf("cannot find hook %q in %q", hookName, snapName)
+		return fmt.Errorf("cannot find hook %q in %q, available hooks: [%q], supported hooks: [%q]", hookName, snapName, info.AvailableHooks(), snap.SupportedHooks())
 	}
 
 	// build the environment

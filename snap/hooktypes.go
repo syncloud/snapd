@@ -29,6 +29,14 @@ var supportedHooks = []*HookType{
 	newHookType(regexp.MustCompile("^configure$")),
 }
 
+func SupportedHooks() []string {
+	hooks := make([]string, 0, len(supportedHooks))
+	for _, hook := range supportedHooks {
+		hooks = append(hooks, hook.pattern.String())
+	}
+	return hooks
+}
+
 // HookType represents a pattern of supported hook names.
 type HookType struct {
 	pattern *regexp.Regexp

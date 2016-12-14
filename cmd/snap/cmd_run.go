@@ -164,7 +164,7 @@ func snapRunHook(snapName, snapRevision, hookName string) error {
 
 	hook := info.Hooks[hookName]
 	if hook == nil {
-		return fmt.Errorf(i18n.G("cannot find hook %q in %q"), hookName, snapName)
+		return fmt.Errorf("cannot find hook %q in %q, available hooks: [%q], supported hooks: [%q]", hookName, snapName, info.AvailableHooks(), snap.SupportedHooks())
 	}
 
 	return runSnapConfine(info, hook.SecurityTag(), snapName, "", hook.Name, nil)
