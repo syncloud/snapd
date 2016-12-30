@@ -58,6 +58,9 @@ cp /usr/bin/unsquashfs ${BUILD_DIR}/bin
 
 mkdir ${BUILD_DIR}/lib
 cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblzo2.so* ${BUILD_DIR}/lib
+cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblz4.so* ${BUILD_DIR}/lib
+cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblzma.so* ${BUILD_DIR}/lib
+cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/libz.so* ${BUILD_DIR}/lib
 
 mkdir ${BUILD_DIR}/conf
 cp ${DIR}/debian/snapd.service ${BUILD_DIR}/conf/
