@@ -10,13 +10,15 @@ fi
 VERSION=$1
 TESTS=$2
 
-cd ${DIR}
+echo "should be inside go path, src/github.com/snapcore/snapd"
 
-export GOPATH=${DIR}
+export GOPATH=${DIR}/../../../../
 export PATH=${PATH}:${GOPATH}/bin
 NAME=snapd
-BUILD_DIR=${DIR}/build/${NAME}
+BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+
+cd ${GOPATH}
 
 go get -d -v github.com/snapcore/snapd/...
 cd src/github.com/snapcore/snapd
@@ -34,7 +36,7 @@ if [[ ${TESTS} != "skip-tests" ]]; then
     ./run-checks
 fi
 
-cd ${DIR}
+cd ${GOPATH}
 rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
 
@@ -65,7 +67,7 @@ mkdir ${BUILD_DIR}/scripts
 cp ${DIR}/src/github.com/snapcore/snapd/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
 cp ${DIR}/src/github.com/snapcore/snapd/tests/lib/apt.sh ${BUILD_DIR}/scripts/
 
-cd ${DIR}
+cd ${GOPATH}
 
 rm -rf ${NAME}-${VERSION}-${ARCH}.tar.gz
-tar cpzf ${NAME}-${VERSION}-${ARCH}.tar.gz -C ${DIR}/build ${NAME}
+tar cpzf ${NAME}-${VERSION}-${ARCH}.tar.gz -C ${GOPATH}/build ${NAME}
