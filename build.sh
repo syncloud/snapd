@@ -54,6 +54,9 @@ cp snap-confine/snap-discard-ns ${BUILD_DIR}/bin/snap-discard-ns
 cp /usr/bin/mksquashfs ${BUILD_DIR}/bin
 cp /usr/bin/unsquashfs ${BUILD_DIR}/bin
 
+mkdir ${BUILD_DIR}/lib
+cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblzo2.so* ${BUILD_DIR}/lib
+
 mkdir ${BUILD_DIR}/conf
 cp ${DIR}/src/github.com/snapcore/snapd/debian/snapd.service ${BUILD_DIR}/conf/
 cp ${DIR}/src/github.com/snapcore/snapd/debian/snapd.socket ${BUILD_DIR}/conf/
