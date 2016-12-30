@@ -46,7 +46,7 @@ go build -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
 go build -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
 go build -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 
-cd  ${DIR}/src/github.com/snapcore/snapd/cmd
+cd  ${DIR}/cmd
 autoreconf -i -f
 ./configure --disable-apparmor
 make
@@ -60,12 +60,12 @@ mkdir ${BUILD_DIR}/lib
 cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblzo2.so* ${BUILD_DIR}/lib
 
 mkdir ${BUILD_DIR}/conf
-cp ${DIR}/src/github.com/snapcore/snapd/debian/snapd.service ${BUILD_DIR}/conf/
-cp ${DIR}/src/github.com/snapcore/snapd/debian/snapd.socket ${BUILD_DIR}/conf/
+cp ${DIR}/debian/snapd.service ${BUILD_DIR}/conf/
+cp ${DIR}/debian/snapd.socket ${BUILD_DIR}/conf/
 
 mkdir ${BUILD_DIR}/scripts
-cp ${DIR}/src/github.com/snapcore/snapd/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
-cp ${DIR}/src/github.com/snapcore/snapd/tests/lib/apt.sh ${BUILD_DIR}/scripts/
+cp ${DIR}/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
+cp ${DIR}/tests/lib/apt.sh ${BUILD_DIR}/scripts/
 
 cd ${GOPATH}
 
