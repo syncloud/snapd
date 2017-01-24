@@ -10,15 +10,18 @@ fi
 VERSION=$1
 TESTS=$2
 
-echo "should be inside go path, src/github.com/snapcore/snapd"
-
-export GOPATH=${DIR}/../../../../
+export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 export PATH=${PATH}:${GOPATH}/bin
 NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 cd ${GOPATH}
+
+if [ ! -d "src/github.com/snapcore/snapd" ]; then
+  echo "should be inside go path, src/github.com/snapcore/snapd"
+  exit 1
+fi
 
 go get -d -v github.com/snapcore/snapd/...
 cd src/github.com/snapcore/snapd
