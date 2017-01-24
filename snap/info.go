@@ -339,6 +339,7 @@ type AppInfo struct {
 	Daemon          string
 	StopTimeout     timeout.Timeout
 	StopCommand     string
+	ReloadCommand   string
 	PostStopCommand string
 	RestartCond     systemd.RestartCondition
 
@@ -406,6 +407,11 @@ func (app *AppInfo) LauncherCommand() string {
 // LauncherStopCommand returns the launcher command line to use when invoking the app stop command binary.
 func (app *AppInfo) LauncherStopCommand() string {
 	return app.launcherCommand("--command=stop")
+}
+
+// LauncherReloadCommand returns the launcher command line to use when invoking the app stop command binary.
+func (app *AppInfo) LauncherReloadCommand() string {
+	return app.launcherCommand("--command=reload")
 }
 
 // LauncherPostStopCommand returns the launcher command line to use when invoking the app post-stop command binary.
