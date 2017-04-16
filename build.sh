@@ -16,10 +16,6 @@ NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
-if [ ! -f /usr/bin/gofmt ]; then
-    ${DIR}/deps.sh
-fi
-
 cd ${GOPATH}
 
 if [ ! -d "src/github.com/snapcore/snapd" ]; then
