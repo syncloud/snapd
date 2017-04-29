@@ -280,6 +280,14 @@ func (s *Info) NeedsClassic() bool {
 	return s.Confinement == ClassicConfinement
 }
 
+func (s *Info) AvailableHooks() []string {
+	keys := make([]string, 0, len(s.Hooks))
+	for k := range s.Hooks {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // DownloadInfo contains the information to download a snap.
 // It can be marshalled.
 type DownloadInfo struct {

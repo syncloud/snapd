@@ -213,7 +213,7 @@ func snapRunHook(snapName, snapRevision, hookName string) error {
 
 	hook := info.Hooks[hookName]
 	if hook == nil {
-		return fmt.Errorf(i18n.G("cannot find hook %q in %q"), hookName, snapName)
+		return fmt.Errorf("cannot find hook %q in %q, available hooks: [%q], supported hooks: [%q]", hookName, snapName, info.AvailableHooks(), snap.SupportedHooks())
 	}
 
 	return runSnapConfine(info, hook.SecurityTag(), snapName, "", hook.Name, nil)
@@ -364,7 +364,7 @@ func migrateXauthority(info *snap.Info) (string, error) {
 }
 
 func runSnapConfine(info *snap.Info, securityTag, snapApp, command, hook string, args []string) error {
-	snapConfine := filepath.Join(dirs.DistroLibExecDir, "snap-confine")
+	snapConfine := filepath.Join(dirs.DistroLibExecDir, "snap-exec")
 	if !osutil.FileExists(snapConfine) {
 		if hook != "" {
 			logger.Noticef("WARNING: skipping running hook %q of snap %q: missing snap-confine", hook, info.Name())
@@ -383,11 +383,11 @@ func runSnapConfine(info *snap.Info, securityTag, snapApp, command, hook string,
 	}
 
 	cmd := []string{snapConfine}
-	if info.NeedsClassic() {
-		cmd = append(cmd, "--classic")
-	}
-	cmd = append(cmd, securityTag)
-	cmd = append(cmd, filepath.Join(dirs.CoreLibExecDir, "snap-exec"))
+	//if info.NeedsClassic() {
+	//	cmd = append(cmd, "--classic")
+	//}
+	//cmd = append(cmd, securityTag)
+	//cmd = append(cmd, filepath.Join(dirs.CoreLibExecDir, "snap-exec"))
 
 	if command != "" {
 		cmd = append(cmd, "--command="+command)

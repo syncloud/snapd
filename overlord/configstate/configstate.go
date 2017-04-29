@@ -28,13 +28,8 @@ import (
 
 	"github.com/snapcore/snapd/i18n/dumb"
 	"github.com/snapcore/snapd/overlord/hookstate"
-	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
 )
-
-func init() {
-	snapstate.Configure = Configure
-}
 
 func configureHookTimeout() time.Duration {
 	timeout := 5 * time.Minute

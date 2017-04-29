@@ -124,8 +124,8 @@ func (s *SnapSuite) TestSnapRunAppIntegration(c *check.C) {
 	c.Assert(rest, check.DeepEquals, []string{"snapname.app", "--arg1", "arg2"})
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
-		filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
-		"snap.snapname.app",
+		//filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
+		//"snap.snapname.app",
 		filepath.Join(dirs.DistroLibExecDir, "snap-exec"),
 		"snapname.app", "--arg1", "arg2"})
 	c.Check(execEnv, testutil.Contains, "SNAP_REVISION=x2")
@@ -161,8 +161,8 @@ func (s *SnapSuite) TestSnapRunClassicAppIntegration(c *check.C) {
 	c.Assert(rest, check.DeepEquals, []string{"snapname.app", "--arg1", "arg2"})
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
-		filepath.Join(dirs.DistroLibExecDir, "snap-confine"), "--classic",
-		"snap.snapname.app",
+		//filepath.Join(dirs.DistroLibExecDir, "snap-confine"), "--classic",
+		//"snap.snapname.app",
 		filepath.Join(dirs.DistroLibExecDir, "snap-exec"),
 		"snapname.app", "--arg1", "arg2"})
 	c.Check(execEnv, testutil.Contains, "SNAP_REVISION=x2")
@@ -197,8 +197,8 @@ func (s *SnapSuite) TestSnapRunAppWithCommandIntegration(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
-		filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
-		"snap.snapname.app",
+		//filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
+		//"snap.snapname.app",
 		filepath.Join(dirs.DistroLibExecDir, "snap-exec"),
 		"--command=my-command", "snapname.app", "arg1", "arg2"})
 	c.Check(execEnv, testutil.Contains, "SNAP_REVISION=42")
@@ -250,8 +250,8 @@ func (s *SnapSuite) TestSnapRunHookIntegration(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
-		filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
-		"snap.snapname.hook.configure",
+		//filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
+		//"snap.snapname.hook.configure",
 		filepath.Join(dirs.DistroLibExecDir, "snap-exec"),
 		"--hook=configure", "snapname"})
 	c.Check(execEnv, testutil.Contains, "SNAP_REVISION=42")
@@ -286,8 +286,8 @@ func (s *SnapSuite) TestSnapRunHookUnsetRevisionIntegration(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
-		filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
-		"snap.snapname.hook.configure",
+		//filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
+		//"snap.snapname.hook.configure",
 		filepath.Join(dirs.DistroLibExecDir, "snap-exec"),
 		"--hook=configure", "snapname"})
 	c.Check(execEnv, testutil.Contains, "SNAP_REVISION=42")
@@ -324,8 +324,8 @@ func (s *SnapSuite) TestSnapRunHookSpecificRevisionIntegration(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
-		filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
-		"snap.snapname.hook.configure",
+		//filepath.Join(dirs.DistroLibExecDir, "snap-confine"),
+		//"snap.snapname.hook.configure",
 		filepath.Join(dirs.DistroLibExecDir, "snap-exec"),
 		"--hook=configure", "snapname"})
 	c.Check(execEnv, testutil.Contains, "SNAP_REVISION=41")
@@ -382,7 +382,7 @@ func (s *SnapSuite) TestSnapRunHookMissingHookIntegration(c *check.C) {
 	defer restorer()
 
 	err = snaprun.SnapRunHook("snapname", "unset", "missing-hook")
-	c.Assert(err, check.ErrorMatches, `cannot find hook "missing-hook" in "snapname"`)
+	c.Assert(err, check.ErrorMatches, `cannot find hook "missing-hook" in "snapname", available hooks: \[\["configure"\]\], supported hooks: \[\[\"\^prepare-device\$" "\^post-install\$" "\^configure\$"\]\]`)
 	c.Check(called, check.Equals, false)
 }
 
