@@ -35,7 +35,7 @@ import (
 
 	"github.com/snapcore/snapd/overlord/assertstate"
 	"github.com/snapcore/snapd/overlord/auth"
-	"github.com/snapcore/snapd/overlord/configstate/config"
+	"github.com/snapcore/snapd/overlord/configstate/configmgr"
 	"github.com/snapcore/snapd/overlord/devicestate"
 	"github.com/snapcore/snapd/overlord/hookstate/hook"
 	"github.com/snapcore/snapd/overlord/ifacestate"
