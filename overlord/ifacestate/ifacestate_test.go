@@ -34,6 +34,7 @@ import (
 	"github.com/snapcore/snapd/interfaces/ifacetest"
 	"github.com/snapcore/snapd/overlord/assertstate"
 	"github.com/snapcore/snapd/overlord/hookstate"
+	"github.com/snapcore/snapd/overlord/hookstate/hook"
 	"github.com/snapcore/snapd/overlord/ifacestate"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
@@ -53,7 +54,7 @@ type interfaceManagerSuite struct {
 	state           *state.State
 	db              *asserts.Database
 	privateMgr      *ifacestate.InterfaceManager
-	privateHookMgr  *hookstate.HookManager
+	privateHookMgr  *hook.HookManager
 	extraIfaces     []interfaces.Interface
 	extraBackends   []interfaces.SecurityBackend
 	secBackend      *ifacetest.TestSecurityBackend
@@ -116,9 +117,9 @@ func (s *interfaceManagerSuite) manager(c *C) *ifacestate.InterfaceManager {
 	return s.privateMgr
 }
 
-func (s *interfaceManagerSuite) hookManager(c *C) *hookstate.HookManager {
+func (s *interfaceManagerSuite) hookManager(c *C) *hook.HookManager {
 	if s.privateHookMgr == nil {
-		mgr, err := hookstate.Manager(s.state)
+		mgr, err := hook.Manager(s.state)
 		c.Assert(err, IsNil)
 		s.privateHookMgr = mgr
 	}

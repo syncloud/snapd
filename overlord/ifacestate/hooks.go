@@ -23,6 +23,7 @@ import (
 	"regexp"
 
 	"github.com/snapcore/snapd/overlord/hookstate"
+	"github.com/snapcore/snapd/overlord/hookstate/hook"
 )
 
 type prepareHandler struct {
@@ -58,7 +59,7 @@ func (h *connectHandler) Error(err error) error {
 }
 
 // setupHooks sets hooks of InterfaceManager up
-func setupHooks(hookMgr *hookstate.HookManager) {
+func setupHooks(hookMgr *hook.HookManager) {
 	prepareGenerator := func(context *hookstate.Context) hookstate.Handler {
 		return &prepareHandler{context: context}
 	}
