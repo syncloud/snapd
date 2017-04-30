@@ -26,12 +26,7 @@ fi
 go get -d -v github.com/snapcore/snapd/...
 cd src/github.com/snapcore/snapd
 
-echo "snapd (${VERSION}) xenial; urgency=medium" > debian/changelog
-echo "" >> debian/changelog
-echo "  * New upstream release, LP: #1644625" >> debian/changelog
-echo " -- team city <support@syncloud.it>  $(date -R)" >> debian/changelog
-echo "" >> debian/changelog
-./mkversion.sh
+./mkversion.sh ${VERSION}
 
 go get -u github.com/kardianos/govendor
 govendor sync
