@@ -251,7 +251,9 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 		confFlags |= IgnoreHookError
 		confFlags |= TrackHookError
 	}
-	configSet := configstate.Configure(st, snapsup.Name(), defaults, confFlags & IgnoreHookError != 0, confFlags & TrackHookError ! = 0)
+	ignoreError := confFlags & IgnoreHookError != 0
+	trackError := confFlags & TrackHookError ! = 0
+	configSet := configstate.Configure(st, snapsup.Name(), defaults, ignoreError, trackError)
 	configSet.WaitAll(installSet)
 	installSet.AddAll(configSet)
 
