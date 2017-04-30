@@ -18,7 +18,6 @@ type HookSetup struct {
 	Timeout     time.Duration `json:"timeout,omitempty"`
 	IgnoreError bool          `json:"ignore-error,omitempty"`
 	TrackError  bool          `json:"track-error,omitempty"`
-
 }
 
 func PostInstall(s *state.State, snapName string) *state.Task {
