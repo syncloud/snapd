@@ -346,7 +346,7 @@ func trackHookError(context *hookstate.Context, output []byte, err error) {
 	extra := map[string]string{
 		"HookName": context.HookName(),
 	}
-	if context.setup.IgnoreError {
+	if context.IgnoreError() {
 		extra["IgnoreError"] = "1"
 	}
 	oopsid, err := errtrackerReport(context.SnapName(), errmsg, dupSig, extra)

@@ -70,6 +70,10 @@ func (c *Context) SnapName() string {
 	return c.setup.Snap
 }
 
+func (c *Context) IgnoreError() bool {
+	return c.setup.IgnoreError
+}
+
 // SnapRevision returns the revision of the snap containing the hook.
 func (c *Context) SnapRevision() snap.Revision {
 	return c.setup.Revision
