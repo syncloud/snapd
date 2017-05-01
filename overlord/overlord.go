@@ -123,7 +123,7 @@ func New() (*Overlord, error) {
 	o.ifaceMgr = ifaceMgr
 	o.stateEng.AddManager(o.ifaceMgr)
 
-	configMgr, err := config.Manager(s, hookMgr)
+	configMgr, err := configmgr.Manager(s, hookMgr)
 	if err != nil {
 		return nil, err
 	}
