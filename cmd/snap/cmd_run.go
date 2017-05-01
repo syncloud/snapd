@@ -364,7 +364,7 @@ func migrateXauthority(info *snap.Info) (string, error) {
 }
 
 func runSnapConfine(info *snap.Info, securityTag, snapApp, command, hook string, args []string) error {
-	snapConfine := filepath.Join(dirs.DistroLibExecDir, "snap-exec")
+	snapConfine := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
 	if !osutil.FileExists(snapConfine) {
 		if hook != "" {
 			logger.Noticef("WARNING: skipping running hook %q of snap %q: missing snap-confine", hook, info.Name())
