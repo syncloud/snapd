@@ -49,7 +49,7 @@ autoreconf -i -f
 ./configure --disable-apparmor
 make
 cp snap-confine/snap-confine ${BUILD_DIR}/bin/snap-confine
-cp snap-discard-nd/snap-discard-ns ${BUILD_DIR}/bin/snap-discard-ns
+cp snap-discard-ns/snap-discard-ns ${BUILD_DIR}/bin/snap-discard-ns
 
 cp /usr/bin/mksquashfs ${BUILD_DIR}/bin
 cp /usr/bin/unsquashfs ${BUILD_DIR}/bin
