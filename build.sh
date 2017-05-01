@@ -61,8 +61,8 @@ cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblzma.so* ${BUILD_DIR}/li
 cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/libz.so* ${BUILD_DIR}/lib
 
 mkdir ${BUILD_DIR}/conf
-cp ${DIR}/debian/snapd.service ${BUILD_DIR}/conf/
-cp ${DIR}/debian/snapd.socket ${BUILD_DIR}/conf/
+cp ${DIR}/packaging/ubuntu-14.04/snapd.service ${BUILD_DIR}/conf/
+cp ${DIR}/packaging/ubuntu-14.04/snapd.socket ${BUILD_DIR}/conf/
 
 mkdir ${BUILD_DIR}/scripts
 cp ${DIR}/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
