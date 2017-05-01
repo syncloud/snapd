@@ -340,7 +340,7 @@ func runHookAndWait(snapName string, revision snap.Revision, hookName, hookConte
 
 var errtrackerReport = errtracker.Report
 
-func trackHookError(context *Context, output []byte, err error) {
+func trackHookError(context *hookstate.Context, output []byte, err error) {
 	errmsg := fmt.Sprintf("hook %s in snap %q failed: %v", context.HookName(), context.SnapName(), osutil.OutputErr(output, err))
 	dupSig := fmt.Sprintf("hook:%s:%s:%s\n%s", context.SnapName(), context.HookName(), err, output)
 	extra := map[string]string{
