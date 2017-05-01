@@ -71,7 +71,7 @@ type Overlord struct {
 	assertMgr *assertstate.AssertManager
 	ifaceMgr  *ifacestate.InterfaceManager
 	hookMgr   *hook.HookManager
-	configMgr *config.ConfigManager
+	configMgr *configmgr.ConfigManager
 	deviceMgr *devicestate.DeviceManager
 }
 
