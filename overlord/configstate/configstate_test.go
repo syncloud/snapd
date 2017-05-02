@@ -71,7 +71,7 @@ func (s *tasksetsSuite) TestConfigure(c *C) {
 		}
 
 		s.state.Lock()
-		taskset := configstate.Configure(s.state, "test-snap", test.patch, flags)
+		taskset := configstate.Configure(s.state, "test-snap", test.patch, test.ignoreError, false)
 		s.state.Unlock()
 
 		tasks := taskset.Tasks()
