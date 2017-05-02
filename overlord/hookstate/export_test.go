@@ -22,7 +22,7 @@ package hookstate
 import (
 	"syscall"
 	"time"
-	
+
 	"github.com/snapcore/snapd/overlord/hookstate/hook"
 )
 
