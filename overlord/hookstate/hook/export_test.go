@@ -17,7 +17,7 @@
  *
  */
 
-package hookstate
+package hook
 
 import (
 	"syscall"
