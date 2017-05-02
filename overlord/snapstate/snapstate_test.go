@@ -904,11 +904,11 @@ func (s *snapmgrTestSuite) TestUpdateTasksCoreSetsIgnoreOnConfigure(c *C) {
 		SnapType: "os",
 	})
 
-	oldConfigure := snapstate.Configure
-	defer func() { snapstate.Configure = oldConfigure }()
+	oldConfigure := configstate.Configure
+	defer func() { configstate.Configure = oldConfigure }()
 
 	var configureFlags int
-	snapstate.Configure = func(st *state.State, snapName string, patch map[string]interface{}, flags int) *state.TaskSet {
+	configstate.Configure = func(st *state.State, snapName string, patch map[string]interface{}, flags int) *state.TaskSet {
 		configureFlags = flags
 		return state.NewTaskSet()
 	}
