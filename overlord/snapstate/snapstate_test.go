@@ -49,7 +49,7 @@ import (
 	"github.com/snapcore/snapd/timeutil"
 
 	// So it registers Configure.
-	_ "github.com/snapcore/snapd/overlord/configstate"
+	"github.com/snapcore/snapd/overlord/configstate"
 	"github.com/snapcore/snapd/overlord/hookstate"
 )
 
