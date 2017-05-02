@@ -50,7 +50,6 @@ import (
 
 	// So it registers Configure.
 	"github.com/snapcore/snapd/overlord/configstate"
-	"github.com/snapcore/snapd/overlord/hookstate"
 )
 
 func TestSnapManager(t *testing.T) { TestingT(t) }
@@ -907,9 +906,9 @@ func (s *snapmgrTestSuite) TestUpdateTasksCoreSetsIgnoreOnConfigure(c *C) {
 	oldConfigure := configstate.Configure
 	defer func() { configstate.Configure = oldConfigure }()
 
-	var configureFlags int
-	configstate.Configure = func(st *state.State, snapName string, patch map[string]interface{}, flags int) *state.TaskSet {
-		configureFlags = flags
+	var configureIgnoreError bool
+	configstate.Configure = func(st *state.State, snapName string, patch map[string]interface{}, ignoreError bool, trackError bool) *state.TaskSet {
+		configureIgnoreError = ignoreError
 		return state.NewTaskSet()
 	}
 
@@ -917,7 +916,7 @@ func (s *snapmgrTestSuite) TestUpdateTasksCoreSetsIgnoreOnConfigure(c *C) {
 	c.Assert(err, IsNil)
 
 	// ensure the core snap sets the "ignore-hook-error" flag
-	c.Check(configureFlags&snapstate.IgnoreHookError, Equals, 1)
+	c.Check(configureIgnoreError, Equals, 1)
 }
 
 func (s *snapmgrTestSuite) TestUpdateDevModeConfinementFiltering(c *C) {
