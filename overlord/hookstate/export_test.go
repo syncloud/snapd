@@ -22,13 +22,15 @@ package hookstate
 import (
 	"syscall"
 	"time"
+	
+	"github.com/snapcore/snapd/overlord/hookstate/hook"
 )
 
 func MockReadlink(f func(string) (string, error)) func() {
-	oldReadlink := osReadlink
-	osReadlink = f
+	oldReadlink := hook.osReadlink
+	hook.osReadlink = f
 	return func() {
-		osReadlink = oldReadlink
+		hook.osReadlink = oldReadlink
 	}
 }
 
