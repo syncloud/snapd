@@ -49,7 +49,7 @@ import (
 	"github.com/snapcore/snapd/timeutil"
 
 	// So it registers Configure.
-	"github.com/snapcore/snapd/overlord/configstate"
+	_ "github.com/snapcore/snapd/overlord/configstate"
 )
 
 func TestSnapManager(t *testing.T) { TestingT(t) }
