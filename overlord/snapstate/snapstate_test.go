@@ -2347,7 +2347,7 @@ func (s *snapmgrTestSuite) TestUpdateOneAutoAliasesScenarios(c *C) {
 		}
 		if scenario.update {
 			first := tasks[j]
-			j += 14
+			j += 15
 			c.Check(first.Kind(), Equals, "download-snap")
 			wait := false
 			if expectedPruned["other-snap"]["aliasA"] {
