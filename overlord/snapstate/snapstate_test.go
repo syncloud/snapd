@@ -4933,6 +4933,7 @@ func (s *snapmgrTestSuite) testTrySetsTryMode(flags snapstate.Flags, c *C) {
 		"setup-profiles",
 		"set-auto-aliases",
 		"setup-aliases",
+		"run-hook",
 		"start-snap-services",
 		"run-hook",
 	})
