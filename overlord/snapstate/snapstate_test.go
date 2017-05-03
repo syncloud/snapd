@@ -1763,7 +1763,7 @@ func (s *snapmgrTestSuite) TestUpdateTotalUndoRunThrough(c *C) {
 		name:     "some-snap",
 	}})
 	// friendlier failure first
-	c.Assert(s.fakeBackend.ops.Ops(), DeepEquals, expected.Ops())
+	//c.Assert(s.fakeBackend.ops.Ops(), DeepEquals, expected.Ops())
 	c.Assert(s.fakeBackend.ops, DeepEquals, expected)
 
 	// verify snaps in the system state
@@ -4292,6 +4292,7 @@ link-snap: Error
  ERROR fail
 set-auto-aliases: Hold
 setup-aliases: Hold
+run-hook: Hold
 start-snap-services: Hold
 cleanup: Hold
 run-hook: Hold`)
@@ -4305,6 +4306,7 @@ link-snap: Error
  ERROR fail
 set-auto-aliases: Hold
 setup-aliases: Hold
+run-hook: Hold
 start-snap-services: Hold
 cleanup: Hold
 run-hook: Hold`)
