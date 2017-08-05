@@ -58,11 +58,14 @@ type appYaml struct {
 
 	Daemon string `yaml:"daemon"`
 
-	StopCommand     string          `yaml:"stop-command,omitempty"`
-	ReloadCommand   string          `yaml:"reload-command,omitempty"`
-	PostStopCommand string          `yaml:"post-stop-command,omitempty"`
-	StopTimeout     timeout.Timeout `yaml:"stop-timeout,omitempty"`
-	Completer       string          `yaml:"completer,omitempty"`
+	PreStartCommand  string          `yaml:"pre-start-command,omitempty"`
+	PostStartCommand string          `yaml:"post-start-command,omitempty"`
+	StopCommand      string          `yaml:"stop-command,omitempty"`
+	ReloadCommand    string          `yaml:"reload-command,omitempty"`
+	PostStopCommand  string          `yaml:"post-stop-command,omitempty"`
+	StartTimeout     timeout.Timeout `yaml:"start-timeout,omitempty"`
+	StopTimeout      timeout.Timeout `yaml:"stop-timeout,omitempty"`
+	Completer        string          `yaml:"completer,omitempty"`
 
 	RestartCond systemd.RestartCondition `yaml:"restart-condition,omitempty"`
 	SlotNames   []string                 `yaml:"slots,omitempty"`
@@ -224,19 +227,22 @@ func setAppsFromSnapYaml(y snapYaml, snap *Info) error {
 	for appName, yApp := range y.Apps {
 		// Collect all apps
 		app := &AppInfo{
-			Snap:            snap,
-			Name:            appName,
-			LegacyAliases:   yApp.Aliases,
-			Command:         yApp.Command,
-			Daemon:          yApp.Daemon,
-			StopTimeout:     yApp.StopTimeout,
-			StopCommand:     yApp.StopCommand,
-			ReloadCommand:   yApp.ReloadCommand,
-			PostStopCommand: yApp.PostStopCommand,
-			RestartCond:     yApp.RestartCond,
-			BusName:         yApp.BusName,
-			Environment:     yApp.Environment,
-			Completer:       yApp.Completer,
+			Snap:             snap,
+			Name:             appName,
+			LegacyAliases:    yApp.Aliases,
+			Command:          yApp.Command,
+			Daemon:           yApp.Daemon,
+			PreStartCommand:  yApp.PreStartCommand,
+			PostStartCommand: yApp.PostStartCommand,
+			StartTimeout:     yApp.StartTimeout,
+			StopTimeout:      yApp.StopTimeout,
+			StopCommand:      yApp.StopCommand,
+			ReloadCommand:    yApp.ReloadCommand,
+			PostStopCommand:  yApp.PostStopCommand,
+			RestartCond:      yApp.RestartCond,
+			BusName:          yApp.BusName,
+			Environment:      yApp.Environment,
+			Completer:        yApp.Completer,
 		}
 		if len(y.Plugs) > 0 || len(yApp.PlugNames) > 0 {
 			app.Plugs = make(map[string]*PlugInfo)

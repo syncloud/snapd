@@ -135,6 +135,8 @@ func (s *ValidateSuite) TestValidateAppName(c *C) {
 func (s *ValidateSuite) TestAppWhitelistSimple(c *C) {
 	c.Check(ValidateApp(&AppInfo{Name: "foo", Command: "foo"}), IsNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", StopCommand: "foo"}), IsNil)
+	c.Check(ValidateApp(&AppInfo{Name: "foo", PreStartCommand: "foo"}), IsNil)
+	c.Check(ValidateApp(&AppInfo{Name: "foo", PostStartCommand: "foo"}), IsNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", PostStopCommand: "foo"}), IsNil)
 }
 
@@ -143,6 +145,8 @@ func (s *ValidateSuite) TestAppWhitelistIllegal(c *C) {
 	c.Check(ValidateApp(&AppInfo{Name: "test!me"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", Command: "foo\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", StopCommand: "foo\n"}), NotNil)
+	c.Check(ValidateApp(&AppInfo{Name: "foo", PreStartCommand: "foo\n"}), NotNil)
+	c.Check(ValidateApp(&AppInfo{Name: "foo", PostStartCommand: "foo\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", PostStopCommand: "foo\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", BusName: "foo\n"}), NotNil)
 }

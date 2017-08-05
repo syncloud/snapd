@@ -1,0 +1,24 @@
+platform: linux/${arch}
+
+workspace:
+  base: /go
+  path: src/github.com/snapcore/snapd
+
+clone:
+  git:
+    image: syncloud/drone-git-${arch}
+    depth: 50
+
+pipeline:
+  build:
+    image: syncloud/build-deps-${arch}
+    secrets: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]
+    commands:
+      - VERSION=$(date +%y%m%d)
+      - ./syncloud/build.sh $VERSION skip-tests
+      - ./syncloud/upload.sh $DRONE_BRANCH $VERSION
+
+matrix:
+  arch:
+    - arm
+    - amd64

@@ -364,7 +364,7 @@ func migrateXauthority(info *snap.Info) (string, error) {
 }
 
 func runSnapConfine(info *snap.Info, securityTag, snapApp, command, hook string, args []string) error {
-	snapConfine := filepath.Join(dirs.DistroLibExecDir, "snap-confine")
+	snapConfine := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
 	// if we re-exec, we must run the snap-confine from the core snap
 	// as well, if they get out of sync, havoc will happen
 	if isReexeced() {
@@ -373,7 +373,6 @@ func runSnapConfine(info *snap.Info, securityTag, snapApp, command, hook string,
 		// (except libudev and libc)
 		snapConfine = filepath.Join(dirs.SnapMountDir, "core/current", dirs.CoreLibExecDir, "snap-confine")
 	}
-
 	if !osutil.FileExists(snapConfine) {
 		if hook != "" {
 			logger.Noticef("WARNING: skipping running hook %q of snap %q: missing snap-confine", hook, info.Name())
@@ -392,11 +391,11 @@ func runSnapConfine(info *snap.Info, securityTag, snapApp, command, hook string,
 	}
 
 	cmd := []string{snapConfine}
-	if info.NeedsClassic() {
-		cmd = append(cmd, "--classic")
-	}
-	cmd = append(cmd, securityTag)
-	cmd = append(cmd, filepath.Join(dirs.CoreLibExecDir, "snap-exec"))
+	//if info.NeedsClassic() {
+	//	cmd = append(cmd, "--classic")
+	//}
+	//cmd = append(cmd, securityTag)
+	//cmd = append(cmd, filepath.Join(dirs.CoreLibExecDir, "snap-exec"))
 
 	if command != "" {
 		cmd = append(cmd, "--command="+command)
