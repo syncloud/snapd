@@ -70,7 +70,7 @@ func (suite *configTestSuite) TestSetBaseURL(c *C) {
 
 	u, err := url.Parse("http://example.com/path/prefix/")
 	c.Assert(err, IsNil)
-	err = cfg.setBaseURL(u)
+	err = cfg.SetBaseURL(u)
 	c.Assert(err, IsNil)
 
 	c.Check(cfg.StoreBaseURL.String(), Equals, "http://example.com/path/prefix/")
@@ -79,13 +79,13 @@ func (suite *configTestSuite) TestSetBaseURL(c *C) {
 
 func (suite *configTestSuite) TestSetBaseURLStoreOverrides(c *C) {
 	cfg := DefaultConfig()
-	c.Assert(cfg.setBaseURL(apiURL()), IsNil)
+	c.Assert(cfg.SetBaseURL(apiURL()), IsNil)
 	c.Check(cfg.StoreBaseURL, Matches, apiURL().String()+".*")
 
 	c.Assert(os.Setenv("SNAPPY_FORCE_API_URL", "https://force-api.local/"), IsNil)
 	defer os.Setenv("SNAPPY_FORCE_API_URL", "")
 	cfg = DefaultConfig()
-	c.Assert(cfg.setBaseURL(apiURL()), IsNil)
+	c.Assert(cfg.SetBaseURL(apiURL()), IsNil)
 	c.Check(cfg.StoreBaseURL.String(), Equals, "https://force-api.local/")
 	c.Check(cfg.AssertionsBaseURL, IsNil)
 }
@@ -95,19 +95,19 @@ func (suite *configTestSuite) TestSetBaseURLStoreURLBadEnviron(c *C) {
 	defer os.Setenv("SNAPPY_FORCE_API_URL", "")
 
 	cfg := DefaultConfig()
-	err := cfg.setBaseURL(apiURL())
+	err := cfg.SetBaseURL(apiURL())
 	c.Check(err, ErrorMatches, "invalid SNAPPY_FORCE_API_URL: parse ://example.com: missing protocol scheme")
 }
 
 func (suite *configTestSuite) TestSetBaseURLAssertsOverrides(c *C) {
 	cfg := DefaultConfig()
-	c.Assert(cfg.setBaseURL(apiURL()), IsNil)
+	c.Assert(cfg.SetBaseURL(apiURL()), IsNil)
 	c.Check(cfg.AssertionsBaseURL, IsNil)
 
 	c.Assert(os.Setenv("SNAPPY_FORCE_SAS_URL", "https://force-sas.local/"), IsNil)
 	defer os.Setenv("SNAPPY_FORCE_SAS_URL", "")
 	cfg = DefaultConfig()
-	c.Assert(cfg.setBaseURL(apiURL()), IsNil)
+	c.Assert(cfg.SetBaseURL(apiURL()), IsNil)
 	c.Check(cfg.AssertionsBaseURL, Matches, "https://force-sas.local/.*")
 }
 
@@ -116,7 +116,7 @@ func (suite *configTestSuite) TestSetBaseURLAssertsURLBadEnviron(c *C) {
 	defer os.Setenv("SNAPPY_FORCE_SAS_URL", "")
 
 	cfg := DefaultConfig()
-	err := cfg.setBaseURL(apiURL())
+	err := cfg.SetBaseURL(apiURL())
 	c.Check(err, ErrorMatches, "invalid SNAPPY_FORCE_SAS_URL: parse ://example.com: missing protocol scheme")
 }
 

@@ -1,0 +1,48 @@
+platform: linux/${arch}
+
+workspace:
+  base: /go
+  path: src/github.com/snapcore/snapd
+
+clone:
+  git:
+    image: syncloud/drone-git-${arch}
+    depth: 50
+
+pipeline:
+
+  version:
+    image: syncloud/build-deps-${arch}
+    commands:
+      - echo $(date +%y%m%d) > version
+      
+  build:
+    image: syncloud/build-deps-${arch}
+    commands:
+      - VERSION=$(cat version)
+      - ./syncloud/build.sh $VERSION skip-tests
+
+  test:
+    image: syncloud/build-deps-${arch}
+    commands:
+      - VERSION=$(cat version)
+      - ./syncloud/test-docker.sh $VERSION device
+
+  upload:
+    image: syncloud/build-deps-${arch}
+    secrets: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]
+    commands:
+      - VERSION=$(cat version)
+      - ./syncloud/upload.sh $DRONE_BRANCH $VERSION
+
+services:
+  device:
+    image: syncloud/systemd-${arch}
+    privileged: true
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+ 
+matrix:
+  arch:
+    - arm
+    - amd64

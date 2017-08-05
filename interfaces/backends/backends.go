@@ -20,17 +20,15 @@
 package backends
 
 import (
-	"fmt"
-
 	"github.com/snapcore/snapd/interfaces"
-	"github.com/snapcore/snapd/interfaces/apparmor"
+	//"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
 	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/mount"
-	"github.com/snapcore/snapd/interfaces/seccomp"
+	//"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/systemd"
 	"github.com/snapcore/snapd/interfaces/udev"
-	"github.com/snapcore/snapd/release"
+	//"github.com/snapcore/snapd/release"
 )
 
 var All []interfaces.SecurityBackend = backends()
@@ -38,7 +36,8 @@ var All []interfaces.SecurityBackend = backends()
 func backends() []interfaces.SecurityBackend {
 	all := []interfaces.SecurityBackend{
 		&systemd.Backend{},
-		&seccomp.Backend{},
+		//TODO: disable seccomp for now
+        //	&seccomp.Backend{},
 		&dbus.Backend{},
 		&udev.Backend{},
 		&mount.Backend{},
@@ -55,7 +54,7 @@ func backends() []interfaces.SecurityBackend {
 	// By printing this directly we ensure it will end up the journal for the
 	// snapd.service. This aspect should be retained even after the switch to
 	// user-warning.
-	fmt.Printf("AppArmor status: %s\n", release.AppArmorSummary())
+	//fmt.Printf("AppArmor status: %s\n", release.AppArmorSummary())
 
 	// Enable apparmor backend if there is any level of apparmor support,
 	// including partial feature set. This will allow snap-confine to always
@@ -64,9 +63,10 @@ func backends() []interfaces.SecurityBackend {
 	//
 	// When some features are missing the backend will generate more permissive
 	// profiles that keep applications operational, in forced-devmode.
-	switch release.AppArmorLevel() {
-	case release.FullAppArmor, release.PartialAppArmor:
-		all = append(all, &apparmor.Backend{})
-	}
+	//TODO: disable apparmor for now
+	//switch release.AppArmorLevel() {
+	//case release.FullAppArmor, release.PartialAppArmor:
+	//	all = append(all, &apparmor.Backend{})
+	//}
 	return all
 }

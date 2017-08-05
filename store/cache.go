@@ -32,7 +32,7 @@ import (
 )
 
 // downloadCache is the interface that a store download cache must provide
-type downloadCache interface {
+type DownloadCache interface {
 	// Get gets the given cacheKey content and puts it into targetPath
 	Get(cacheKey, targetPath string) error
 	// Put adds a new file to the cache
@@ -40,12 +40,12 @@ type downloadCache interface {
 }
 
 // nullCache is cache that does not cache
-type nullCache struct{}
+type NullCache struct{}
 
-func (cm *nullCache) Get(cacheKey, targetPath string) error {
+func (cm *NullCache) Get(cacheKey, targetPath string) error {
 	return fmt.Errorf("cannot get items from the nullCache")
 }
-func (cm *nullCache) Put(cacheKey, sourcePath string) error { return nil }
+func (cm *NullCache) Put(cacheKey, sourcePath string) error { return nil }
 
 // changesByReverseMtime sorts by the mtime of files
 type changesByReverseMtime []os.FileInfo

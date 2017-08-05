@@ -201,19 +201,13 @@ type Config struct {
 
 // setBaseURL updates the store API's base URL in the Config. Must not be used
 // to change active config.
-func (cfg *Config) setBaseURL(u *url.URL) error {
+func (cfg *Config) SetBaseURL(u *url.URL) error {
 	storeBaseURI, err := storeURL(u)
 	if err != nil {
 		return err
 	}
 
-	assertsBaseURI, err := assertsURL()
-	if err != nil {
-		return err
-	}
-
 	cfg.StoreBaseURL = storeBaseURI
-	cfg.AssertionsBaseURL = assertsBaseURI
 
 	return nil
 }
@@ -239,7 +233,7 @@ type Store struct {
 	mu                sync.Mutex
 	suggestedCurrency string
 
-	cacher downloadCache
+	cacher DownloadCache
 }
 
 func respToError(resp *http.Response, msg string) error {
@@ -384,7 +378,7 @@ func init() {
 	if storeBaseURI.RawQuery != "" {
 		panic("store API URL may not contain query string")
 	}
-	err = defaultConfig.setBaseURL(storeBaseURI)
+	err = defaultConfig.SetBaseURL(storeBaseURI)
 	if err != nil {
 		panic(err)
 	}
@@ -2026,6 +2020,6 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 	if fileCount > 0 {
 		s.cacher = NewCacheManager(dirs.SnapDownloadCacheDir, fileCount)
 	} else {
-		s.cacher = &nullCache{}
+		s.cacher = &NullCache{}
 	}
 }
