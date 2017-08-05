@@ -66,7 +66,6 @@ cp ${DIR}/packaging/ubuntu-14.04/snapd.socket ${BUILD_DIR}/conf/
 
 mkdir ${BUILD_DIR}/scripts
 cp ${DIR}/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
-cp ${DIR}/tests/lib/apt.sh ${BUILD_DIR}/scripts/
 
 cd ${DIR}
 
