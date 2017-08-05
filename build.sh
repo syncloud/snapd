@@ -68,7 +68,7 @@ mkdir ${BUILD_DIR}/scripts
 cp ${DIR}/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
 cp ${DIR}/tests/lib/apt.sh ${BUILD_DIR}/scripts/
 
-cd ${GOPATH}
+cd ${DIR}
 
 rm -rf ${NAME}-${VERSION}-${ARCH}.tar.gz
 tar cpzf ${NAME}-${VERSION}-${ARCH}.tar.gz -C ${GOPATH}/build ${NAME}
