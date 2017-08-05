@@ -26,6 +26,8 @@ import (
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
+	"github.com/snapcore/snapd/logger"
+
 )
 
 type Finder interface {
@@ -65,7 +67,8 @@ func CrossCheck(instanceName, snapSHA3_384 string, snapSize uint64, si *snap.Sid
 	snapRev := a.(*asserts.SnapRevision)
 
 	if snapRev.SnapSize() != snapSize {
-		return fmt.Errorf("snap %q file does not have expected size according to signatures (download is broken or tampered): %d != %d", instanceName, snapSize, snapRev.SnapSize())
+		//return fmt.Errorf("snap %q file does not have expected size according to signatures (download is broken or tampered): %d != %d", instanceName, snapSize, snapRev.SnapSize())
+		logger.Noticef("Syncloud hack: snap %q file does not have expected size according to signatures (download is broken or tampered): %d != %d", name, snapSize, snapRev.SnapSize())
 	}
 
 	snapID := si.SnapID

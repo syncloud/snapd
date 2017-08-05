@@ -74,6 +74,9 @@ type appYaml struct {
 
 	Daemon string `yaml:"daemon"`
 
+	User             string          `yaml:"user,omitempty"`
+	PreStartCommand  string          `yaml:"pre-start-command,omitempty"`
+	PostStartCommand string          `yaml:"post-start-command,omitempty"`
 	StopCommand     string          `yaml:"stop-command,omitempty"`
 	ReloadCommand   string          `yaml:"reload-command,omitempty"`
 	PostStopCommand string          `yaml:"post-stop-command,omitempty"`
@@ -83,7 +86,6 @@ type appYaml struct {
 	Completer       string          `yaml:"completer,omitempty"`
 	RefreshMode     string          `yaml:"refresh-mode,omitempty"`
 	StopMode        StopModeType    `yaml:"stop-mode,omitempty"`
-
 	RestartCond  RestartCondition `yaml:"restart-condition,omitempty"`
 	RestartDelay timeout.Timeout  `yaml:"restart-delay,omitempty"`
 	SlotNames    []string         `yaml:"slots,omitempty"`
@@ -349,6 +351,10 @@ func setAppsFromSnapYaml(y snapYaml, snap *Info, strk *scopedTracker) error {
 			CommandChain:    yApp.CommandChain,
 			StartTimeout:    yApp.StartTimeout,
 			Daemon:          yApp.Daemon,
+			User:            yApp.User,
+			PreStartCommand:  yApp.PreStartCommand,
+			PostStartCommand: yApp.PostStartCommand,
+			StartTimeout:     yApp.StartTimeout,
 			StopTimeout:     yApp.StopTimeout,
 			StopCommand:     yApp.StopCommand,
 			ReloadCommand:   yApp.ReloadCommand,

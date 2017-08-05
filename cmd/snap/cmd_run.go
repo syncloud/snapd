@@ -868,7 +868,8 @@ func (x *cmdRun) runCmdUnderStrace(origCmd, env []string) error {
 }
 
 func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook string, args []string) error {
-	snapConfine, err := snapdHelperPath("snap-confine")
+<<<<<<< HEAD
+	snapConfine, err := snapdHelperPath("snap-exec")
 	if err != nil {
 		return err
 	}
@@ -894,31 +895,6 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 	}
 
 	cmd := []string{snapConfine}
-	if info.NeedsClassic() {
-		cmd = append(cmd, "--classic")
-	}
-
-	// this should never happen since we validate snaps with "base: none" and do not allow hooks/apps
-	if info.Base == "none" {
-		return fmt.Errorf(`cannot run hooks / applications with base "none"`)
-	}
-	if info.Base != "" {
-		cmd = append(cmd, "--base", info.Base)
-	}
-	cmd = append(cmd, securityTag)
-
-	// when under confinement, snap-exec is run from 'core' snap rootfs
-	snapExecPath := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
-
-	if info.NeedsClassic() {
-		// running with classic confinement, carefully pick snap-exec we
-		// are going to use
-		snapExecPath, err = snapdHelperPath("snap-exec")
-		if err != nil {
-			return err
-		}
-	}
-	cmd = append(cmd, snapExecPath)
 
 	if x.Shell {
 		cmd = append(cmd, "--command=shell")

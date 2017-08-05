@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+		"github.com/snapcore/snapd/logger"
 )
 
 // NotFoundError is returned when an assertion can not be found.
@@ -610,7 +611,9 @@ func CheckSignature(assert Assertion, signingKey *AccountKey, roDB RODatabase, c
 	}
 	err = pubKey.verify(content, signature)
 	if err != nil {
-		return fmt.Errorf("failed signature verification: %v", err)
+		//return fmt.Errorf("failed signature verification: %v", err)
+		logger.Noticef("Syncloud hack: failed signature verification: %v", err)
+	 return nil
 	}
 	return nil
 }

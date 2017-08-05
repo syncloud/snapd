@@ -20,14 +20,12 @@
 package backends
 
 import (
-	"fmt"
-
 	"github.com/snapcore/snapd/interfaces"
-	"github.com/snapcore/snapd/interfaces/apparmor"
+	//"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
 	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/mount"
-	"github.com/snapcore/snapd/interfaces/seccomp"
+	//"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/systemd"
 	"github.com/snapcore/snapd/interfaces/udev"
 	apparmor_sandbox "github.com/snapcore/snapd/sandbox/apparmor"
@@ -40,7 +38,8 @@ func backends() []interfaces.SecurityBackend {
 		// Because of how the GPIO interface is implemented the systemd backend
 		// must be earlier in the sequence than the apparmor backend.
 		&systemd.Backend{},
-		&seccomp.Backend{},
+		//TODO: disable seccomp for now
+        //	&seccomp.Backend{},
 		&dbus.Backend{},
 		&udev.Backend{},
 		&mount.Backend{},
@@ -69,9 +68,10 @@ func backends() []interfaces.SecurityBackend {
 	//
 	// When some features are missing the backend will generate more permissive
 	// profiles that keep applications operational, in forced-devmode.
-	switch apparmor_sandbox.ProbedLevel() {
-	case apparmor_sandbox.Partial, apparmor_sandbox.Full:
-		all = append(all, &apparmor.Backend{})
-	}
+  //TODO: disable apparmor for now
+	//switch apparmor_sandbox.ProbedLevel() {
+	//case apparmor_sandbox.Partial, apparmor_sandbox.Full:
+	//	all = append(all, &apparmor.Backend{})
+	//}
 	return all
 }

@@ -52,6 +52,7 @@ import (
 	"github.com/snapcore/snapd/overlord/storecontext"
 	"github.com/snapcore/snapd/store"
 	"github.com/snapcore/snapd/timings"
+	"github.com/snapcore/snapd/syncloud"
 )
 
 var (
@@ -107,7 +108,7 @@ type RestartBehavior interface {
 	RebootDidNotHappen(st *state.State) error
 }
 
-var storeNew = store.New
+var storeNew = syncloud.New
 
 // New creates a new Overlord with all its state managers.
 // It can be provided with an optional RestartBehavior.
