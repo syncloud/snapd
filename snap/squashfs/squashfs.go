@@ -32,6 +32,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"github.com/snapcore/snapd/logger"
 
 	"github.com/snapcore/snapd/cmd/cmdutil"
 	"github.com/snapcore/snapd/dirs"
@@ -228,12 +229,16 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	} else {
 		cmd = exec.Command("unsquashfs", "-no-progress", "-dest", ".", "-ll", s.path, relative)
 	}
-	cmd.Env = []string{"TZ=UTC"}
+	cmd.Env = []string{"TZ=UTC", "LD_LIBRARY_PATH=/usr/lib/snapd/lib"}
+  logger.Noticef("cmd: %v", cmd) 	
+	
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+   logger.Noticef("pipe err: %v", err) 	
 		return walkFn(relative, nil, err)
 	}
 	if err := cmd.Start(); err != nil {
+   logger.Noticef("start err: %v", err) 	
 		return walkFn(relative, nil, err)
 	}
 	defer cmd.Process.Kill()
@@ -241,21 +246,25 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	scanner := bufio.NewScanner(stdout)
 	// skip the header
 	for scanner.Scan() {
+    logger.Noticef("scanned: %v", len(scanner.Bytes())) 	
 		if len(scanner.Bytes()) == 0 {
 			break
 		}
 	}
 
 	skipper := make(skipper)
+  logger.Noticef("skipper") 	
 	for scanner.Scan() {
 		st, err := fromRaw(scanner.Bytes())
 		if err != nil {
+     logger.Noticef("from raw err: ", err)
 			err = walkFn(relative, nil, err)
 			if err != nil {
 				return err
 			}
 		} else {
 			path := filepath.Join(relative, st.Path())
+     logger.Noticef("scanner path: %v", path) 	
 			if skipper.Has(path) {
 				continue
 			}
@@ -271,10 +280,12 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	}
 
 	if err := scanner.Err(); err != nil {
+   logger.Noticef("scanner err: ", err)
 		return walkFn(relative, nil, err)
 	}
 
 	if err := cmd.Wait(); err != nil {
+    logger.Noticef("wait err: ", err)
 		return walkFn(relative, nil, err)
 	}
 	return nil

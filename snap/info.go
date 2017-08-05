@@ -770,6 +770,9 @@ type AppInfo struct {
 	CommonID      string
 
 	Daemon          string
+    User             string
+	PreStartCommand  string
+	PostStartCommand string
 	StopTimeout     timeout.Timeout
 	StartTimeout    timeout.Timeout
 	WatchdogTimeout timeout.Timeout
@@ -922,6 +925,16 @@ func (app *AppInfo) LauncherCommand() string {
 // LauncherStopCommand returns the launcher command line to use when invoking the app stop command binary.
 func (app *AppInfo) LauncherStopCommand() string {
 	return app.launcherCommand("--command=stop")
+}
+
+// LauncherPreStartCommand returns the launcher command line to use when invoking the app stop command binary.
+func (app *AppInfo) LauncherPreStartCommand() string {
+	return app.launcherCommand("--command=pre-start")
+}
+
+// LauncherPostStartCommand returns the launcher command line to use when invoking the app stop command binary.
+func (app *AppInfo) LauncherPostStartCommand() string {
+	return app.launcherCommand("--command=post-start")
 }
 
 // LauncherReloadCommand returns the launcher command line to use when invoking the app stop command binary.

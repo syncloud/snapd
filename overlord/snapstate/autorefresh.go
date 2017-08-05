@@ -38,7 +38,7 @@ import (
 )
 
 // the default refresh pattern
-const defaultRefreshSchedule = "00:00~24:00/4"
+const defaultRefreshSchedule = "23:00~24:00/1"
 
 // cannot keep without refreshing for more than maxPostponement
 const maxPostponement = 60 * 24 * time.Hour

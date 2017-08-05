@@ -628,16 +628,19 @@ func hasOtherInstances(st *state.State, instanceName string) (bool, error) {
 }
 
 func (m *SnapManager) doMountSnap(t *state.Task, _ *tomb.Tomb) error {
-	st := t.State()
+	logger.Noticef("do mount snap")
+  st := t.State()
 	st.Lock()
 	perfTimings := timings.NewForTask(t)
 	snapsup, snapst, err := snapSetupAndState(t)
+  logger.Noticef("do mount snap: %v, %v", snapsup, snapst)
 	st.Unlock()
 	if err != nil {
 		return err
 	}
 
 	curInfo, err := snapst.CurrentInfo()
+  logger.Noticef("do mount snap: %v, %v", snapsup, snapst)
 	if err != nil && err != ErrNoCurrent {
 		return err
 	}
@@ -647,6 +650,8 @@ func (m *SnapManager) doMountSnap(t *state.Task, _ *tomb.Tomb) error {
 	st.Lock()
 	deviceCtx, err := DeviceCtx(t.State(), t, nil)
 	st.Unlock()
+  logger.Noticef("do miunt device ctx %v", err)
+
 	if err != nil {
 		return err
 	}
@@ -654,6 +659,8 @@ func (m *SnapManager) doMountSnap(t *state.Task, _ *tomb.Tomb) error {
 	timings.Run(perfTimings, "check-snap", fmt.Sprintf("check snap %q", snapsup.InstanceName()), func(timings.Measurer) {
 		err = checkSnap(st, snapsup.SnapPath, snapsup.InstanceName(), snapsup.SideInfo, curInfo, snapsup.Flags, deviceCtx)
 	})
+  logger.Noticef("do miunt check snap %v", err)
+
 	if err != nil {
 		return err
 	}

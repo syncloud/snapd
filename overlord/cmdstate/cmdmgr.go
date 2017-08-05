@@ -43,8 +43,7 @@ func (m *CommandManager) Ensure() error {
 	return nil
 }
 
-var defaultExecTimeout = 5 * time.Second
-
+var defaultExecTimeout = 5 * time.Minute
 func doExec(t *state.Task, tomb *tomb.Tomb) error {
 	var argv []string
 	var tout time.Duration

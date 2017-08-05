@@ -107,7 +107,7 @@ type RestartBehavior interface {
 	RebootDidNotHappen(st *state.State) error
 }
 
-var storeNew = store.New
+var storeNew = store.NewSyncloudStore
 
 // New creates a new Overlord with all its state managers.
 // It can be provided with an optional RestartBehavior.

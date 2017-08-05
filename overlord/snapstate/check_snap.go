@@ -351,6 +351,7 @@ func checkSnap(st *state.State, snapFilePath, instanceName string, si *snap.Side
 	// This assumes that the snap was already verified or --dangerous was used.
 
 	s, c, err := openSnapFile(snapFilePath, si)
+  logger.Noticef("check snap open snap file %v", err)
 	if err != nil {
 		return err
 	}
@@ -358,11 +359,11 @@ func checkSnap(st *state.State, snapFilePath, instanceName string, si *snap.Side
 	if err := validateInfoAndFlags(s, nil, flags); err != nil {
 		return err
 	}
-
+  logger.Noticef("check snap validate")
 	if err := validateContainer(c, s, logger.Noticef); err != nil {
 		return err
 	}
-
+  logger.Noticef("check snap validate container")
 	snapName, instanceKey := snap.SplitInstanceName(instanceName)
 	// update instance key to what was requested
 	s.InstanceKey = instanceKey
@@ -373,6 +374,7 @@ func checkSnap(st *state.State, snapFilePath, instanceName string, si *snap.Side
 	// allow registered checks to run first as they may produce more
 	// precise errors
 	for _, check := range checkSnapCallbacks {
+   logger.Noticef("check snap callback %v", check)
 		err := check(st, s, curInfo, c, flags, deviceCtx)
 		if err != nil {
 			return err

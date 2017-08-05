@@ -131,19 +131,13 @@ type Config struct {
 
 // setBaseURL updates the store API's base URL in the Config. Must not be used
 // to change active config.
-func (cfg *Config) setBaseURL(u *url.URL) error {
+func (cfg *Config) SetBaseURL(u *url.URL) error {
 	storeBaseURI, err := storeURL(u)
 	if err != nil {
 		return err
 	}
 
-	assertsBaseURI, err := assertsURL()
-	if err != nil {
-		return err
-	}
-
 	cfg.StoreBaseURL = storeBaseURI
-	cfg.AssertionsBaseURL = assertsBaseURI
 
 	return nil
 }
@@ -171,7 +165,7 @@ type Store struct {
 	mu                sync.Mutex
 	suggestedCurrency string
 
-	cacher downloadCache
+	cacher DownloadCache
 	proxy  func(*http.Request) (*url.URL, error)
 }
 
@@ -307,7 +301,7 @@ func init() {
 	if storeBaseURI.RawQuery != "" {
 		panic("store API URL may not contain query string")
 	}
-	err = defaultConfig.setBaseURL(storeBaseURI)
+	err = defaultConfig.SetBaseURL(storeBaseURI)
 	if err != nil {
 		panic(err)
 	}
@@ -1417,10 +1411,10 @@ func (s *Store) Download(ctx context.Context, name string, targetPath string, do
 		if _, err := io.Copy(h, w); err != nil {
 			return err
 		}
-		actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
-		if downloadInfo.Sha3_384 != actualSha3 {
-			err = HashError{name, actualSha3, downloadInfo.Sha3_384}
-		}
+		//actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
+		//if downloadInfo.Sha3_384 != actualSha3 {
+		//	err = HashError{name, actualSha3, downloadInfo.Sha3_384}
+		//}
 	}
 	// If hashsum is incorrect retry once
 	if _, ok := err.(HashError); ok {
@@ -1581,10 +1575,10 @@ func downloadImpl(ctx context.Context, name, sha3_384, downloadURL string, user 
 			return fmt.Errorf("The download has been cancelled: %s", ctx.Err())
 		}
 
-		actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
-		if sha3_384 != "" && sha3_384 != actualSha3 {
-			finalErr = HashError{name, actualSha3, sha3_384}
-		}
+		//actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
+		//if sha3_384 != "" && sha3_384 != actualSha3 {
+		//	finalErr = HashError{name, actualSha3, sha3_384}
+		//}
 		break
 	}
 	if finalErr == nil {
@@ -2014,7 +2008,7 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 	if fileCount > 0 {
 		s.cacher = NewCacheManager(dirs.SnapDownloadCacheDir, fileCount)
 	} else {
-		s.cacher = &nullCache{}
+		s.cacher = &NullCache{}
 	}
 }
 

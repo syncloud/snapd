@@ -22,7 +22,11 @@ if ! command -v govendor >/dev/null;then
     fi
 fi
 
+export PATH="$PATH:${GOPATH%%:*}/bin"
+echo Installing govendor
+go get -u github.com/kardianos/govendor
 echo Obtaining dependencies
+
 govendor sync
 
 
