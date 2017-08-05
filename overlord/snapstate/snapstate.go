@@ -170,11 +170,11 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 	prev = setupAliases
 
 	// only run install hook if installing the snap for the first time
-	if !snapst.HasCurrent() {
-		installHook := SetupInstallHook(st, snapsup.Name())
-		addTask(installHook)
-		prev = installHook
-	}
+	//if !snapst.HasCurrent() {
+	installHook := SetupInstallHook(st, snapsup.Name())
+	addTask(installHook)
+	prev = installHook
+	//}
 
 	// run new serices
 	startSnapServices := st.NewTask("start-snap-services", fmt.Sprintf(i18n.G("Start snap %q%s services"), snapsup.Name(), revisionStr))
