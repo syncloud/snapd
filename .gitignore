@@ -65,3 +65,6 @@ cmd/install-sh
 cmd/missing
 cmd/stamp-h1
 cmd/test-driver
+
+.idea
+*.iml

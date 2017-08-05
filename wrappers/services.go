@@ -43,6 +43,14 @@ type interacter interface {
 // wait this time between TERM and KILL
 var killWait = 5 * time.Second
 
+func serviceStartTimeout(app *snap.AppInfo) time.Duration {
+ tout := app.StopTimeout
+ if tout == 0 {
+  tout = timeout.DefaultTimeout
+ 	}
+ 	return time.Duration(tout)
+}
+
 func serviceStopTimeout(app *snap.AppInfo) time.Duration {
 	tout := app.StopTimeout
 	if tout == 0 {
@@ -293,6 +301,12 @@ ExecStart={{.App.LauncherCommand}}
 SyslogIdentifier={{.App.Snap.Name}}.{{.App.Name}}
 Restart={{.Restart}}
 WorkingDirectory={{.App.Snap.DataDir}}
+{{- if .App.PreStartCommand}}
+ExecStartPre={{.App.LauncherPreStartCommand}}
+{{- end}}
+{{- if .App.PostStartCommand}}
+ExecStartPost={{.App.LauncherPostStartCommand}}
+{{- end}}
 {{- if .App.StopCommand}}
 ExecStop={{.App.LauncherStopCommand}}
 {{- end}}
@@ -301,6 +315,9 @@ ExecReload={{.App.LauncherReloadCommand}}
 {{- end}}
 {{- if .App.PostStopCommand}}
 ExecStopPost={{.App.LauncherPostStopCommand}}
+{{- end}}
+{{- if .StartTimeout}}
+TimeoutStartSec={{.StartTimeout.Seconds}}
 {{- end}}
 {{- if .StopTimeout}}
 TimeoutStopSec={{.StopTimeout.Seconds}}
@@ -341,6 +358,7 @@ WantedBy={{.ServicesTarget}}
 		App *snap.AppInfo
 
 		Restart            string
+		StartTimeout       time.Duration
 		StopTimeout        time.Duration
 		ServicesTarget     string
 		PrerequisiteTarget string
@@ -355,6 +373,7 @@ WantedBy={{.ServicesTarget}}
 		App: appInfo,
 
 		Restart:            restartCond,
+		StartTimeout:       serviceStartTimeout(appInfo),
 		StopTimeout:        serviceStopTimeout(appInfo),
 		ServicesTarget:     systemd.ServicesTarget,
 		PrerequisiteTarget: systemd.PrerequisiteTarget,

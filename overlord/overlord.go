@@ -43,7 +43,7 @@ import (
 	"github.com/snapcore/snapd/overlord/patch"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
-	"github.com/snapcore/snapd/store"
+	"github.com/snapcore/snapd/syncloud"
 )
 
 var (
@@ -81,7 +81,7 @@ type Overlord struct {
 	cmdMgr    *cmdstate.CommandManager
 }
 
-var storeNew = store.New
+var storeNew = syncloud.New
 
 // New creates a new Overlord with all its state managers.
 func New() (*Overlord, error) {
