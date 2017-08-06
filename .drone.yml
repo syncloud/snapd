@@ -1,4 +1,4 @@
-platform: linux/${platform}
+platform: linux/${arch}
 
 workspace:
   base: /go
