@@ -8,10 +8,6 @@ build_number=$2
 bucket=apps.syncloud.org
 arch=$(dpkg --print-architecture)
 
-if [ ! -f /usr/bin/s3cmd ]; then
-    ${DIR}/install-s3cmd.sh
-fi
-
 if [ "${branch}" == "master" ] || [ "${branch}" == "stable" ] ; then
    
   s3cmd put ${app}-${build_number}-${arch}.tar.gz s3://${bucket}/apps/${app}-${build_number}-${arch}.tar.gz

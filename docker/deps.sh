@@ -1,4 +1,7 @@
-#!/bin/bash -ex
+#!/bin/bash -xe
+
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+cd ${DIR}
 
 if [[ $(. /etc/os-release; echo $VERSION) =~ .*jessie.* ]]; then
     echo "deb http://ftp.debian.org/debian jessie-backports main" > /etc/apt/sources.list.d/backports.list
@@ -9,3 +12,5 @@ rm -rf /usr/bin/go
 ln -s /usr/lib/go-1.6/bin/go /usr/bin/go
 rm -rf /usr/bin/gofmt
 ln -s /usr/lib/go-1.6/bin/gofmt /usr/bin/gofmt
+
+./install-s3cmd.sh
