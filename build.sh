@@ -42,6 +42,9 @@ mkdir ${BUILD_DIR}/bin
 go build -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
 go build -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
 go build -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
+go build -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
+go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
+go build -o ${BUILD_DIR}/bin/snap-update-ns github.com/snapcore/snapd/cmd/snap-update-ns
 go build -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 
 cd  ${DIR}/cmd
