@@ -15,8 +15,8 @@ pipeline:
     secrets: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]
     commands:
       - VERSION=$(date +%y%m%d)
-      - ./build.sh $VERSION skip-tests
-      - ./upload.sh $DRONE_BRANCH $VERSION
+      - ./syncloud/build.sh $VERSION skip-tests
+      - ./syncloud/upload.sh $DRONE_BRANCH $VERSION
 
 matrix:
   arch:

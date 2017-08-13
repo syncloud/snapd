@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )
 
 if [[ -z "$1" ]]; then
     echo "usage $0 version"
@@ -26,30 +26,35 @@ fi
 go get -d -v github.com/snapcore/snapd/...
 cd src/github.com/snapcore/snapd
 
-./mkversion.sh ${VERSION}
+${DIR}/mkversion.sh ${VERSION}
 
-go get -u github.com/kardianos/govendor
-govendor sync
+${DIR}/get-deps.sh
+
 if [[ ${TESTS} != "skip-tests" ]]; then
-    ./run-checks
+    ${DIR}/run-checks
 fi
+
+apt-get install -y libcap-dev libseccomp-dev pkg-config
 
 cd ${GOPATH}
 rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
 
 mkdir ${BUILD_DIR}/bin
+#go get -v github.com/snapcore/snapd/...
 go build -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
 go build -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
 go build -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
 go build -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
-go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
 go build -o ${BUILD_DIR}/bin/snap-update-ns github.com/snapcore/snapd/cmd/snap-update-ns
 go build -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 
+sed -i 's/-Wl,-Bstatic//g' ${GOPATH}/src/github.com/snapcore/snapd/cmd/snap-seccomp/main.go
+go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
+
 cd  ${DIR}/cmd
 autoreconf -i -f
-./configure --disable-apparmor
+./configure --disable-apparmor --disable-seccomp
 make
 cp snap-confine/snap-confine ${BUILD_DIR}/bin/snap-confine
 cp snap-discard-ns/snap-discard-ns ${BUILD_DIR}/bin/snap-discard-ns
@@ -74,3 +79,8 @@ cd ${DIR}
 
 rm -rf ${NAME}-${VERSION}-${ARCH}.tar.gz
 tar cpzf ${NAME}-${VERSION}-${ARCH}.tar.gz -C ${GOPATH}/build ${NAME}
+
+# test
+
+#${DIR}/syncloud/install-snapd.sh ${VERSION} ${ARCH}
+#snap install hello-world

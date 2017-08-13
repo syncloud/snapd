@@ -19,7 +19,7 @@
 
 package main
 
-//#cgo LDFLAGS: -Wl,-Bstatic -lseccomp -Wl,-Bdynamic
+//#cgo LDFLAGS:  -lseccomp -Wl,-Bdynamic
 //
 //#include <asm/ioctls.h>
 //#include <ctype.h>
