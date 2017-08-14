@@ -21,18 +21,21 @@ package backends
 
 import (
 	"github.com/snapcore/snapd/interfaces"
-	"github.com/snapcore/snapd/interfaces/apparmor"
+	//"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
 	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/mount"
+	//"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/systemd"
 	"github.com/snapcore/snapd/interfaces/udev"
-	"github.com/snapcore/snapd/release"
+	//"github.com/snapcore/snapd/release"
 )
 
 // append when a new security backend is added
 var All = []interfaces.SecurityBackend{
 	&systemd.Backend{},
+	//TODO: disable seccomp for now
+	//	&seccomp.Backend{},
 	&dbus.Backend{},
 	&udev.Backend{},
 	&mount.Backend{},
@@ -40,7 +43,8 @@ var All = []interfaces.SecurityBackend{
 }
 
 func init() {
-	if !release.ReleaseInfo.ForceDevMode() {
-		All = append(All, &apparmor.Backend{})
-	}
+	//TODO: disable apparmor for now
+	//if !release.ReleaseInfo.ForceDevMode() {
+	//	All = append(All, &apparmor.Backend{})
+	//}
 }
