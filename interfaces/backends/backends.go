@@ -34,7 +34,7 @@ import (
 // append when a new security backend is added
 var All = []interfaces.SecurityBackend{
 	&systemd.Backend{},
-	&seccomp.Backend{},
+//	&seccomp.Backend{},
 	&dbus.Backend{},
 	&udev.Backend{},
 	&mount.Backend{},
