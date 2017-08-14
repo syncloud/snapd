@@ -25,7 +25,6 @@ import (
 	"github.com/snapcore/snapd/interfaces/dbus"
 	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/mount"
-	"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/systemd"
 	"github.com/snapcore/snapd/interfaces/udev"
 	"github.com/snapcore/snapd/release"
@@ -34,7 +33,6 @@ import (
 // append when a new security backend is added
 var All = []interfaces.SecurityBackend{
 	&systemd.Backend{},
-//	&seccomp.Backend{},
 	&dbus.Backend{},
 	&udev.Backend{},
 	&mount.Backend{},
