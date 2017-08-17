@@ -35,6 +35,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"encoding/base64"
 
 	"github.com/snapcore/snapd/arch"
 	"github.com/snapcore/snapd/asserts"
@@ -51,6 +52,9 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/retry.v1"
 	"io/ioutil"
+	"strconv"
+	"crypto/rsa"
+	"crypto/rand"
 )
 
 // TODO: better/shorter names are probably in order once fewer legacy places are using this
@@ -159,20 +163,6 @@ func infoFromRemote(d *snapDetails) *snap.Info {
 	return info
 }
 
-// Config represents the configuration to access the snap store
-type Config struct {
-	SearchURI      *url.URL
-	DetailsURI     *url.URL
-
-	// StoreID is the store id used if we can't get one through the AuthContext.
-	StoreID string
-
-	Architecture string
-	Series       string
-
-	DetailFields []string
-	DeltaFormat  string
-}
 
 // Store represents the ubuntu snap store
 type Store struct {
@@ -231,10 +221,6 @@ func getStructFields(s interface{}) []string {
 	return fields
 }
 
-// Deltas enabled by default on classic, but allow opting in or out on both classic and core.
-func useDeltas() bool {
-	return false
-}
 
 // Extend a base URL with additional unescaped paths.  (url.Parse handles
 // resolving relative links, which isn't quite what we want: that goes wrong if
@@ -250,22 +236,22 @@ func urlJoin(base *url.URL, paths ...string) *url.URL {
 	return &url
 }
 
-var defaultConfig = Config{}
-
-// DefaultConfig returns a copy of the default configuration ready to be adapted.
-func DefaultConfig() *Config {
-	cfg := defaultConfig
-	return &cfg
-}
+var defaultConfig = store.Config{}
+var syncloudAppsBaseURL *url.URL
+var privkey asserts.PrivateKey
 
 func init() {
-	storeBaseURI, err := url.Parse("http://apps.syncloud.org/releases/rc")
-	if err != nil {
-		panic(err)
-	}
 
-	defaultConfig.SearchURI = urlJoin(storeBaseURI, "api/v1/snaps/search")
-	defaultConfig.DetailsURI = urlJoin(storeBaseURI, "versions")
+	pkey, err := rsa.GenerateKey(rand.Reader, 752)
+	if err != nil {
+		panic(fmt.Errorf("failed to create private key: %v", err))
+	}
+	privkey = asserts.RSAPrivateKey(pkey)
+	//return asserts.RSAPrivateKey(priv), priv
+
+	syncloudAppsBaseURL, _  = url.Parse("http://apps.syncloud.org")
+	//defaultConfig.SearchURI = urlJoin(storeBaseURI, "api/v1/snaps/search")
+	defaultConfig.DetailsURI = urlJoin(syncloudAppsBaseURL, "releases/master/versions")
 
 
 }
@@ -292,7 +278,7 @@ var channelSnapInfoFields = getStructFields(channelSnapInfoDetails{})
 var defaultSupportedDeltaFormat = "xdelta3"
 
 // New creates a new Store with the given access configuration and for given the store id.
-func New(cfg *Config, authContext auth.AuthContext) *Store {
+func New(cfg *store.Config, authContext auth.AuthContext) *Store {
 	if cfg == nil {
 		cfg = &defaultConfig
 	}
@@ -605,14 +591,24 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		apps[values[0]] = values[1]
 	}
 
-	version, ok := apps[snapSpec.Name]
+	versionStr, ok := apps[snapSpec.Name]
 	if !ok {
 		return nil, ErrSnapNotFound
 	}
 
+	version, err := strconv.Atoi(versionStr)
+	if err != nil {
+		return nil,  fmt.Errorf("Unable to get version: %s", err)
+	}
 
+	details := snapDetails{
+		Name: snapSpec.Name,
+		Version: versionStr,
+		Architectures: []string{"amd64", "amrv7l"},
+		Revision: version,
+		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", syncloudAppsBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
 
-	details := snapDetails{Name:snapSpec.Name, Version:version}
+	}
 	info := infoFromRemote(&details)
 
 	return info, nil
@@ -854,7 +850,55 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 }
 
 func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
-	return nil, errors.New("Syncloud does not support assertions")
+
+	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
+	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
+	if err != nil {
+		return nil, err
+	}
+
+	digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
+	if err != nil {
+		return nil, err
+	}
+
+	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
+	if err != nil {
+		return nil, err
+	}
+
+	//publicKey := string(publicKeyEn)
+	println(assertType.Name)
+
+	assertion, err := asserts.Assemble(
+		map[string]interface{}{
+			"snap-name": "syncloud",
+			"snap-id": "syncloud",
+			"snap-size": "100",
+			"snap-revision": "1",
+			"authority-id": "syncloud",
+			"publisher-id": "syncloud",
+			"developer-id": "syncloud",
+			"account-id": "syncloud",
+			"display-name": "syncloud",
+			"type": assertType.Name,
+			"sign-key-sha3-384": digest,
+			"sha3-384": digest,
+			"snap-sha3-384": digest,
+			"public-key-sha3-384": privkey.PublicKey().ID(),
+			"timestamp": time.Now().Format(time.RFC3339),
+			"since": time.Now().Format(time.RFC3339),
+			"series": "1",
+			"validation": "certified",
+			"body-length": "149",
+		},
+		publicKeyEnc,
+		[]byte(""),
+		[]byte("signature"),
+	)
+
+	return assertion, err
+
 }
 
 type storeError struct {
