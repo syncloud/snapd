@@ -851,10 +851,10 @@ func ensureCore(st *state.State, targetSnap string, userID int) (*state.TaskSet,
 }
 
 func withEnsureCore(st *state.State, targetSnap string, userID int, install func() (*state.TaskSet, error)) ([]*state.TaskSet, error) {
-	ubuCoreTs, err := ensureCore(st, targetSnap, userID)
-	if err != nil && err != errNothingToInstall {
-		return nil, err
-	}
+	//ubuCoreTs, err := ensureCore(st, targetSnap, userID)
+	//if err != nil && err != errNothingToInstall {
+	//	return nil, err
+	//}
 
 	ts, err := install()
 	if err != nil {
@@ -862,10 +862,10 @@ func withEnsureCore(st *state.State, targetSnap string, userID int, install func
 	}
 
 	// ensure main install waits on ubuntu core install
-	if ubuCoreTs != nil {
-		ts.WaitAll(ubuCoreTs)
-		return []*state.TaskSet{ubuCoreTs, ts}, nil
-	}
+	//if ubuCoreTs != nil {
+	//	ts.WaitAll(ubuCoreTs)
+	//	return []*state.TaskSet{ubuCoreTs, ts}, nil
+	//}
 
 	return []*state.TaskSet{ts}, nil
 }
