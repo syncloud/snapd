@@ -604,7 +604,7 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 	details := snapDetails{
 		Name: snapSpec.Name,
 		Version: versionStr,
-		Architectures: []string{"amd64", "amrv7l"},
+		Architectures: []string{"amd64", "armhf"},
 		Revision: version,
 		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", syncloudAppsBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
 
