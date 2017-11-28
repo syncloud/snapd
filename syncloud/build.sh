@@ -16,15 +16,7 @@ NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
-if [[ $(. /etc/os-release; echo $VERSION) =~ .*jessie.* ]]; then
-    echo "deb http://ftp.debian.org/debian jessie-backports main" > /etc/apt/sources.list.d/backports.list
-fi
-apt-get update
-apt-get install -y golang-1.6
-rm -rf /usr/bin/go
-ln -s /usr/lib/go-1.6/bin/go /usr/bin/go
-rm -rf /usr/bin/gofmt
-ln -s /usr/lib/go-1.6/bin/gofmt /usr/bin/gofmt
+export PATH=/usr/lib/go-1.6/bin:$PATH
 
 cd ${GOPATH}
 
@@ -43,8 +35,6 @@ ${DIR}/get-deps.sh
 if [[ ${TESTS} != "skip-tests" ]]; then
     ${DIR}/run-checks
 fi
-
-apt-get install -y libcap-dev libseccomp-dev pkg-config
 
 cd ${GOPATH}
 rm -rf ${BUILD_DIR}
