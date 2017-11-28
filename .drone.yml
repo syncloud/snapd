@@ -11,7 +11,7 @@ clone:
 
 pipeline:
   build:
-    image: syncloud/snapd-build-deps-${arch}
+    image: syncloud/build-deps-${arch}
     secrets: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]
     commands:
       - VERSION=$(date +%y%m%d)
