@@ -929,7 +929,7 @@ func (s *storeErrors) Error() string {
 }
 
 func (s *Store) LookupRefresh(*store.RefreshCandidate, *auth.UserState) (*snap.Info, error) {
-	return nil, errors.New("not implemented yet")
+	return nil, ErrNoUpdateAvailable
 }
 
 func (s *Store) ListRefresh([]*store.RefreshCandidate, *auth.UserState) ([]*snap.Info, error) {
