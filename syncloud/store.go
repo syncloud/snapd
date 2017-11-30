@@ -584,10 +584,13 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 	}
 
 
+    logger.Noticef("parsing version %s", resp)
 	lines := strings.Split(resp, "\n")
 	apps := make(map[string]string)
 	for i := 0; i < len(lines); i +=2 {
+	    logger.Noticef("app info %s", lines[i])
 		values := strings.Split(lines[i], "=")
+		logger.Noticef("app: %s, version %s", values[0], values[1])
 		apps[values[0]] = values[1]
 	}
 
