@@ -589,7 +589,7 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 	apps := make(map[string]string)
 	for i := 0; i < len(lines); i +=2 {
 			versionLine := strings.Trim(lines[i])
-			if (steings.Contains(versionLine, "=")) {
+			if (strings.Contains(versionLine, "=")) {
    logger.Noticef("app info %s", versionLine)
 	 	 values := strings.Split(versionLine, "=")
 	  	logger.Noticef("app: %s, version %s", values[0], values[1])
