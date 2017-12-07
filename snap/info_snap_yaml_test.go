@@ -1346,6 +1346,8 @@ apps:
 			Daemon:          "forking",
 			RestartCond:     systemd.RestartOnAbnormal,
 			StopTimeout:     timeout.Timeout(25 * time.Second),
+			PreStartCommand: "pre-start-cmd",
+			PostStartCommand:"post-start-cmd",
 			StopCommand:     "stop-cmd",
 			PostStopCommand: "post-stop-cmd",
 			BusName:         "busName",

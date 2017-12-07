@@ -123,6 +123,8 @@ apps:
 	c.Assert(err, IsNil)
 	info.Revision = snap.R(42)
 	c.Check(info.Apps["bar"].LauncherCommand(), Equals, "/usr/bin/snap run foo.bar")
+	c.Check(info.Apps["bar"].LauncherPreStartCommand(), Equals, "/usr/bin/snap run --command=pre-start foo.bar")
+	c.Check(info.Apps["bar"].LauncherPostStartCommand(), Equals, "/usr/bin/snap run --command=post-start foo.bar")
 	c.Check(info.Apps["bar"].LauncherStopCommand(), Equals, "/usr/bin/snap run --command=stop foo.bar")
 	c.Check(info.Apps["bar"].LauncherReloadCommand(), Equals, "/usr/bin/snap run --command=reload foo.bar")
 	c.Check(info.Apps["bar"].LauncherPostStopCommand(), Equals, "/usr/bin/snap run --command=post-stop foo.bar")

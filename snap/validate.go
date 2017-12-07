@@ -157,6 +157,8 @@ func ValidateApp(app *AppInfo) error {
 	// Validate the rest of the app info
 	checks := map[string]string{
 		"command":           app.Command,
+		"pre-start-command": app.PreStartCommand,
+		"post-start-command":app.PostStartCommand,
 		"stop-command":      app.StopCommand,
 		"reload-command":    app.ReloadCommand,
 		"post-stop-command": app.PostStopCommand,
