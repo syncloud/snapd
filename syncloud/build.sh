@@ -33,7 +33,7 @@ ${DIR}/mkversion.sh ${VERSION}
 ${DIR}/get-deps.sh
 
 if [[ ${TESTS} != "skip-tests" ]]; then
-    ${DIR}/run-checks
+    ${DIR}/run-checks --unit
 fi
 
 cd ${GOPATH}
