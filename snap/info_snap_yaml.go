@@ -226,21 +226,21 @@ func setAppsFromSnapYaml(y snapYaml, snap *Info) error {
 	for appName, yApp := range y.Apps {
 		// Collect all apps
 		app := &AppInfo{
-			Snap:            snap,
-			Name:            appName,
-			LegacyAliases:   yApp.Aliases,
-			Command:         yApp.Command,
-			Daemon:          yApp.Daemon,
-			PreStartCommand: yApp.PreStartCommand,
-			PostStartCommand:yApp.PostStartCommand,
-			StopTimeout:     yApp.StopTimeout,
-			StopCommand:     yApp.StopCommand,
-			ReloadCommand:   yApp.ReloadCommand,
-			PostStopCommand: yApp.PostStopCommand,
-			RestartCond:     yApp.RestartCond,
-			BusName:         yApp.BusName,
-			Environment:     yApp.Environment,
-			Completer:       yApp.Completer,
+			Snap:             snap,
+			Name:             appName,
+			LegacyAliases:    yApp.Aliases,
+			Command:          yApp.Command,
+			Daemon:           yApp.Daemon,
+			PreStartCommand:  yApp.PreStartCommand,
+			PostStartCommand: yApp.PostStartCommand,
+			StopTimeout:      yApp.StopTimeout,
+			StopCommand:      yApp.StopCommand,
+			ReloadCommand:    yApp.ReloadCommand,
+			PostStopCommand:  yApp.PostStopCommand,
+			RestartCond:      yApp.RestartCond,
+			BusName:          yApp.BusName,
+			Environment:      yApp.Environment,
+			Completer:        yApp.Completer,
 		}
 		if len(y.Plugs) > 0 || len(yApp.PlugNames) > 0 {
 			app.Plugs = make(map[string]*PlugInfo)

@@ -23,6 +23,7 @@ package syncloud
 import (
 	"bytes"
 	"crypto"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,7 +36,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"encoding/base64"
 
 	"github.com/snapcore/snapd/arch"
 	"github.com/snapcore/snapd/asserts"
@@ -48,13 +48,13 @@ import (
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
 
+	"crypto/rand"
+	"crypto/rsa"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/retry.v1"
 	"io/ioutil"
 	"strconv"
-	"crypto/rsa"
-	"crypto/rand"
 )
 
 // TODO: better/shorter names are probably in order once fewer legacy places are using this
@@ -163,7 +163,6 @@ func infoFromRemote(d *snapDetails) *snap.Info {
 	return info
 }
 
-
 // Store represents the ubuntu snap store
 type Store struct {
 	searchURI      *url.URL
@@ -221,7 +220,6 @@ func getStructFields(s interface{}) []string {
 	return fields
 }
 
-
 // Extend a base URL with additional unescaped paths.  (url.Parse handles
 // resolving relative links, which isn't quite what we want: that goes wrong if
 // the base URL doesn't end with a slash.)
@@ -249,10 +247,9 @@ func init() {
 	privkey = asserts.RSAPrivateKey(pkey)
 	//return asserts.RSAPrivateKey(priv), priv
 
-	syncloudAppsBaseURL, _  = url.Parse("http://apps.syncloud.org")
+	syncloudAppsBaseURL, _ = url.Parse("http://apps.syncloud.org")
 	//defaultConfig.SearchURI = urlJoin(storeBaseURI, "api/v1/snaps/search")
 	defaultConfig.DetailsURI = urlJoin(syncloudAppsBaseURL, "releases/master/versions")
-
 
 }
 
@@ -353,7 +350,6 @@ func hasStoreAuth(user *auth.UserState) bool {
 	return user != nil && user.StoreMacaroon != ""
 }
 
-
 // requestOptions specifies parameters for store requests.
 type requestOptions struct {
 	Method       string
@@ -409,7 +405,6 @@ func decodeStringBody(resp *http.Response) (string, error) {
 	}
 	return string(bodyBytes), nil
 }
-
 
 func (s *Store) retryRequestString(ctx context.Context, reqOptions *requestOptions) (string, error) {
 	var reply string
@@ -583,17 +578,16 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		return nil, err
 	}
 
-
-    logger.Noticef("parsing version %s", resp)
+	logger.Noticef("parsing version %s", resp)
 	lines := strings.Split(resp, "\n")
 	apps := make(map[string]string)
-	for i := 0; i < len(lines); i +=2 {
-			versionLine := strings.Trim(lines[i], " ")
-			if (strings.Contains(versionLine, "=")) {
-   logger.Noticef("app info %s", versionLine)
-	 	 values := strings.Split(versionLine, "=")
-	  	logger.Noticef("app: %s, version %s", values[0], values[1])
-		  apps[values[0]] = values[1]
+	for i := 0; i < len(lines); i += 2 {
+		versionLine := strings.Trim(lines[i], " ")
+		if strings.Contains(versionLine, "=") {
+			logger.Noticef("app info %s", versionLine)
+			values := strings.Split(versionLine, "=")
+			logger.Noticef("app: %s, version %s", values[0], values[1])
+			apps[values[0]] = values[1]
 		}
 	}
 
@@ -604,16 +598,15 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 
 	version, err := strconv.Atoi(versionStr)
 	if err != nil {
-		return nil,  fmt.Errorf("Unable to get version: %s", err)
+		return nil, fmt.Errorf("Unable to get version: %s", err)
 	}
 
 	details := snapDetails{
-		Name: snapSpec.Name,
-		Version: versionStr,
-		Architectures: []string{"amd64", "armhf"},
-		Revision: version,
+		Name:            snapSpec.Name,
+		Version:         versionStr,
+		Architectures:   []string{"amd64", "armhf"},
+		Revision:        version,
 		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", syncloudAppsBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
-
 	}
 	info := infoFromRemote(&details)
 
@@ -633,7 +626,6 @@ type Search struct {
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
 	return nil, errors.New("Find is not implemented yet")
 }
-
 
 // RefreshCandidate contains information for the store about the currently
 // installed snap so that the store can decide what update we should see
@@ -688,7 +680,6 @@ func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
 		// confinement purposely left empty
 	}
 }
-
 
 type HashError struct {
 	name           string
@@ -878,25 +869,25 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 
 	assertion, err := asserts.Assemble(
 		map[string]interface{}{
-			"snap-name": "syncloud",
-			"snap-id": "syncloud",
-			"snap-size": "100",
-			"snap-revision": "1",
-			"authority-id": "syncloud",
-			"publisher-id": "syncloud",
-			"developer-id": "syncloud",
-			"account-id": "syncloud",
-			"display-name": "syncloud",
-			"type": assertType.Name,
-			"sign-key-sha3-384": digest,
-			"sha3-384": digest,
-			"snap-sha3-384": digest,
+			"snap-name":           "syncloud",
+			"snap-id":             "syncloud",
+			"snap-size":           "100",
+			"snap-revision":       "1",
+			"authority-id":        "syncloud",
+			"publisher-id":        "syncloud",
+			"developer-id":        "syncloud",
+			"account-id":          "syncloud",
+			"display-name":        "syncloud",
+			"type":                assertType.Name,
+			"sign-key-sha3-384":   digest,
+			"sha3-384":            digest,
+			"snap-sha3-384":       digest,
 			"public-key-sha3-384": privkey.PublicKey().ID(),
-			"timestamp": time.Now().Format(time.RFC3339),
-			"since": time.Now().Format(time.RFC3339),
-			"series": "1",
-			"validation": "certified",
-			"body-length": "149",
+			"timestamp":           time.Now().Format(time.RFC3339),
+			"since":               time.Now().Format(time.RFC3339),
+			"series":              "1",
+			"validation":          "certified",
+			"body-length":         "149",
 		},
 		publicKeyEnc,
 		[]byte(""),

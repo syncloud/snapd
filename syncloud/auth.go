@@ -51,4 +51,3 @@ type ssoMsg struct {
 	Message string                `json:"message"`
 	Extra   map[string]stringList `json:"extra"`
 }
-
