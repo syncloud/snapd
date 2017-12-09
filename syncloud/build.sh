@@ -33,7 +33,9 @@ ${DIR}/mkversion.sh ${VERSION}
 ${DIR}/get-deps.sh
 
 if [[ ${TESTS} != "skip-tests" ]]; then
-    ${DIR}/run-checks --unit
+    adduser --disabled-password --gecos "" test
+    chown -R test .
+    sudo -H -u test bash -c ${DIR}'/run-checks'
 fi
 
 cd ${GOPATH}
