@@ -34,7 +34,7 @@ ${DIR}/get-deps.sh
 
 if [[ ${TESTS} != "skip-tests" ]]; then
     adduser --disabled-password --gecos "" test
-    chown -R test $DIR
+    chown -R test $GOPATH
     sudo -H -E -u test PATH=$PATH ${DIR}/run-checks
 fi
 
