@@ -50,14 +50,6 @@ func serviceStopTimeout(app *snap.AppInfo) time.Duration {
 	return time.Duration(tout)
 }
 
-func serviceStartTimeout(app *snap.AppInfo) time.Duration {
-	tout := app.StopTimeout
-	if tout == 0 {
-		tout = timeout.DefaultTimeout
-	}
-	return time.Duration(tout)
-}
-
 func generateSnapServiceFile(app *snap.AppInfo) ([]byte, error) {
 	if err := snap.ValidateApp(app); err != nil {
 		return nil, err
@@ -252,7 +244,6 @@ WantedBy={{.ServicesTarget}}
 		App *snap.AppInfo
 
 		Restart            string
-		StartTimeout       time.Duration
 		StopTimeout        time.Duration
 		ServicesTarget     string
 		PrerequisiteTarget string
@@ -265,7 +256,6 @@ WantedBy={{.ServicesTarget}}
 		App: appInfo,
 
 		Restart:            restartCond,
-		StartTimeout:       serviceStartTimeout(appInfo),
 		StopTimeout:        serviceStopTimeout(appInfo),
 		ServicesTarget:     systemd.ServicesTarget,
 		PrerequisiteTarget: systemd.PrerequisiteTarget,
