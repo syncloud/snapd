@@ -404,6 +404,7 @@ type AppInfo struct {
 	Daemon           string
 	PreStartCommand  string
 	PostStartCommand string
+	StartTimeout     timeout.Timeout
 	StopTimeout      timeout.Timeout
 	StopCommand      string
 	ReloadCommand    string
