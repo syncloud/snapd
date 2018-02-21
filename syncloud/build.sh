@@ -70,6 +70,7 @@ cp -r /usr/lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblz4.so* ${BUILD_DIR}
 cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/liblzma.so* ${BUILD_DIR}/lib
 cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/libz.so* ${BUILD_DIR}/lib
 cp -r /usr/lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/libseccomp.so* ${BUILD_DIR}/lib
+cp -r /lib/$(dpkg-architecture -q DEB_HOST_GNU_TYPE)/libseccomp.so* ${BUILD_DIR}/lib
 
 
 mkdir ${BUILD_DIR}/conf
