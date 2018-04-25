@@ -729,6 +729,35 @@ type Search struct {
 // Find finds  (installable) snaps from the store, matching the
 // given Search.
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
+ reqOptions := &requestOptions{
+		Method: "GET",
+		URL:    urlJoin(s.syncloudAppsBaseURL, "releases/master/index"),
+		Accept: halJsonContentType,
+	}
+
+	//var remote *snapDetails
+	resp, err := s.retryRequestString(context.TODO(), reqOptions)
+	if err != nil {
+		return nil, err
+	}
+ var apps []App
+ err = json.Unmarshal(resp, &apps)
+ if err != nil {
+		return "", err
+	}
+	
+ for i, _ := range apps {
+    onesSlice[i] =  1
+ }
+ details := snapDetails{
+		Name:            snapSpec.Name,
+		Version:         versionStr,
+		Architectures:   []string{"amd64", "armhf"},
+		Revision:        version,
+		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", syncloudAppsBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
+	}
+	info := infoFromRemote(&details)
+
 	return nil, errors.New("Find is not implemented yet")
 }
 
@@ -763,6 +792,12 @@ type currentSnapJSON struct {
 type metadataWrapper struct {
 	Snaps  []*currentSnapJSON `json:"snaps"`
 	Fields []string           `json:"fields"`
+}
+
+type App struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Enabled  bool   `json:"enabled,omitempty"`
 }
 
 func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
@@ -967,7 +1002,7 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 	return finalErr
 }
 
-func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
+func (s *Store) Assertion(assertType *asserts.AssertionType, prisyKey []string, user *auth.UserState) (asserts.Assertion, error) {
 
 	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
 	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
