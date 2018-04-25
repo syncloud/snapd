@@ -189,12 +189,7 @@ type Config struct {
 
 // setBaseURL updates the store API's base URL in the Config. Must not be used
 // to change active config.
-func (cfg *Config) SetBaseURL(u *url.URL) error {
-	storeBaseURI, err := storeURL(u)
-	if err != nil {
-		return err
-	}
-
+func (cfg *Config) SetBaseURL(storeBaseURI *url.URL) error {
 	cfg.StoreBaseURL = storeBaseURI
 
 	return nil
@@ -284,25 +279,6 @@ func endpointURL(base *url.URL, path string, query url.Values) *url.URL {
 // storeURL returns the base store URL, derived from either the given API URL
 // or an env var override.
 func storeURL(api *url.URL) (*url.URL, error) {
-	var override string
-	var overrideName string
-	// XXX: Deprecated but present for backward-compatibility: this used
-	// to be "Click Package Index".  Remove this once people have got
-	// used to SNAPPY_FORCE_API_URL instead.
-	if s := os.Getenv("SNAPPY_FORCE_CPI_URL"); s != "" && strings.HasSuffix(s, "api/v1/") {
-		overrideName = "SNAPPY_FORCE_CPI_URL"
-		override = strings.TrimSuffix(s, "api/v1/")
-	} else if s := os.Getenv("SNAPPY_FORCE_API_URL"); s != "" {
-		overrideName = "SNAPPY_FORCE_API_URL"
-		override = s
-	}
-	if override != "" {
-		u, err := url.Parse(override)
-		if err != nil {
-			return nil, fmt.Errorf("invalid %s: %s", overrideName, err)
-		}
-		return u, nil
-	}
 	return api, nil
 }
 
@@ -322,7 +298,7 @@ func init() {
 	syncloudAppsBaseURL, _ = url.Parse("http://apps.syncloud.org")
 	//defaultConfig.SearchURI = urlJoin(storeBaseURI, "api/v1/snaps/search")
 
-	err = defaultConfig.SetBaseURL(urlJoin(syncloudAppsBaseURL, "releases/master/versions"))
+	err = defaultConfig.SetBaseURL(syncloudAppsBaseURL)
 	if err != nil {
 		panic(err)
 	}
@@ -673,7 +649,7 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 	// get the query before doing Parse, as that overwrites it
 	reqOptions := &requestOptions{
 		Method: "GET",
-		URL:    s.cfg.StoreBaseURL,
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases/master/versions"),
 		Accept: halJsonContentType,
 	}
 
@@ -731,7 +707,7 @@ type Search struct {
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
  reqOptions := &requestOptions{
 		Method: "GET",
-		URL:    urlJoin(s.syncloudAppsBaseURL, "releases/master/index"),
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases/master/index"),
 		Accept: halJsonContentType,
 	}
 
@@ -740,16 +716,17 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	if err != nil {
 		return nil, err
 	}
- var apps []App
- err = json.Unmarshal(resp, &apps)
- if err != nil {
-		return "", err
+	var apps []App
+	err = json.Unmarshal([]byte(resp), &apps)
+	if err != nil {
+		return nil, err
 	}
-	
- for i, _ := range apps {
-    onesSlice[i] =  1
- }
- details := snapDetails{
+
+	snaps := make([]*snap.Info, len(apps))
+	for i, _ := range apps {
+		snaps[i] =  1
+	}
+	details := snapDetails{
 		Name:            snapSpec.Name,
 		Version:         versionStr,
 		Architectures:   []string{"amd64", "armhf"},
