@@ -724,18 +724,17 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 
 	snaps := make([]*snap.Info, len(apps))
 	for i, _ := range apps {
-		snaps[i] =  1
+		details := snapDetails{
+		 Name:            apps[i].Name,
+	 	Version:         "",
+	 	Architectures:   []string{"amd64", "armhf"},
+ 		Revision:        1,
+	 	AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", s.cfg.StoreBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
+	 }
+  snaps[i] = infoFromRemote(&details)
 	}
-	details := snapDetails{
-		Name:            snapSpec.Name,
-		Version:         versionStr,
-		Architectures:   []string{"amd64", "armhf"},
-		Revision:        version,
-		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", syncloudAppsBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
-	}
-	info := infoFromRemote(&details)
-
-	return nil, errors.New("Find is not implemented yet")
+	
+	return snaps, nil
 }
 
 func (s *Store) Sections(user *auth.UserState) ([]string, error) {
