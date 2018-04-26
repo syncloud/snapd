@@ -729,7 +729,7 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	 	Version:         "",
 	 	Architectures:   []string{"amd64", "armhf"},
  		Revision:        1,
-	 	AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", s.cfg.StoreBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
+	 	AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", s.cfg.StoreBaseURL, apps[i].Name, 1, arch.UbuntuArchitecture()),
 	 }
   snaps[i] = infoFromRemote(&details)
 	}
