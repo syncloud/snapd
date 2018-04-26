@@ -705,37 +705,43 @@ type Search struct {
 // Find finds  (installable) snaps from the store, matching the
 // given Search.
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
- reqOptions := &requestOptions{
+	reqOptions := &requestOptions{
 		Method: "GET",
 		URL:    urlJoin(s.cfg.StoreBaseURL, "releases/master/index"),
 		Accept: halJsonContentType,
 	}
 
-	//var remote *snapDetails
 	resp, err := s.retryRequestString(context.TODO(), reqOptions)
 	if err != nil {
 		return nil, err
 	}
-	var apps []App
-	err = json.Unmarshal([]byte(resp), &apps)
+
+	return parseIndex(resp, s.cfg.StoreBaseURL)
+}
+
+func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
+	var index Index
+	err := json.Unmarshal([]byte(resp), &index)
 	if err != nil {
 		return nil, err
 	}
 
-	snaps := make([]*snap.Info, len(apps))
-	for i, _ := range apps {
+	snaps := make([]*snap.Info, len(index.Apps))
+	for i, _ := range index.Apps {
 		details := snapDetails{
-		 Name:            apps[i].Name,
-	 	Version:         "",
-	 	Architectures:   []string{"amd64", "armhf"},
- 		Revision:        1,
-	 	AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", s.cfg.StoreBaseURL, apps[i].Name, 1, arch.UbuntuArchitecture()),
-	 }
-  snaps[i] = infoFromRemote(&details)
+			Name:            index.Apps[i].Name,
+			Version:         "",
+			Architectures:   []string{"amd64", "armhf"},
+			Revision:        1,
+			AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, index.Apps[i].Name, 1, arch.UbuntuArchitecture()),
+		}
+		snaps[i] = infoFromRemote(&details)
 	}
-	
+
 	return snaps, nil
+
 }
+
 
 func (s *Store) Sections(user *auth.UserState) ([]string, error) {
 	return nil, errors.New("Sections is not implemented yet")
@@ -774,6 +780,10 @@ type App struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
 	Enabled  bool   `json:"enabled,omitempty"`
+}
+
+type Index struct {
+	Apps	[]App `json:"apps"`
 }
 
 func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
