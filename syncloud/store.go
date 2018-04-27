@@ -734,6 +734,7 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 			Version:         "",
 			Architectures:   []string{"amd64", "armhf"},
 			Revision:        1,
+			IconURL:         index.Apps[i].Icon,
 			AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, index.Apps[i].Name, 1, arch.UbuntuArchitecture()),
 		}
 		snaps[i] = infoFromRemote(&details)
@@ -780,6 +781,7 @@ type metadataWrapper struct {
 type App struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
+	Icon     string `json:"icon,omitempty"`
 	Enabled  bool   `json:"enabled,omitempty"`
 }
 
