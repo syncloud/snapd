@@ -729,6 +729,7 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 	snaps := make([]*snap.Info, len(index.Apps))
 	for i, _ := range index.Apps {
 		details := snapDetails{
+		 SnapID:          index.Apps[i].Id,
 			Name:            index.Apps[i].Name,
 			Version:         "",
 			Architectures:   []string{"amd64", "armhf"},
