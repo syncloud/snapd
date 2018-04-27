@@ -22,11 +22,11 @@ pipeline:
       - VERSION=$(cat version)
       - ./syncloud/build.sh $VERSION skip-tests
 
-  test:
-    image: syncloud/build-deps-${arch}
-    commands:
-      - VERSION=$(cat version)
-      - ./syncloud/test-docker.sh $VERSION device
+#  test:
+#    image: syncloud/build-deps-${arch}
+#    commands:
+#      - VERSION=$(cat version)
+#      - ./syncloud/test-docker.sh $VERSION device
 
   upload:
     image: syncloud/build-deps-${arch}
