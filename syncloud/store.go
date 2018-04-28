@@ -735,6 +735,7 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 			Architectures:   []string{"amd64", "armhf"},
 			Revision:        1,
 			IconURL:         index.Apps[i].Icon,
+			Channel:         "stable",
 			AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, index.Apps[i].Name, 1, arch.UbuntuArchitecture()),
 		}
 		snaps[i] = infoFromRemote(&details)
