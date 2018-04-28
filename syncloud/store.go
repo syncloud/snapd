@@ -719,6 +719,18 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	return parseIndex(resp, s.cfg.StoreBaseURL)
 }
 
+type App struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Icon     string `json:"icon,omitempty"`
+	Enabled  bool   `json:"enabled,omitempty"`
+	Required bool   `json:"required"`
+}
+
+type Index struct {
+	Apps []json.RawMessage `json:"apps"`
+}
+
 func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 	var index Index
 	err := json.Unmarshal([]byte(resp), &index)
@@ -726,19 +738,37 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 		return nil, err
 	}
 
-	snaps := make([]*snap.Info, len(index.Apps))
+	var snaps []*snap.Info
+
 	for i, _ := range index.Apps {
+		app := App {
+			Enabled: true,
+		}
+		err := json.Unmarshal([]byte(index.Apps[i]), &app)
+		if err != nil {
+			return nil, err
+		}
+		if (!app.Enabled) {
+			continue
+		}
+
+		appType := snap.TypeApp
+		if (app.Required) {
+			appType = snap.TypeBase
+		}
+
 		details := snapDetails{
-		 SnapID:          index.Apps[i].Id,
-			Name:            index.Apps[i].Name,
+			SnapID:          app.Id,
+			Name:            app.Name,
 			Version:         "",
+			Type:			 appType,
 			Architectures:   []string{"amd64", "armhf"},
 			Revision:        1,
-			IconURL:         index.Apps[i].Icon,
+			IconURL:         app.Icon,
 			Channel:         "stable",
-			AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, index.Apps[i].Name, 1, arch.UbuntuArchitecture()),
+			AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, app.Name, 1, arch.UbuntuArchitecture()),
 		}
-		snaps[i] = infoFromRemote(&details)
+		snaps = append(snaps, infoFromRemote(&details))
 	}
 
 	return snaps, nil
@@ -777,17 +807,6 @@ type currentSnapJSON struct {
 type metadataWrapper struct {
 	Snaps  []*currentSnapJSON `json:"snaps"`
 	Fields []string           `json:"fields"`
-}
-
-type App struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
-	Icon     string `json:"icon,omitempty"`
-	Enabled  bool   `json:"enabled,omitempty"`
-}
-
-type Index struct {
-	Apps	[]App `json:"apps"`
 }
 
 func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
