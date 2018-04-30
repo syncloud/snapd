@@ -644,7 +644,7 @@ type SnapSpec struct {
 	Revision snap.Revision
 }
 
-func (s *Store) downloadVersions(channel string) (*map[string]string, error) {
+func (s *Store) downloadVersions(channel string) (map[string]string, error) {
 
 	reqOptions := &requestOptions{
 		Method: "GET",
@@ -672,15 +672,15 @@ func (s *Store) downloadVersions(channel string) (*map[string]string, error) {
 		}
 	}
 	
-	return &versions, nil
+	return versions, nil
 
 }
 
 // SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
 func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
- 
- *versions, err := s.downloadVersions(snapSpec.Channel)
- if err != nil {
+
+ 	versions, err := s.downloadVersions(snapSpec.Channel)
+ 	if err != nil {
 		return nil, fmt.Errorf("Unable to get version: %s", err)
 	}
 	
