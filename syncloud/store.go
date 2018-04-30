@@ -717,18 +717,27 @@ type Search struct {
 // Find finds  (installable) snaps from the store, matching the
 // given Search.
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
-	reqOptions := &requestOptions{
-		Method: "GET",
-		URL:    urlJoin(s.cfg.StoreBaseURL, "releases/master/index"),
-		Accept: halJsonContentType,
-	}
 
-	resp, err := s.retryRequestString(context.TODO(), reqOptions)
+	resp, err := s.downloadIndex("stable")
 	if err != nil {
 		return nil, err
 	}
 
 	return parseIndex(resp, s.cfg.StoreBaseURL)
+}
+
+func (s *Store) downloadIndex(channel string) (string, error){
+	reqOptions := &requestOptions{
+		Method: "GET",
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, "index"),
+		Accept: halJsonContentType,
+	}
+
+	resp, err := s.retryRequestString(context.TODO(), reqOptions)
+	if err != nil {
+		return "", err
+	}
+	return  resp, nil
 }
 
 type App struct {
@@ -737,6 +746,26 @@ type App struct {
 	Icon     string `json:"icon,omitempty"`
 	Enabled  bool   `json:"enabled,omitempty"`
 	Required bool   `json:"required"`
+}
+
+func (a *App) toDetails(baseUrl *url.URL) (snapDetails) {
+	appType := snap.TypeApp
+	if (a.Required) {
+		appType = snap.TypeBase
+	}
+
+	details := snapDetails{
+		SnapID:          a.Id,
+		Name:            a.Name,
+		Version:         "",
+		Type:			 appType,
+		Architectures:   []string{"amd64", "armhf"},
+		Revision:        1,
+		IconURL:         a.Icon,
+		Channel:         "stable",
+		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, a.Name, 1, arch.UbuntuArchitecture()),
+	}
+	return details
 }
 
 type Index struct {
@@ -764,22 +793,9 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 			continue
 		}
 
-		appType := snap.TypeApp
-		if (app.Required) {
-			appType = snap.TypeBase
-		}
 
-		details := snapDetails{
-			SnapID:          app.Id,
-			Name:            app.Name,
-			Version:         "",
-			Type:			 appType,
-			Architectures:   []string{"amd64", "armhf"},
-			Revision:        1,
-			IconURL:         app.Icon,
-			Channel:         "stable",
-			AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, app.Name, 1, arch.UbuntuArchitecture()),
-		}
+		details := app.toDetails(baseUrl)
+
 		snaps = append(snaps, infoFromRemote(&details))
 	}
 
