@@ -684,7 +684,7 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		return nil, fmt.Errorf("Unable to get version: %s", err)
 	}
 	
-	versionStr, ok := apps[snapSpec.Name]
+	versionStr, ok := versions[snapSpec.Name]
 	if !ok {
 		return nil, ErrSnapNotFound
 	}
