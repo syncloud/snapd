@@ -681,28 +681,23 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 
  	versions, err := s.downloadVersions(snapSpec.Channel)
  	if err != nil {
-		return nil, fmt.Errorf("Unable to get version: %s", err)
-	}
+		 return nil, fmt.Errorf("Unable to get version: %s", err)
+ 	}
 	
-	versionStr, ok := versions[snapSpec.Name]
+	 resp, err := s.downloadIndex(snapSpec.Channel)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	
+	 apps := parseIndex(resp, s.cfg.StoreBaseURL)
+ 
+	version, ok := versions[snapSpec.Name]
 	if !ok {
 		return nil, ErrSnapNotFound
 	}
 
-	version, err := strconv.Atoi(versionStr)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to get version: %s", err)
-	}
-
-	details := snapDetails{
-		Name:            snapSpec.Name,
-		Version:         versionStr,
-		Architectures:   []string{"amd64", "armhf"},
-		Revision:        version,
-		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", syncloudAppsBaseURL, snapSpec.Name, version, arch.UbuntuArchitecture()),
-	}
-	info := infoFromRemote(&details)
-
+ info := apps[snapSpec.Name].toDetails(baseUrl, snapSpec.Channel, version)
+	
 	return info, nil
 }
 
@@ -717,13 +712,25 @@ type Search struct {
 // Find finds  (installable) snaps from the store, matching the
 // given Search.
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
-
-	resp, err := s.downloadIndex("stable")
+ channel := "stable"
+ versions, err := s.downloadVersions(channel)
+ 	if err != nil {
+		 return nil, fmt.Errorf("Unable to get version: %s", err)
+ 	}
+ 	
+	resp, err := s.downloadIndex(channel)
 	if err != nil {
 		return nil, err
 	}
+	 apps := parseIndex(resp, s.cfg.StoreBaseURL)
+	 
+	 	var snaps []*snap.Info
+	 for i, _ := range apps {
+	   version := versions[app.Name]
+	   snaps = append(snaps, app.toInfo(baseUrl, channel, version))
+	 }
 
-	return parseIndex(resp, s.cfg.StoreBaseURL)
+	return snaps
 }
 
 func (s *Store) downloadIndex(channel string) (string, error){
@@ -741,31 +748,39 @@ func (s *Store) downloadIndex(channel string) (string, error){
 }
 
 type App struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
+	Name       string `json:"id"`
+	Summary     string `json:"name"`
 	Icon     string `json:"icon,omitempty"`
 	Enabled  bool   `json:"enabled,omitempty"`
 	Required bool   `json:"required"`
 }
 
-func (a *App) toDetails(baseUrl *url.URL) (snapDetails) {
+func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (snap.Info) {
 	appType := snap.TypeApp
 	if (a.Required) {
 		appType = snap.TypeBase
 	}
+	
+ revision, err := strconv.Atoi(version)
+//	if err != nil {
+//		return nil, fmt.Errorf("Unable to get revision: %s", err)
+//	}
 
 	details := snapDetails{
-		SnapID:          a.Id,
 		Name:            a.Name,
-		Version:         "",
-		Type:			 appType,
+		Summary:         a.Summary,
+		Version:         version,
+		Type:			          appType,
 		Architectures:   []string{"amd64", "armhf"},
-		Revision:        1,
+		Revision:        revision,
 		IconURL:         a.Icon,
-		Channel:         "stable",
+		Channel:         channel,
 		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, a.Name, 1, arch.UbuntuArchitecture()),
 	}
-	return details
+	
+		snap := infoFromRemote(&details))
+
+	return snap
 }
 
 type Index struct {
@@ -779,7 +794,8 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 		return nil, err
 	}
 
-	var snaps []*snap.Info
+ var apps []*App
+	//var snaps []*snap.Info
 
 	for i, _ := range index.Apps {
 		app := App {
@@ -793,13 +809,11 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 			continue
 		}
 
-
-		details := app.toDetails(baseUrl)
-
-		snaps = append(snaps, infoFromRemote(&details))
+  apps = append(apps, app)
+		
 	}
 
-	return snaps, nil
+	return apps, nil
 
 }
 
