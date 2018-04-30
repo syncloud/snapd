@@ -644,16 +644,14 @@ type SnapSpec struct {
 	Revision snap.Revision
 }
 
-// SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
-func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
-	// get the query before doing Parse, as that overwrites it
+func downloadVersions(channel string) (*map[string]string, error) {
+
 	reqOptions := &requestOptions{
 		Method: "GET",
-		URL:    urlJoin(s.cfg.StoreBaseURL, "releases/master/versions"),
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, "versions"),
 		Accept: halJsonContentType,
 	}
 
-	//var remote *snapDetails
 	resp, err := s.retryRequestString(context.TODO(), reqOptions)
 	if err != nil {
 		return nil, err
@@ -661,17 +659,31 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 
 	logger.Noticef("parsing version %s", resp)
 	lines := strings.Split(resp, "\n")
-	apps := make(map[string]string)
+	
+	versions := make(map[string]string)
+	
 	for i := 0; i < len(lines); i += 2 {
 		versionLine := strings.Trim(lines[i], " ")
 		if strings.Contains(versionLine, "=") {
 			logger.Noticef("app info %s", versionLine)
 			values := strings.Split(versionLine, "=")
 			logger.Noticef("app: %s, version %s", values[0], values[1])
-			apps[values[0]] = values[1]
+			versions[values[0]] = values[1]
 		}
 	}
+	
+	return versions, nil
 
+}
+
+// SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
+func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
+ 
+ versions, err := downloadVersions(snapSpec.Channel)
+ if err != nil {
+		return nil, fmt.Errorf("Unable to get version: %s", err)
+	}
+	
 	versionStr, ok := apps[snapSpec.Name]
 	if !ok {
 		return nil, ErrSnapNotFound
