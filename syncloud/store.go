@@ -765,7 +765,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 		appType = snap.TypeBase
 	}
 	
- revision, err := strconv.Atoi(version)
+ revision, _ := strconv.Atoi(version)
 //	if err != nil {
 //		return nil, fmt.Errorf("Unable to get revision: %s", err)
 //	}
