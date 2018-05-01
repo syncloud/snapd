@@ -779,7 +779,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 		Revision:        revision,
 		IconURL:         a.Icon,
 		Channel:         channel,
-		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%d_%s.snap", baseUrl, a.Name, 1, arch.UbuntuArchitecture()),
+		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
 	}
 	
 		snap := infoFromRemote(&details)
