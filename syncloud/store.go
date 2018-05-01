@@ -689,14 +689,16 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
  		return nil, err
  	}
  	
-	 apps := parseIndex(resp, s.cfg.StoreBaseURL)
- 
+	 apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+ if err != nil {
+		return nil, err
+	}
 	version, ok := versions[snapSpec.Name]
 	if !ok {
 		return nil, ErrSnapNotFound
 	}
 
- info := apps[snapSpec.Name].toDetails(baseUrl, snapSpec.Channel, version)
+ info := apps[snapSpec.Name].toDetails(s.cfg.StoreBaseURL, snapSpec.Channel, version)
 	
 	return info, nil
 }
@@ -722,15 +724,18 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	if err != nil {
 		return nil, err
 	}
-	 apps := parseIndex(resp, s.cfg.StoreBaseURL)
-	 
+	 apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+	 if err != nil {
+	 	return nil, err
+ 	}
 	 	var snaps []*snap.Info
 	 for i, _ := range apps {
+	   app := apps[i]
 	   version := versions[app.Name]
-	   snaps = append(snaps, app.toInfo(baseUrl, channel, version))
+	   snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
 	 }
 
-	return snaps
+	return snaps, nil
 }
 
 func (s *Store) downloadIndex(channel string) (string, error){
@@ -755,7 +760,7 @@ type App struct {
 	Required bool   `json:"required"`
 }
 
-func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (snap.Info) {
+func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.Info) {
 	appType := snap.TypeApp
 	if (a.Required) {
 		appType = snap.TypeBase
