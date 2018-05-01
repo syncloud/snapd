@@ -729,9 +729,8 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	 	return nil, err
  	}
 	 	var snaps []*snap.Info
-	 for i, _ := range apps {
-	   app := apps[i]
-	   version := versions[app.Name]
+	 for name, app := range apps {
+	   version := versions[name]
 	   snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
 	 }
 
@@ -792,14 +791,15 @@ type Index struct {
 	Apps []json.RawMessage `json:"apps"`
 }
 
-func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
+func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 	var index Index
 	err := json.Unmarshal([]byte(resp), &index)
 	if err != nil {
 		return nil, err
 	}
 
- var apps []*App
+ apps := make(map[string]*App)
+ //var apps []*App
 	//var snaps []*snap.Info
 
 	for i, _ := range index.Apps {
@@ -814,7 +814,7 @@ func parseIndex(resp string, baseUrl *url.URL) ([]*snap.Info, error) {
 			continue
 		}
 
-  apps = append(apps, app)
+  apps[app.Name] = app
 		
 	}
 
