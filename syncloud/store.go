@@ -698,7 +698,7 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		return nil, ErrSnapNotFound
 	}
 
- info := apps[snapSpec.Name].toDetails(s.cfg.StoreBaseURL, snapSpec.Channel, version)
+ info := apps[snapSpec.Name].toInfo(s.cfg.StoreBaseURL, snapSpec.Channel, version)
 	
 	return info, nil
 }
@@ -803,10 +803,10 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 	//var snaps []*snap.Info
 
 	for i, _ := range index.Apps {
-		app := App {
+		app := &App {
 			Enabled: true,
 		}
-		err := json.Unmarshal([]byte(index.Apps[i]), &app)
+		err := json.Unmarshal([]byte(index.Apps[i]), app)
 		if err != nil {
 			return nil, err
 		}
