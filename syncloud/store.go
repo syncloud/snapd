@@ -477,7 +477,7 @@ func (s *Store) retryRequestDecodeJSON(ctx context.Context, reqOptions *requestO
 func decodeStringBody(resp *http.Response) (string, error) {
 	ok := (resp.StatusCode == 200 || resp.StatusCode == 201)
 	if !ok {
-		return "", errors.New("store is not responding")
+		return "", fmt.Errorf("store is not responding, code: %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -498,7 +498,7 @@ func (s *Store) retryRequestString(ctx context.Context, reqOptions *requestOptio
 	}, defaultRetryStrategy)
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%v, url: %s", err, reqOptions.URL.String())
 	}
 
 	return reply, err
