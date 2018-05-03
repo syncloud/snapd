@@ -734,7 +734,7 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
  	}
 	 	var snaps []*snap.Info
 	 for name, app := range apps {
-	   if (search.Query == "*" || name == search.Query) {
+	   if (search.Query == "*" || search.Query == "" || search.Query == name) {
 	     version := versions[name]
 	     snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
 	   }
