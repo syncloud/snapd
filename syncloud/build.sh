@@ -16,7 +16,7 @@ NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
-export PATH=/usr/lib/go-1.6/bin:$PATH
+export PATH=/usr/lib/go-1.7/bin:$PATH
 
 cd ${GOPATH}
 
