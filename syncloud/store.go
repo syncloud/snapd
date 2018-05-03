@@ -662,7 +662,7 @@ func (s *Store) downloadVersions(channel string) (map[string]string, error) {
 	
 	versions := make(map[string]string)
 	
-	for i := 0; i < len(lines); i += 2 {
+	for i := 0; i < len(lines); i += 1 {
 		versionLine := strings.Trim(lines[i], " ")
 		if strings.Contains(versionLine, "=") {
 			logger.Noticef("app info %s", versionLine)
@@ -717,6 +717,7 @@ type Search struct {
 // Find finds  (installable) snaps from the store, matching the
 // given Search.
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
+ logger.Noticef("search query: %s", search.Query)
  channel := "stable"
  versions, err := s.downloadVersions(channel)
  	if err != nil {
