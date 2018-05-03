@@ -733,8 +733,10 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
  	}
 	 	var snaps []*snap.Info
 	 for name, app := range apps {
-	   version := versions[name]
-	   snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+	   if (search.Query == "*" || name == search.Query) {
+	     version := versions[name]
+	     snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+	   }
 	 }
 
 	return snaps, nil
@@ -802,8 +804,6 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 	}
 
  apps := make(map[string]*App)
- //var apps []*App
-	//var snaps []*snap.Info
 
 	for i, _ := range index.Apps {
 		app := &App {
@@ -816,7 +816,7 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 		if (!app.Enabled) {
 			continue
 		}
-
+  logger.Noticef("index app %s", app.Name)
   apps[app.Name] = app
 		
 	}
