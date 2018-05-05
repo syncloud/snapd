@@ -678,8 +678,8 @@ func (s *Store) downloadVersions(channel string) (map[string]string, error) {
 
 // SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
 func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
-  channel := parseChannel(snapSpec.Channel)
-	
+  channel := s.parseChannel(snapSpec.Channel)
+
  	versions, err := s.downloadVersions(channel)
  	if err != nil {
 		 return nil, fmt.Errorf("Unable to get version: %s", err)
