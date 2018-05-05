@@ -678,10 +678,8 @@ func (s *Store) downloadVersions(channel string) (map[string]string, error) {
 
 // SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
 func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
-  channel := snapSpec.Channel
-	if channel == "" {
-		channel = "stable"
-	}
+  channel := parseChannel(snapSpec.Channel)
+	
  	versions, err := s.downloadVersions(channel)
  	if err != nil {
 		 return nil, fmt.Errorf("Unable to get version: %s", err)
@@ -741,6 +739,15 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	 }
 
 	return snaps, nil
+}
+
+func (s *Store) parseChannel(channel string) (string) {
+    if (channel == "") {
+        return "stable"
+    }
+    parts := strings.Split(channel, "/")
+    return parts[0]
+        
 }
 
 func (s *Store) downloadIndex(channel string) (string, error){
