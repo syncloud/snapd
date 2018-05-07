@@ -786,7 +786,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
  logger.Noticef("snapid: %s", snapId)
 
 	details := snapDetails{
-	 SnapID:          snapId,
+	 //SnapID:          snapId,
 		Name:            a.Name,
 		Summary:         a.Summary,
 		Version:         version,
@@ -871,6 +871,7 @@ type metadataWrapper struct {
 }
 
 func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
+ logger.Noticef("cutrentSnap %+v", cs)
 	// the store gets confused if we send snaps without a snapid
 	// (like local ones)
 	if cs.SnapID == "" {
