@@ -1178,7 +1178,7 @@ func buyOptionError(message string) (*BuyResult, error) {
 func (s *Store) LookupRefresh(*store.RefreshCandidate, *auth.UserState) (*snap.Info, error) {
  logger.Noticef("LookupRefresh")
 	
-	return nil, ErrNoUpdateAvailable
+	return nil, errors.New("LookupRefresh: not implemented yet")
 }
 
 func (s *Store) SuggestedCurrency() string {

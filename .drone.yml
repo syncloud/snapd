@@ -42,7 +42,7 @@ pipeline:
     commands:
       - mkdir log
       - sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@device journalctl > log/journalctl.log
-      - ./syncloud/upload-artifact.sh log $DRONE_BUILD_NUMBER-${installer}-$(dpkg --print-architecture)
+      - ./syncloud/upload-artifact.sh log $DRONE_BUILD_NUMBER-$(dpkg --print-architecture)
     when:
       status: [ failure, success ] 
 
