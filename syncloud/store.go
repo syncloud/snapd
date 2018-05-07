@@ -784,6 +784,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 //	}
 
 	details := snapDetails{
+	 SnapID:          fmt.Sprintf("%s.%s", a.Name, version),
 		Name:            a.Name,
 		Summary:         a.Summary,
 		Version:         version,
@@ -1172,6 +1173,8 @@ func buyOptionError(message string) (*BuyResult, error) {
 }
 
 func (s *Store) LookupRefresh(*store.RefreshCandidate, *auth.UserState) (*snap.Info, error) {
+ logger.Noticef("LookupRefresh")
+	
 	return nil, ErrNoUpdateAvailable
 }
 
