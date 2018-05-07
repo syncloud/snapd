@@ -34,7 +34,10 @@ sshpass -p syncloud scp -o StrictHostKeyChecking=no install-snapd.sh root@${DEVI
 sshpass -p syncloud scp -o StrictHostKeyChecking=no ../snapd-${VERSION}-${ARCH}.tar.gz root@${DEVICE_HOST}:/
 
 sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} /installer.sh ${VERSION}
-sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap install platform
+sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap install files --channel=master
+sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap refresh files
+
+
 
 
 
