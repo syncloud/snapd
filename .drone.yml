@@ -35,6 +35,16 @@ pipeline:
       - VERSION=$(cat version)
       - ./syncloud/upload.sh $DRONE_BRANCH $VERSION
 
+  ci-artifact:
+    image: syncloud/build-deps-${arch}
+    secrets: [ARTIFACT_SSH_KEY]
+    commands:
+      - mkdir log
+      - journalctl > log/journalctl.log
+      - ./syncloud/upload-artifact.sh log $DRONE_BUILD_NUMBER-${installer}-$(dpkg --print-architecture)
+    when:
+      status: [ failure, success ] 
+
 services:
   device:
     image: syncloud/systemd-${arch}
