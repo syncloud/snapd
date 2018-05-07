@@ -41,6 +41,7 @@ pipeline:
     secrets: [ARTIFACT_SSH_KEY]
     commands:
       - mkdir log
+      - sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@device snap changes > log/snap.changes.log   
       - sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@device journalctl > log/journalctl.log
       - ./syncloud/upload-artifact.sh log $DRONE_BUILD_NUMBER-$(dpkg --print-architecture)
     when:
