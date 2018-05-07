@@ -782,9 +782,11 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 //	if err != nil {
 //		return nil, fmt.Errorf("Unable to get revision: %s", err)
 //	}
+ snapId := fmt.Sprintf("%s.%s", a.Name, version)
+ logger.Noticef("snapid: %s", snapId)
 
 	details := snapDetails{
-	 SnapID:          fmt.Sprintf("%s.%s", a.Name, version),
+	 SnapID:          snapId,
 		Name:            a.Name,
 		Summary:         a.Summary,
 		Version:         version,
