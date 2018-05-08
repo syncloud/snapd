@@ -1073,8 +1073,10 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 	return finalErr
 }
 
-func (s *Store) Assertion(assertType *asserts.AssertionType, prisyKey []string, user *auth.UserState) (asserts.Assertion, error) {
+func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
  logger.Noticef("assert type: %s", assertType.Name)
+ logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
+ 
 	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
 	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
 	if err != nil {
