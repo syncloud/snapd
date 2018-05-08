@@ -1074,7 +1074,7 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 }
 
 func (s *Store) Assertion(assertType *asserts.AssertionType, prisyKey []string, user *auth.UserState) (asserts.Assertion, error) {
-
+ logger.Noticef("assert type: %s", assertType.Name)
 	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
 	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
 	if err != nil {
@@ -1092,7 +1092,6 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, prisyKey []string, 
 	}
 
 	//publicKey := string(publicKeyEn)
-	println(assertType.Name)
 
 	assertion, err := asserts.Assemble(
 		map[string]interface{}{
