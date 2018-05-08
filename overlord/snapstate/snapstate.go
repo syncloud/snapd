@@ -119,9 +119,9 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 
 	if fromStore {
 		//	 fetch and check assertions
-		//	checkAsserts := st.NewTask("validate-snap", fmt.Sprintf(i18n.G("Fetch and check assertions for snap %q%s"), snapsup.Name(), revisionStr))
-		//	addTask(checkAsserts)
-		//	prev = checkAsserts
+		checkAsserts := st.NewTask("validate-snap", fmt.Sprintf(i18n.G("Fetch and check assertions for snap %q%s"), snapsup.Name(), revisionStr))
+		addTask(checkAsserts)
+		prev = checkAsserts
 	}
 
 	// mount
