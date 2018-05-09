@@ -20,7 +20,6 @@
 package asserts
 
 import (
-	"fmt"
 		"github.com/snapcore/snapd/logger"
 )
 
