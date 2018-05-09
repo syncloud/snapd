@@ -838,7 +838,7 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 
 
 func (s *Store) Sections(user *auth.UserState) ([]string, error) {
-	return nil, errors.New("Sections is not implemented yet")
+	return []string{ "apps" }, nil
 }
 
 func (s *Store) WriteCatalogs(names io.Writer, adder store.SnapAdder) error {
