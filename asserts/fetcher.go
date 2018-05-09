@@ -69,18 +69,16 @@ func (f *fetcher) chase(ref *Ref, a Assertion) error {
 	}
 	if !IsNotFound(err) {
 		return err
-	} else {
-	 	// do not chase for syncloud for now
-  logger.Noticef("predefined asserion is not found, not chasing for Syncloud")
-  return nil
-	
 	}
 	u := ref.Unique()
 	switch f.fetched[u] {
 	case fetchSaved:
 		return nil // nothing to do
 	case fetchRetrieved:
-		return fmt.Errorf("circular assertions are not expected: %s", ref)
+	 //	return fmt.Errorf("circular assertions are not expected: %s", ref)
+			 	// do not brake for syncloud for now
+  logger.Noticef("circular asserion Syncloud")
+  return nil
 	}
 	if a == nil {
 		retrieved, err := f.retrieve(ref)
