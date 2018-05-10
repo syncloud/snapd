@@ -842,7 +842,8 @@ func (s *Store) Sections(user *auth.UserState) ([]string, error) {
 }
 
 func (s *Store) WriteCatalogs(names io.Writer, adder store.SnapAdder) error {
-	return errors.New("WriteCatalogs is not implemented yet")
+ logger.Noticef("not writing catalogs")
+	return nil
 }
 // RefreshCandidate contains information for the store about the currently
 // installed snap so that the store can decide what update we should see
