@@ -76,7 +76,7 @@ func (f *fetcher) chase(ref *Ref, a Assertion) error {
 	case fetchRetrieved:
 	 //	return fmt.Errorf("circular assertions are not expected: %s", ref)
 			 	// do not brake for syncloud for now
-  logger.Noticef("circular asserion Syncloud")
+  logger.Noticef("Syncloud hack: circular assertions are not expected: %s", ref)
   return nil
 	}
 	if a == nil {
