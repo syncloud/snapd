@@ -1107,7 +1107,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"signature\n"
 
 			dec := asserts.NewDecoder(assertionText)
-			asrt, e = dec.Decode()
+			asrt, e := dec.Decode()
 			
 	 return asrt, e
 
