@@ -1078,52 +1078,38 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
  logger.Noticef("assert type: %s", assertType.Name)
  logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
  
-	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
-	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
-	if err != nil {
-		return nil, err
-	}
+//	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
+	//hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
+	//if err != nil {
+	//	return nil, err
+//	}
 
-	digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
-	if err != nil {
-		return nil, err
-	}
+//	digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
+	//if err != nil {
+//		return nil, err
+//	}
 
-	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
-	if err != nil {
-		return nil, err
-	}
+//	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
+//	if err != nil {
+//		return nil, err
+//	}
 
 	//publicKey := string(publicKeyEn)
+	 body := ""
+ 	assertionText := "type: " + assertType.Name + "\n" +
+	"format: 1\n" +
+	"authority-id: syncloud\n" +
+	"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
+	"revision: 1\n" +
+	"body-length: " + len(body) + "\n" +
+	body +
+	"\n\n" +
+	"signature\n"
 
-	assertion, err := asserts.Assemble(
-		map[string]interface{}{
-			"snap-name":           "syncloud",
-			"snap-id":             "syncloud",
-			"snap-size":           "100",
-			"snap-revision":       "1",
-			"authority-id":        "syncloud",
-			"publisher-id":        "syncloud",
-			"developer-id":        "syncloud",
-			"account-id":          "syncloud",
-			"display-name":        "syncloud",
-			"type":                assertType.Name,
-			"sign-key-sha3-384":   digest,
-			"sha3-384":            digest,
-			"snap-sha3-384":       digest,
-			"public-key-sha3-384": privkey.PublicKey().ID(),
-			"timestamp":           time.Now().Format(time.RFC3339),
-			"since":               time.Now().Format(time.RFC3339),
-			"series":              "1",
-			"validation":          "certified",
-			"body-length":         "149",
-		},
-		publicKeyEnc,
-		[]byte(""),
-		[]byte("signature"),
-	)
-
-	return assertion, err
+			dec := asserts.NewDecoder(assertionText)
+			asrt, e = dec.Decode()
+			
+	 return asrt, e
 
 }
 
