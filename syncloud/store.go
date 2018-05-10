@@ -36,7 +36,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-
+ "strconv"
+ 
 	"github.com/snapcore/snapd/arch"
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/httputil"
@@ -1101,7 +1102,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"authority-id: syncloud\n" +
 	"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
 	"revision: 1\n" +
-	"body-length: " + len(body) + "\n" +
+	"body-length: " + strconv.Itoa(len(body)) + "\n" +
 	body +
 	"\n\n" +
 	"signature\n"
