@@ -1100,7 +1100,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"authority-id: syncloud\n" +
 	"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
 	"revision: 1\n" +
-	"body-length: " + strconv.Itoa(len(body)) + "\n" +
+	"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
 	body +
 	"\n\n" +
 	"signature\n"
