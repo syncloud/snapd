@@ -1095,7 +1095,14 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 //	}
 
 	//publicKey := string(publicKeyEn)
-	 body := ""
+	 var body string
+	 switch assertType.Name {
+	   case "account-key":
+	     body = digest
+	   default:
+	     body = ""
+	 }
+	 
  	assertionText := "type: " + assertType.Name + "\n" +
 	"format: 1\n" +
 	"authority-id: syncloud\n" +
