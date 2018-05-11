@@ -23,7 +23,6 @@ package syncloud
 import (
 	"bytes"
 	"crypto"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,7 +54,6 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/retry.v1"
 	"io/ioutil"
-	"strconv"
 	"github.com/snapcore/snapd/dirs"
 )
 
@@ -1107,7 +1105,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"\n\n" +
 	"signature\n"
 
-			asrt, e := asserts.Decoder([]byte(assertionText))
+			asrt, e := asserts.Decode([]byte(assertionText))
 			
 	 return asrt, e
 
