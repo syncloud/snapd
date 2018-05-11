@@ -1077,16 +1077,16 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
  logger.Noticef("assert type: %s", assertType.Name)
  logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
  
-//	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
-	//hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
-	//if err != nil {
-	//	return nil, err
-//	}
+ blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
+	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
+	if err != nil {
+		return nil, err
+	}
 
-//	digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
-	//if err != nil {
-//		return nil, err
-//	}
+ digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
+	if err != nil {
+	 return nil, err
+	}
 
 //	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
 //	if err != nil {
@@ -1099,7 +1099,24 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"format: 1\n" +
 	"authority-id: syncloud\n" +
 	"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
+	"snap-name: syncloud\n" +
+	"snap-id: syncloud\n" +
+	"snap-size: 100\n" +
+	"snap-revision: 1\n" +
+	"authority-id: syncloud\n" +
+	"publisher-id: syncloud\n" +
+	"developer-id: syncloud\n" +
+	"account-id: syncloud\n" +
+	"display-name: syncloud\n" +
 	"revision: 1\n" +
+	"sign-key-sha3-384: " + digest + "\n" +
+	"sha3-384: " + digest + "\n" +
+	"snap-sha3-384: " + digest + "\n" +
+	"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
+	"timestamp": time.Now().Format(time.RFC3339) + "\n" +
+	"since": time.Now().Format(time.RFC3339) + "\n" +
+	"series": "1\n" +
+	"validation": "certified\n" +
 	"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
 	body +
 	"\n\n" +
