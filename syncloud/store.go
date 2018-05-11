@@ -1104,7 +1104,6 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"snap-id: syncloud\n" +
 	"snap-size: 100\n" +
 	"snap-revision: 1\n" +
-	"authority-id: syncloud\n" +
 	"publisher-id: syncloud\n" +
 	"developer-id: syncloud\n" +
 	"account-id: syncloud\n" +
