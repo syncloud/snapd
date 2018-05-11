@@ -1113,10 +1113,10 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	"sha3-384: " + digest + "\n" +
 	"snap-sha3-384: " + digest + "\n" +
 	"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
-	"timestamp": time.Now().Format(time.RFC3339) + "\n" +
-	"since": time.Now().Format(time.RFC3339) + "\n" +
-	"series": "1\n" +
-	"validation": "certified\n" +
+	"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
+	"since: " + time.Now().Format(time.RFC3339) + "\n" +
+	"series: 1\n" +
+	"validation: certified\n" +
 	"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
 	body +
 	"\n\n" +
