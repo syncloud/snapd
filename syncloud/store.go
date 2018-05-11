@@ -814,10 +814,10 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 		return nil, err
 	}
 
- apps := make(map[string]*App)
+	apps := make(map[string]*App)
 
 	for i, _ := range index.Apps {
-		app := &App {
+		app := &App{
 			Enabled: true,
 		}
 		err := json.Unmarshal([]byte(index.Apps[i]), app)
@@ -827,9 +827,9 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 		if (!app.Enabled) {
 			continue
 		}
-  logger.Noticef("index app %s", app.Name)
-  apps[app.Name] = app
-		
+		logger.Noticef("index app %s", app.Name)
+		apps[app.Name] = app
+
 	}
 
 	return apps, nil
@@ -872,7 +872,7 @@ type metadataWrapper struct {
 }
 
 func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
- logger.Noticef("cutrentSnap %+v", cs)
+	logger.Noticef("cutrentSnap %+v", cs)
 	// the store gets confused if we send snaps without a snapid
 	// (like local ones)
 	if cs.SnapID == "" {
@@ -1075,63 +1075,62 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 }
 
 func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
- logger.Noticef("assert type: %s", assertType.Name)
- logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
- 
- blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
+	logger.Noticef("assert type: %s", assertType.Name)
+	logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
+
+	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
 	hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
 	if err != nil {
 		return nil, err
 	}
 
- digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
+	digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
 	if err != nil {
-	 return nil, err
+		return nil, err
 	}
 
-//	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
-//	if err != nil {
-//		return nil, err
-//	}
+	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
+	if err != nil {
+		return nil, err
+	}
 
-	//publicKey := string(publicKeyEn)
-	 var body string
-	 switch assertType.Name {
-	   case "account-key":
-	     body = digest
-	   default:
-	     body = ""
-	 }
-	 
- 	assertionText := "type: " + assertType.Name + "\n" +
-	"format: 1\n" +
-	"authority-id: syncloud\n" +
-	"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
-	"snap-name: syncloud\n" +
-	"snap-id: syncloud\n" +
-	"snap-size: 100\n" +
-	"snap-revision: 1\n" +
-	"publisher-id: syncloud\n" +
-	"developer-id: syncloud\n" +
-	"account-id: syncloud\n" +
-	"display-name: syncloud\n" +
-	"revision: 1\n" +
-	"sign-key-sha3-384: " + digest + "\n" +
-	"sha3-384: " + digest + "\n" +
-	"snap-sha3-384: " + digest + "\n" +
-	"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
-	"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
-	"since: " + time.Now().Format(time.RFC3339) + "\n" +
-	"series: 1\n" +
-	"validation: certified\n" +
-	"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
-	body +
-	"\n\n" +
-	"signature\n"
+	var body string
+	switch assertType.Name {
+	case "account-key":
+		body = string(publicKeyEnc)
+	default:
+		body = ""
+	}
 
-			asrt, e := asserts.Decode([]byte(assertionText))
-			
-	 return asrt, e
+	assertionText := "type: " + assertType.Name + "\n" +
+		"format: 1\n" +
+		"authority-id: syncloud\n" +
+		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
+		"snap-name: syncloud\n" +
+		"snap-id: syncloud\n" +
+		"snap-size: 100\n" +
+		"snap-revision: 1\n" +
+		"publisher-id: syncloud\n" +
+		"developer-id: syncloud\n" +
+		"account-id: syncloud\n" +
+		"display-name: syncloud\n" +
+		"revision: 1\n" +
+		"sign-key-sha3-384: " + digest + "\n" +
+		"sha3-384: " + digest + "\n" +
+		"snap-sha3-384: " + digest + "\n" +
+		"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
+		"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
+		"since: " + time.Now().Format(time.RFC3339) + "\n" +
+		"series: 1\n" +
+		"validation: certified\n" +
+		"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
+		body +
+		"\n\n" +
+		"signature\n"
+
+	asrt, e := asserts.Decode([]byte(assertionText))
+
+	return asrt, e
 
 }
 

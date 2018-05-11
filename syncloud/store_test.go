@@ -4,7 +4,6 @@ import (
 	"testing"
 	. "gopkg.in/check.v1"
 	"net/url"
-	"github.com/snapcore/snapd/snap"
 )
 
 func TestStore(t *testing.T) { TestingT(t) }
@@ -51,10 +50,10 @@ func (suite *configTestSuite) TestParse(c *C) {
 
 	c.Assert(len(snaps), Equals, 2)
 
-	c.Assert(snaps[0].Name(), Equals, "app1")
-	c.Assert(snaps[0].Type, Equals, snap.TypeApp)
+	c.Assert(snaps["app1"].Name, Equals, "app1")
+	c.Assert(snaps["app1"].Required, Equals, false)
 
-	c.Assert(snaps[1].Name(), Equals, "app3")
-	c.Assert(snaps[1].Type, Equals, snap.TypeBase)
+	c.Assert(snaps["app3"].Name, Equals, "app3")
+	c.Assert(snaps["app3"].Required, Equals, true)
 }
 
