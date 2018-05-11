@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/json"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
