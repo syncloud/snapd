@@ -135,7 +135,7 @@ public-key-sha3-384: hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi
 account-id: syncloud
 name: root
 since: 2016-04-01T00:00:00.0Z
-body-length: 1406
+body-length: 717
 sign-key-sha3-384: hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR
 
 AcbBTQRWhcGAARAA8dC6HP+NfM5sNgCHH+bsQv4YLIR8glPfJ+HEXyaYdNO1+oFyX4nx7CpV5Umu
