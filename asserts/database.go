@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"regexp"
 	"time"
-	"github.com/snapcore/snapd/logger"
 )
 
 // NotFoundError is returned when an assertion can not be found.
