@@ -1078,7 +1078,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	logger.Noticef("assert type: %s", assertType.Name)
 	logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
 
-	blobSHA3_384 := "QlqR0uAWEAWF5Nwnzj5kqmmwFslYPu1IL16MKtLKhwhv0kpBv5wKZ_axf_nf_2cL"
+	blobSHA3_384 := "hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR"
 	//hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
 	//if err != nil {
 	//	return nil, err
