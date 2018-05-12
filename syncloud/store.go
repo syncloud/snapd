@@ -1103,7 +1103,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	}
 
 	assertionText := "type: " + assertType.Name + "\n" +
-		"format: 1\n" +
+		//"format: 1\n" +
 		"authority-id: syncloud\n" +
 		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
 		"snap-name: syncloud\n" +
