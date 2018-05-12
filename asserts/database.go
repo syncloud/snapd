@@ -348,9 +348,9 @@ func (db *Database) Check(assert Assertion) error {
 		// TODO: later may need to consider type of assert to find candidate keys
 		accKey, err = db.findAccountKey(assert.AuthorityID(), assert.SignKeyID())
 		if IsNotFound(err) {
-			//return fmt.Errorf("no matching public key %q for signature by %q", assert.SignKeyID(), assert.AuthorityID())
-			logger.Noticef("Syncloud hack: no matching public key %q for signature by %q", assert.SignKeyID(), assert.AuthorityID())
-  return nil
+			return fmt.Errorf("no matching public key %q for signature by %q", assert.SignKeyID(), assert.AuthorityID())
+			//logger.Noticef("Syncloud hack: no matching public key %q for signature by %q", assert.SignKeyID(), assert.AuthorityID())
+  //return nil
 		}
 		if err != nil {
 			return fmt.Errorf("error finding matching public key for signature: %v", err)
