@@ -22,6 +22,7 @@ package asserts
 import (
 	"errors"
 	"sync"
+	"github.com/snapcore/snapd/logger"
 )
 
 type memoryBackstore struct {
@@ -150,6 +151,7 @@ func (mbs *memoryBackstore) Put(assertType *AssertionType, assert Assertion) err
 	internalKey := make([]string, 1, 1+len(assertType.PrimaryKey))
 	internalKey[0] = assertType.Name
 	internalKey = append(internalKey, assert.Ref().PrimaryKey...)
+ logger.Noticef("adding key: %v", internalKey)
 
 	err := mbs.top.put(assertType, internalKey, assert)
 	return err
@@ -162,6 +164,8 @@ func (mbs *memoryBackstore) Get(assertType *AssertionType, key []string, maxForm
 	internalKey := make([]string, 1+len(assertType.PrimaryKey))
 	internalKey[0] = assertType.Name
 	copy(internalKey[1:], key)
+	
+ logger.Noticef("getting key: %v", internalKey)
 
 	a, err := mbs.top.get(internalKey, maxFormat)
 	if err == errNotFound {
