@@ -1102,7 +1102,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		body = ""
 	}
 
-	assertionText := "type: " + assertType.Name + "\n" +
+	content := "type: " + assertType.Name + "\n" +
 		//"format: 1\n" +
 		"authority-id: syncloud\n" +
 		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
@@ -1125,8 +1125,15 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"validation: certified\n" +
 		"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
 		body +
-		"\n\n" +
-		"signature\n"
+		"\n\n"
+		
+		signature, err := asserts.signContent(content, privKey)
+		
+		if err != nil {
+		return nil, err
+	}
+	
+		assertionText := content + signature + "\n"
 
 	asrt, e := asserts.Decode([]byte(assertionText))
 
