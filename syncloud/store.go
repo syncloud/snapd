@@ -1154,6 +1154,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		headers = "" +
 			"snap-revision: 180224\n" +
 			"snap-id: " + snapId + "\n" +
+			"snap-size: 1\n" +
 			"snap-sha3-384: " + primaryKey[0] + "\n"
 	}
 
