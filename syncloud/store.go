@@ -1128,50 +1128,42 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	logger.Noticef("assert type: %s", assertType.Name)
 	logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
 
-	blobSHA3_384 := "hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR"
-	//hashDigest, err := base64.RawURLEncoding.DecodeString(blobSHA3_384)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//digest, err := asserts.EncodeDigest(crypto.SHA3_384, hashDigest)
-	//if err != nil {
-	//	return nil, err
-	//}
+	SHA3_384 := "hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR"
 
 	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
 	if err != nil {
 		return nil, err
 	}
 
-	var body string
+	body := ""
+ headers := ""
 	switch assertType.Name {
 	case "account-key":
 		body = string(publicKeyEnc)
-	default:
-		body = ""
+	case "snap-declaration":
+	 headers =		"series: " + primaryKey[0] + "\n"
+	cade "snap-tevision":
+	 headers =	 "snap-revision: 180224\n"
 	}
 
 	content := "type: " + assertType.Name + "\n" +
-		//"format: 1\n" +
 		"authority-id: syncloud\n" +
 		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
 		"snap-name: syncloud\n" +
 		"snap-id: syncloud\n" +
 		"snap-size: 100\n" +
-		"snap-revision: 1\n" +
 		"publisher-id: syncloud\n" +
 		"developer-id: syncloud\n" +
 		"account-id: syncloud\n" +
 		"display-name: syncloud\n" +
 		"revision: 1\n" +
-		"sign-key-sha3-384: " + blobSHA3_384 + "\n" +
-		"sha3-384: " + blobSHA3_384 + "\n" +
-		"snap-sha3-384: " + blobSHA3_384 + "\n" +
+		"sign-key-sha3-384: " + SHA3_384 + "\n" +
+		"sha3-384: " + SHA3_384 + "\n" +
+		"snap-sha3-384: " + SHA3_384 + "\n" +
 		"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
 		"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
 		"since: " + time.Now().Format(time.RFC3339) + "\n" +
-		"series: 1\n" +
+ headers +
 		"validation: certified\n" +
 		"body-length: " + strconv.Itoa(len(body)) + "\n\n" +
 		body +
