@@ -1145,22 +1145,22 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	case "account-key":
 		body = string(publicKeyEnc)
 	case "snap-declaration":
-	 headers =		"series: " + primaryKey[0] + "\n"
+	 headers =		"series: " + primaryKey[0] + "\n" +
+	 "snap-id: " + constructSnapId("files", "180224") + "\n" +
 	case "snap-revision":
 	 headers =	 "snap-revision: 180224\n" +
-	 "snap-id: " + constructSnapId("files", "180224") + "\n" +
 	 "snap-sha3-384: " + primaryKey[0] + "\n"
 	}
 
 	content := "type: " + assertType.Name + "\n" +
 		"authority-id: syncloud\n" +
 		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
-		"snap-name: syncloud\n" +
-		"snap-size: 100\n" +
+	 //	"snap-name: syncloud\n" +
+	 //	"snap-size: 100\n" +
 		"publisher-id: syncloud\n" +
 		"developer-id: syncloud\n" +
 		"account-id: syncloud\n" +
-		"display-name: syncloud\n" +
+		// "display-name: syncloud\n" +
 		"revision: 1\n" +
 		"sign-key-sha3-384: " + SHA3_384 + "\n" +
 		"sha3-384: " + SHA3_384 + "\n" +
