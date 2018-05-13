@@ -822,6 +822,10 @@ type App struct {
 	Required bool   `json:"required"`
 }
 
+func constructSnapId(name string, version string) string {
+ return fmt.Sprintf("%s.%s", name, version)
+}
+
 func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.Info) {
 	appType := snap.TypeApp
 	if (a.Required) {
@@ -832,7 +836,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 //	if err != nil {
 //		return nil, fmt.Errorf("Unable to get revision: %s", err)
 //	}
- snapId := fmt.Sprintf("%s.%s.%s", a.Name, channel, version)
+ snapId := constructSnapId(a.Name, version)
  logger.Noticef("snapid: %s", snapId)
 
 	details := snapDetails{
@@ -1144,6 +1148,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	 headers =		"series: " + primaryKey[0] + "\n"
 	case "snap-revision":
 	 headers =	 "snap-revision: 180224\n" +
+	 "snap-id: " + constructSnapId("files", "180224") + "\n" +
 	 "snap-sha3-384: " + primaryKey[0] + "\n"
 	}
 
@@ -1151,7 +1156,6 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"authority-id: syncloud\n" +
 		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
 		"snap-name: syncloud\n" +
-		"snap-id: syncloud\n" +
 		"snap-size: 100\n" +
 		"publisher-id: syncloud\n" +
 		"developer-id: syncloud\n" +
