@@ -1139,6 +1139,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		return nil, err
 	}
 
+	snapName := "files"
 	snapId := constructSnapId("files", "180224")
 
 	body := ""
@@ -1149,7 +1150,8 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	case "snap-declaration":
 		headers = "" +
 			"series: " + primaryKey[0] + "\n" +
-			"snap-id: " + snapId + "\n"
+			"snap-id: " + snapId + "\n" +
+			"snap-name: " + snapName + "\n"
 	case "snap-revision":
 		headers = "" +
 			"snap-revision: 180224\n" +
@@ -1161,8 +1163,6 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	content := "type: " + assertType.Name + "\n" +
 		"authority-id: syncloud\n" +
 		"primary-key: " + strings.Join(primaryKey, "/") + "\n" +
-	//	"snap-name: syncloud\n" +
-	//	"snap-size: 100\n" +
 		"publisher-id: syncloud\n" +
 		"developer-id: syncloud\n" +
 		"account-id: syncloud\n" +
@@ -1170,7 +1170,6 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"revision: 1\n" +
 		"sign-key-sha3-384: " + SHA3_384 + "\n" +
 		"sha3-384: " + SHA3_384 + "\n" +
-	//	"snap-sha3-384: " + SHA3_384 + "\n" +
 		"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
 		"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
 		"since: " + time.Now().Format(time.RFC3339) + "\n" +
