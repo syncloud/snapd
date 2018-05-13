@@ -1127,7 +1127,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		body +
 		"\n\n"
 		
-		signature, err := asserts.signContent(content, privKey)
+		signature, err := asserts.signContent(content, privkey)
 		
 		if err != nil {
 		return nil, err
