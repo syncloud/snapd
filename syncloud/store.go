@@ -1143,7 +1143,8 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	case "snap-declaration":
 	 headers =		"series: " + primaryKey[0] + "\n"
 	case "snap-revision":
-	 headers =	 "snap-revision: 180224\n"
+	 headers =	 "snap-revision: 180224\n" +
+	 "snap-sha3-384: " + primaryKey[0] + "\n"
 	}
 
 	content := "type: " + assertType.Name + "\n" +
@@ -1158,8 +1159,8 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"display-name: syncloud\n" +
 		"revision: 1\n" +
 		"sign-key-sha3-384: " + SHA3_384 + "\n" +
-		"sha3-384: " + SHA3_384 + "\n" +
-		"snap-sha3-384: " + SHA3_384 + "\n" +
+		"sha3-384: " + SHA3_384 + "\n"
+	//	"snap-sha3-384: " + SHA3_384 + "\n" +
 		"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
 		"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
 		"since: " + time.Now().Format(time.RFC3339) + "\n" +
