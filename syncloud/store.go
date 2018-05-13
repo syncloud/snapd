@@ -1127,13 +1127,13 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		body +
 		"\n\n"
 		
-		signature, err := asserts.SignContent(content, privkey)
+		signature, err := asserts.SignContent([]byte(content), privkey)
 		
 		if err != nil {
 		return nil, err
 	}
 	
-		assertionText := content + signature + "\n"
+		assertionText := content + string(signature[:]) + "\n"
 
 	asrt, e := asserts.Decode([]byte(assertionText))
 
