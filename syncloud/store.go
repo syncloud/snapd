@@ -287,7 +287,7 @@ var defaultConfig = Config{}
 var syncloudAppsBaseURL *url.URL
 var privkey asserts.PrivateKey
 
-syncloudPrivKey := `-----BEGIN PGP PRIVATE KEY BLOCK-----
+var syncloudPrivKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1
 
 lQcYBAAAAAEBEADx0Loc/418zmw2AIcf5uxC/hgshHyCU98n4cRfJph007X6gXJf
