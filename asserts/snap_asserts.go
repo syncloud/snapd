@@ -30,6 +30,7 @@ import (
 
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/release"
+	"github.com/snapcore/snapd/logger"
 )
 
 // SnapDeclaration holds a snap-declaration assertion, declaring a
@@ -448,7 +449,9 @@ func (snaprev *SnapRevision) checkConsistency(db RODatabase, acck *AccountKey) e
 		"snap-id": snaprev.SnapID(),
 	})
 	if IsNotFound(err) {
-		return fmt.Errorf("snap-revision assertion for snap id %q does not have a matching snap-declaration assertion", snaprev.SnapID())
+		//return fmt.Errorf("snap-revision assertion for snap id %q does not have a matching snap-declaration assertion", snaprev.SnapID())
+		logger.Noticef("Syncloud hack: snap-revision assertion for snap id %q does not have a matching snap-declaration assertion", snaprev.SnapID())
+  return nil
 	}
 	if err != nil {
 		return err
