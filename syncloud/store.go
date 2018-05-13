@@ -50,8 +50,6 @@ import (
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
 
-	"crypto/rand"
-	"crypto/rsa"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/retry.v1"
@@ -350,7 +348,7 @@ func init() {
 	syncloudAppsBaseURL, _ = url.Parse("http://apps.syncloud.org")
 	//defaultConfig.SearchURI = urlJoin(storeBaseURI, "api/v1/snaps/search")
 
-	err = defaultConfig.SetBaseURL(syncloudAppsBaseURL)
+	err := defaultConfig.SetBaseURL(syncloudAppsBaseURL)
 	if err != nil {
 		panic(err)
 	}
