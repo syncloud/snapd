@@ -765,28 +765,28 @@ type Search struct {
 // Find finds  (installable) snaps from the store, matching the
 // given Search.
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
- logger.Noticef("search query: %s", search.Query)
- channel := "stable"
- versions, err := s.downloadVersions(channel)
- 	if err != nil {
-		 return nil, fmt.Errorf("Unable to get version: %s", err)
- 	}
- 	
+	logger.Noticef("search query: %s", search.Query)
+	channel := "stable"
+	versions, err := s.downloadVersions(channel)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to get version: %s", err)
+	}
+
 	resp, err := s.downloadIndex(channel)
 	if err != nil {
 		return nil, err
 	}
-	 apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
-	 if err != nil {
-	 	return nil, err
- 	}
-	 	var snaps []*snap.Info
-	 for name, app := range apps {
-	   if (search.Query == "*" || search.Query == "" || search.Query == name) {
-	     version := versions[name]
-	     snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
-	   }
-	 }
+	apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+	if err != nil {
+		return nil, err
+	}
+	var snaps []*snap.Info
+	for name, app := range apps {
+		if (search.Query == "*" || search.Query == "" || search.Query == name) {
+			version := versions[name]
+			snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+		}
+	}
 
 	return snaps, nil
 }
@@ -889,7 +889,6 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 	return apps, nil
 
 }
-
 
 func (s *Store) Sections(user *auth.UserState) ([]string, error) {
 	return []string{ "apps" }, nil
@@ -1243,9 +1242,15 @@ func buyOptionError(message string) (*BuyResult, error) {
 	return nil, fmt.Errorf("cannot buy snap: %s", message)
 }
 
-func (s *Store) LookupRefresh(*store.RefreshCandidate, *auth.UserState) (*snap.Info, error) {
- logger.Noticef("LookupRefresh")
-	
+func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
+	logger.Noticef("LookupRefresh")
+
+	versions, err := s.downloadVersions(installed.Channel)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to get version: %s", err)
+	}
+	versions[installed.]
+
 	return nil, errors.New("LookupRefresh: not implemented yet")
 }
 
