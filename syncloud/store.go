@@ -1159,7 +1159,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"display-name: syncloud\n" +
 		"revision: 1\n" +
 		"sign-key-sha3-384: " + SHA3_384 + "\n" +
-		"sha3-384: " + SHA3_384 + "\n"
+		"sha3-384: " + SHA3_384 + "\n" +
 	//	"snap-sha3-384: " + SHA3_384 + "\n" +
 		"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
 		"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
