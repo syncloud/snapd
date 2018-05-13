@@ -1142,7 +1142,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		body = string(publicKeyEnc)
 	case "snap-declaration":
 	 headers =		"series: " + primaryKey[0] + "\n"
-	cade "snap-tevision":
+	case "snap-revision":
 	 headers =	 "snap-revision: 180224\n"
 	}
 
