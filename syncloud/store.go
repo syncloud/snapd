@@ -828,7 +828,7 @@ func constructSnapId(name string, version string) string {
 
 func deconstructSnapId(snapId string) (string, string) {
  parts := strings.Split(snapId, ".")
- return parts[0], parts[0]
+ return parts[0], parts[1]
 }
 
 func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.Info) {
@@ -1248,7 +1248,7 @@ func buyOptionError(message string) (*BuyResult, error) {
 }
 
 func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
-	logger.Noticef("LookupRefresh")
+	logger.Noticef("LookupRefresh: %v", installed)
  channel := installed.Channel
  snapName, _ := deconstructSnapId(installed.SnapID)
  versions, err := s.downloadVersions(channel)
