@@ -1163,7 +1163,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 			"snap-revision: 180224\n" +
 			"snap-id: " + snapId + "\n" +
 			"snap-size: 1\n" +
-			"snap-sha3-384: snap-sha\n"
+			"snap-sha3-384: " + SHA3_384 + "\n"
 	}
 
 	content := "type: " + assertType.Name + "\n" +
