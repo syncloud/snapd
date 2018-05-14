@@ -1163,8 +1163,11 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 			"snap-revision: 180224\n" +
 			"snap-id: " + snapId + "\n" +
 			"snap-size: 1\n" +
-			"snap-sha3-384: " + SHA3_384 + "\n"
+			"snap-sha3-384: " + primaryKey[0] + "\n"
 	}
+ 
+	publicKeyId := privkey.PublicKey().ID()
+ logger.Noticef("public key id: %s", publicKeyId)
 
 	content := "type: " + assertType.Name + "\n" +
 		"authority-id: syncloud\n" +
@@ -1176,7 +1179,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"revision: 1\n" +
 		"sign-key-sha3-384: " + SHA3_384 + "\n" +
 		"sha3-384: " + SHA3_384 + "\n" +
-		"public-key-sha3-384: " + privkey.PublicKey().ID() + "\n" +
+		"public-key-sha3-384: " + publicKeyId + "\n" +
 		"timestamp: " + time.Now().Format(time.RFC3339) + "\n" +
 		"since: " + time.Now().Format(time.RFC3339) + "\n" +
 		headers +
