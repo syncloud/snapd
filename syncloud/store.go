@@ -826,6 +826,11 @@ func constructSnapId(name string, version string) string {
  return fmt.Sprintf("%s.%s", name, version)
 }
 
+func deconstructSnapId(snapId string) (string, string) {
+ parts := strings.Split(snapId, ".")
+ return parts[0], parts[0]
+}
+
 func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.Info) {
 	appType := snap.TypeApp
 	if (a.Required) {
@@ -1244,14 +1249,31 @@ func buyOptionError(message string) (*BuyResult, error) {
 
 func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
 	logger.Noticef("LookupRefresh")
+ channel := installed.Channel
+ snapName, snapVersion := deconstructSnapId(installed.SnapID))
+	versions, err := s.downloadVersions(channel)
 
-	versions, err := s.downloadVersions(installed.Channel)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to get version: %s", err)
+ 	if err != nil {
+		 return nil, fmt.Errorf("Unable to get version: %s", err)
+ 	}
+	
+	 resp, err := s.downloadIndex(channel)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	
+	 apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+ if err != nil {
+		return nil, err
 	}
-	versions[installed.]
+	version, ok := versions[snapName]
+	if !ok {
+		return nil, ErrSnapNotFound
+	}
 
-	return nil, errors.New("LookupRefresh: not implemented yet")
+ info := apps[snapName].toInfo(s.cfg.StoreBaseURL, channel, version)
+	
+	return info, nil
 }
 
 func (s *Store) SuggestedCurrency() string {
