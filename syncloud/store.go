@@ -1126,6 +1126,8 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 		}
 
 		actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
+		logger.Noticef("actual sha: %s", actualSha3)
+
 		if sha3_384 != "" && sha3_384 != actualSha3 {
 			finalErr = HashError{name, actualSha3, sha3_384}
 		}
@@ -1254,21 +1256,21 @@ func buyOptionError(message string) (*BuyResult, error) {
 
 func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
 	logger.Noticef("LookupRefresh: %v", installed)
- channel := s.parseChannel(installed.Channel)
- snapName, _ := deconstructSnapId(installed.SnapID)
- versions, err := s.downloadVersions(channel)
+	channel := s.parseChannel(installed.Channel)
+	snapName, _ := deconstructSnapId(installed.SnapID)
+	versions, err := s.downloadVersions(channel)
 
- 	if err != nil {
-		 return nil, fmt.Errorf("Unable to get version: %s", err)
- 	}
-	
-	 resp, err := s.downloadIndex(channel)
- 	if err != nil {
- 		return nil, err
- 	}
- 	
-	 apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
- if err != nil {
+	if err != nil {
+		return nil, fmt.Errorf("Unable to get version: %s", err)
+	}
+
+	resp, err := s.downloadIndex(channel)
+	if err != nil {
+		return nil, err
+	}
+
+	apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+	if err != nil {
 		return nil, err
 	}
 	latestVersion, ok := versions[snapName]
@@ -1276,8 +1278,8 @@ func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.User
 		return nil, ErrSnapNotFound
 	}
 
- info := apps[snapName].toInfo(s.cfg.StoreBaseURL, channel, latestVersion)
-	
+	info := apps[snapName].toInfo(s.cfg.StoreBaseURL, channel, latestVersion)
+
 	return info, nil
 }
 
