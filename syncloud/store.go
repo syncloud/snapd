@@ -1250,7 +1250,7 @@ func buyOptionError(message string) (*BuyResult, error) {
 func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
 	logger.Noticef("LookupRefresh")
  channel := installed.Channel
- snapName, snapVersion := deconstructSnapId(installed.SnapID))
+ snapName, snapVersion := deconstructSnapId(installed.SnapID)
 	versions, err := s.downloadVersions(channel)
 
  	if err != nil {
