@@ -855,6 +855,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 		IconURL:         a.Icon,
 		Channel:         channel,
 		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
+		DownloadSha3_384: fmt.Sprintf("download_sha.%s", a.Name),
 	}
 	
 		snap := infoFromRemote(&details)
@@ -978,6 +979,7 @@ func (e HashError) Error() string {
 // The file is saved in temporary storage, and should be removed
 // after use to prevent the disk from running out of space.
 func (s *Store) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState) error {
+ logger.Noticef("expected download sha: %s", downloadInfo.Sha3_384)
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 		return err
 	}
@@ -1161,7 +1163,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 			"snap-revision: 180224\n" +
 			"snap-id: " + snapId + "\n" +
 			"snap-size: 1\n" +
-			"snap-sha3-384: " + primaryKey[0] + "\n"
+			"snap-sha3-384: snap-sha\n"
 	}
 
 	content := "type: " + assertType.Name + "\n" +
