@@ -342,6 +342,8 @@ NnAkj2flf8ZFtNwrCy93JPVqY7j4Ip5AHUqhlUhYyPEMlcPEiNIhqZFUZvMYAIRL
 =gJ0v
 -----END PGP PRIVATE KEY BLOCK-----
 `
+SHA3_384 := "hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR"
+
 func init() {
  privkey, _ = assertstest.ReadPrivKey(syncloudPrivKey)
 
@@ -855,7 +857,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 		IconURL:         a.Icon,
 		Channel:         channel,
 		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
-		//DownloadSha3_384: fmt.Sprintf("download_sha.%s", a.Name),
+		DownloadSha3_384: SHA3_384,
 	}
 	
 		snap := infoFromRemote(&details)
@@ -1137,8 +1139,6 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
 	logger.Noticef("assert type: %s", assertType.Name)
 	logger.Noticef("assert key: %s", strings.Join(primaryKey, "/"))
-
-	SHA3_384 := "hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR"
 
 	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
 	if err != nil {
