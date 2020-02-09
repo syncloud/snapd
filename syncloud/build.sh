@@ -14,7 +14,7 @@ GO_ARCH=armv6l
 if [[ ${ARCH} == "x86_64" ]]; then
     GO_ARCH=amd64
 fi
-GOROOT=${DIR}/golang
+GOROOT=${${GOPATH}/golang
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
@@ -22,12 +22,11 @@ BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 export PATH=${GOROOT}/bin:$PATH
+cd ${GOPATH}
 
 wget https://dl.google.com/go/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz --progress dot:giga
 tar xf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
-mv go ${DIR}/golang
-
-cd ${GOPATH}
+mv go golang
 
 if [ ! -d "src/github.com/snapcore/snapd" ]; then
   echo "should be inside go path, src/github.com/snapcore/snapd"
