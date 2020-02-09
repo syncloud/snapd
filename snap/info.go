@@ -769,9 +769,8 @@ type AppInfo struct {
 	CommandChain  []string
 	CommonID      string
 
-<<<<<<< HEAD
 	Daemon          string
-  User             string
+    User             string
 	PreStartCommand  string
 	PostStartCommand string
 	StopTimeout     timeout.Timeout
