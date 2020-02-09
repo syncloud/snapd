@@ -15,9 +15,8 @@ if [[ ${ARCH} == "x86_64" ]]; then
     GO_ARCH=amd64
 fi
 GOROOT=${DIR}/go
-export PATH=$GOROOT/bin:${GOPATH}/bin:$PATH
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
-export PATH=${PATH}:${GOPATH}/bin
+export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
@@ -26,7 +25,7 @@ export PATH=${GOROOT}/bin:$PATH
 
 wget https://dl.google.com/go/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz --progress dot:giga
 tar xf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
-
+mv go ${DIR}
 cd ${GOPATH}
 
 if [ ! -d "src/github.com/snapcore/snapd" ]; then
