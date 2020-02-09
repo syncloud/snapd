@@ -14,7 +14,7 @@ GO_ARCH=armv6l
 if [[ ${ARCH} == "x86_64" ]]; then
     GO_ARCH=amd64
 fi
-GOROOT=${DIR}/go
+GOROOT=${DIR}/golang
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
@@ -25,7 +25,8 @@ export PATH=${GOROOT}/bin:$PATH
 
 wget https://dl.google.com/go/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz --progress dot:giga
 tar xf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
-mv go ${DIR}
+mv go ${DIR}/golang
+
 cd ${GOPATH}
 
 if [ ! -d "src/github.com/snapcore/snapd" ]; then
