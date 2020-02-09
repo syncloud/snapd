@@ -30,9 +30,8 @@ go get -d -v github.com/snapcore/snapd/... || true
 echo "got deps"
 cd src/github.com/snapcore/snapd
 
-${DIR}/mkversion.sh ${VERSION}
-
 ${DIR}/get-deps.sh
+${DIR}/mkversion.sh ${VERSION}
 
 if [[ ${TESTS} != "skip-tests" ]]; then
     adduser --disabled-password --gecos "" test
