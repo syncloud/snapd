@@ -349,7 +349,6 @@ func setAppsFromSnapYaml(y snapYaml, snap *Info, strk *scopedTracker) error {
 			LegacyAliases:   yApp.Aliases,
 			Command:         yApp.Command,
 			CommandChain:    yApp.CommandChain,
-			StartTimeout:    yApp.StartTimeout,
 			Daemon:          yApp.Daemon,
 			User:            yApp.User,
 			PreStartCommand:  yApp.PreStartCommand,
