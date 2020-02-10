@@ -352,7 +352,7 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 	if installHook != nil {
 		ts.MarkEdge(installHook, HooksEdge)
 	}
-	ts.MarkEdge(prereq, BeginEdge)
+	//ts.MarkEdge(prereq, BeginEdge)
 	ts.MarkEdge(setupAliases, BeforeHooksEdge)
 
 	// we do not support configuration for bases or the "snapd" snap yet
