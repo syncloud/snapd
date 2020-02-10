@@ -387,9 +387,9 @@ func New(cfg *Config, dauthCtx store.DeviceAndAuthContext) *Store {
 		infoFields = defaultConfig.InfoFields
 	}
 
-	architecture := arch.UbuntuArchitecture()
+	architecture := cfg.Architecture
 	if cfg.Architecture != "" {
-		architecture = cfg.Architecture
+		architecture = arch.DpkgArchitecture()
 	}
 
 	series := release.Series
