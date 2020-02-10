@@ -14,7 +14,7 @@ GO_ARCH=armv6l
 if [[ ${ARCH} == "x86_64" ]]; then
     GO_ARCH=amd64
 fi
-GOROOT=${${GOPATH}/golang
+GOROOT=${GOPATH}/golang
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
