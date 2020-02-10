@@ -408,7 +408,7 @@ func New(cfg *Config, dauthCtx store.DeviceAndAuthContext) *Store {
 		architecture:    architecture,
 		noCDN:           osutil.GetenvBool("SNAPPY_STORE_NO_CDN"),
 		fallbackStoreID: cfg.StoreID,
-		detailFields:    fields,
+		detailFields:    detailFields,
    infoFields:      infoFields,
 		dauthCtx:        dauthCtx,
 		deltaFormat:     deltaFormat,
