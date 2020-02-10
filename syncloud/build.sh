@@ -10,6 +10,7 @@ fi
 VERSION=$1
 TESTS=$2
 GO_VERSION=1.9.7
+ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 GO_ARCH=armv6l
 if [[ ${ARCH} == "x86_64" ]]; then
     GO_ARCH=amd64
@@ -20,7 +21,6 @@ GOROOT=${GOPATH}/golang
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
-ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 export PATH=${GOROOT}/bin:$PATH
 cd ${GOPATH}
