@@ -206,16 +206,18 @@ type Store struct {
 	fallbackStoreID string
 
 	detailFields []string
+  infoFields   []string
 	deltaFormat  string
 	// reused http client
 	client *http.Client
 
-	authContext auth.AuthContext
-
+	dauthCtx  DeviceAndAuthContext
+  sessionMu sync.Mutex
 	mu                sync.Mutex
 	suggestedCurrency string
 
 	cacher store.DownloadCache
+  proxy  func(*http.Request) (*url.URL, error)
 }
 
 func respToError(resp *http.Response, msg string) error {
@@ -377,14 +379,19 @@ var channelSnapInfoFields = getStructFields(channelSnapInfoDetails{})
 var defaultSupportedDeltaFormat = "xdelta3"
 
 // New creates a new Store with the given access configuration and for given the store id.
-func New(cfg *Config, authContext auth.AuthContext) *Store {
+func New(cfg *Config, dauthCtx DeviceAndAuthContext) *Store {
 	if cfg == nil {
 		cfg = &defaultConfig
 	}
 
-	fields := cfg.DetailFields
-	if fields == nil {
-		fields = detailFields
+	detailFields := cfg.DetailFields
+	if detailFields == nil {
+		detailFields = defaultConfig.DetailFields
+	}
+
+	infoFields := cfg.InfoFields
+	if infoFields == nil {
+		infoFields = defaultConfig.InfoFields
 	}
 
 	architecture := arch.UbuntuArchitecture()
@@ -409,12 +416,14 @@ func New(cfg *Config, authContext auth.AuthContext) *Store {
 		noCDN:           osutil.GetenvBool("SNAPPY_STORE_NO_CDN"),
 		fallbackStoreID: cfg.StoreID,
 		detailFields:    fields,
-		authContext:     authContext,
+   infoFields:      infoFields,
+		dauthCtx:        dauthCtx,
 		deltaFormat:     deltaFormat,
-
-		client: httputil.NewHTTPClient(&httputil.ClientOpts{
+   proxy:           cfg.Proxy,
+		client: httputil.NewHTTPClient(&httputil.ClientOptions{
 			Timeout:    10 * time.Second,
 			MayLogBody: true,
+     Proxy:      cfg.Proxy,
 		}),
 	}
 	store.SetCacheDownloads(cfg.CacheDownloads)
@@ -446,17 +455,6 @@ const (
 )
 
 func (s *Store) baseURL(defaultURL *url.URL) *url.URL {
-	u := defaultURL
-	if s.authContext != nil {
-		var err error
-		_, u, err = s.authContext.ProxyStoreParams(defaultURL)
-		if err != nil {
-			logger.Debugf("cannot get proxy store parameters from state: %v", err)
-		}
-	}
-	if u != nil {
-		return u
-	}
 	return defaultURL
 }
 
