@@ -344,7 +344,7 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 		if installHook != nil {
 			installSet.MarkEdge(installHook, HooksEdge)
 		}
-		installSet.MarkEdge(prereq, BeginEdge)
+		//installSet.MarkEdge(prereq, BeginEdge)
 		installSet.MarkEdge(setupAliases, BeforeHooksEdge)
 		return installSet, nil
 	}
