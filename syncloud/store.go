@@ -22,26 +22,30 @@ package syncloud
 
 import (
 	"bytes"
+	"context"
 	"crypto"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snapcore/snapd/asserts/assertstest"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"strconv"
+
+	"gopkg.in/retry.v1"
 
 	"github.com/snapcore/snapd/arch"
 	"github.com/snapcore/snapd/asserts"
-	"github.com/snapcore/snapd/asserts/assertstest"
+	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/httputil"
+	"github.com/snapcore/snapd/jsonutil"
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/overlord/auth"
@@ -50,9 +54,7 @@ import (
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
 
-	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
-	"gopkg.in/retry.v1"
 	"io/ioutil"
 	"github.com/snapcore/snapd/dirs"
 )
@@ -70,12 +72,35 @@ const (
 	UbuntuCoreWireProtocol = "1"
 )
 
+type RefreshOptions struct {
+	// RefreshManaged indicates to the store that the refresh is
+	// managed via snapd-control.
+	RefreshManaged bool
+	IsAutoRefresh  bool
+
+	PrivacyKey string
+}
+
 // the LimitTime should be slightly more than 3 times of our http.Client
 // Timeout value
-var defaultRetryStrategy = retry.LimitCount(5, retry.LimitTime(38*time.Second,
+var defaultRetryStrategy = retry.LimitCount(6, retry.LimitTime(38*time.Second,
 	retry.Exponential{
-		Initial: 300 * time.Millisecond,
+		Initial: 350 * time.Millisecond,
 		Factor:  2.5,
+	},
+))
+
+var downloadRetryStrategy = retry.LimitCount(7, retry.LimitTime(90*time.Second,
+	retry.Exponential{
+		Initial: 500 * time.Millisecond,
+		Factor:  2.5,
+	},
+))
+
+var connCheckStrategy = retry.LimitCount(3, retry.LimitTime(38*time.Second,
+	retry.Exponential{
+		Initial: 900 * time.Millisecond,
+		Factor:  1.3,
 	},
 ))
 
@@ -199,21 +224,28 @@ type Store struct {
 	fallbackStoreID string
 
 	detailFields []string
-  infoFields   []string
+	infoFields   []string
 	deltaFormat  string
 	// reused http client
 	client *http.Client
 
 	dauthCtx  store.DeviceAndAuthContext
-  sessionMu sync.Mutex
+	sessionMu sync.Mutex
+
 	mu                sync.Mutex
 	suggestedCurrency string
 
 	cacher store.DownloadCache
-  proxy  func(*http.Request) (*url.URL, error)
+	proxy  func(*http.Request) (*url.URL, error)
 }
 
+var ErrTooManyRequests = errors.New("too many requests")
+
 func respToError(resp *http.Response, msg string) error {
+	if resp.StatusCode == 429 {
+		return ErrTooManyRequests
+	}
+
 	tpl := "cannot %s: got unexpected HTTP status code %d via %s to %q"
 	if oops := resp.Header.Get("X-Oops-Id"); oops != "" {
 		tpl += " [%s]"
@@ -223,36 +255,19 @@ func respToError(resp *http.Response, msg string) error {
 	return fmt.Errorf(tpl, msg, resp.StatusCode, resp.Request.Method, resp.Request.URL)
 }
 
-func getStructFields(s interface{}) []string {
-	st := reflect.TypeOf(s)
-	num := st.NumField()
-	fields := make([]string, 0, num)
-	for i := 0; i < num; i++ {
-		tag := st.Field(i).Tag.Get("json")
-		idx := strings.IndexRune(tag, ',')
-		if idx > -1 {
-			tag = tag[:idx]
-		}
-		if tag != "" {
-			fields = append(fields, tag)
-		}
+// Deltas enabled by default on classic, but allow opting in or out on both classic and core.
+func useDeltas() bool {
+	// only xdelta3 is supported for now, so check the binary exists here
+	// TODO: have a per-format checker instead
+	if _, err := getXdelta3Cmd(); err != nil {
+		return false
 	}
 
-	return fields
+	return osutil.GetenvBool("SNAPD_USE_DELTAS_EXPERIMENTAL", true)
 }
 
-// Extend a base URL with additional unescaped paths.  (url.Parse handles
-// resolving relative links, which isn't quite what we want: that goes wrong if
-// the base URL doesn't end with a slash.)
-func urlJoin(base *url.URL, paths ...string) *url.URL {
-	if len(paths) == 0 {
-		return base
-	}
-	url := *base
-	url.RawQuery = ""
-	paths = append([]string{strings.TrimSuffix(url.Path, "/")}, paths...)
-	url.Path = strings.Join(paths, "/")
-	return &url
+func useStaging() bool {
+	return osutil.GetenvBool("SNAPPY_USE_STAGING_STORE")
 }
 
 // endpointURL clones a base URL and updates it with optional path and query.
@@ -268,10 +283,76 @@ func endpointURL(base *url.URL, path string, query url.Values) *url.URL {
 	return &u
 }
 
+// apiURL returns the system default base API URL.
+func apiURL() *url.URL {
+	s := "https://api.snapcraft.io/"
+	if useStaging() {
+		s = "https://api.staging.snapcraft.io/"
+	}
+	u, _ := url.Parse(s)
+	return u
+}
+
 // storeURL returns the base store URL, derived from either the given API URL
 // or an env var override.
 func storeURL(api *url.URL) (*url.URL, error) {
+	var override string
+	var overrideName string
+	// XXX: time to drop FORCE_CPI support
+	// XXX: Deprecated but present for backward-compatibility: this used
+	// to be "Click Package Index".  Remove this once people have got
+	// used to SNAPPY_FORCE_API_URL instead.
+	if s := os.Getenv("SNAPPY_FORCE_CPI_URL"); s != "" && strings.HasSuffix(s, "api/v1/") {
+		overrideName = "SNAPPY_FORCE_CPI_URL"
+		override = strings.TrimSuffix(s, "api/v1/")
+	} else if s := os.Getenv("SNAPPY_FORCE_API_URL"); s != "" {
+		overrideName = "SNAPPY_FORCE_API_URL"
+		override = s
+	}
+	if override != "" {
+		u, err := url.Parse(override)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: %s", overrideName, err)
+		}
+		return u, nil
+	}
 	return api, nil
+}
+
+func assertsURL() (*url.URL, error) {
+	if s := os.Getenv("SNAPPY_FORCE_SAS_URL"); s != "" {
+		u, err := url.Parse(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid SNAPPY_FORCE_SAS_URL: %s", err)
+		}
+		return u, nil
+	}
+
+	// nil means fallback to store base url
+	return nil, nil
+}
+
+func authLocation() string {
+	if useStaging() {
+		return "login.staging.ubuntu.com"
+	}
+	return "login.ubuntu.com"
+}
+
+func authURL() string {
+	if u := os.Getenv("SNAPPY_FORCE_SSO_URL"); u != "" {
+		return u
+	}
+	return "https://" + authLocation() + "/api/v2"
+}
+
+var defaultStoreDeveloperURL = "https://dashboard.snapcraft.io/"
+
+func storeDeveloperURL() string {
+	if useStaging() {
+		return "https://dashboard.staging.snapcraft.io/"
+	}
+	return defaultStoreDeveloperURL
 }
 
 var defaultConfig = Config{}
@@ -348,6 +429,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	defaultConfig.DetailFields = jsonutil.StructFields(snapDetails{})
+	defaultConfig.InfoFields = jsonutil.StructFields((*storeSnap)(nil), "snap-yaml")
 }
 
 type searchResults struct {
@@ -388,13 +471,13 @@ func New(cfg *Config, dauthCtx store.DeviceAndAuthContext) *Store {
 	}
 
 	architecture := cfg.Architecture
-	if cfg.Architecture != "" {
+	if cfg.Architecture == "" {
 		architecture = arch.DpkgArchitecture()
 	}
 
-	series := release.Series
-	if cfg.Series != "" {
-		series = cfg.Series
+	series := cfg.Series
+	if cfg.Series == "" {
+		series = release.Series
 	}
 
 	deltaFormat := cfg.DeltaFormat
@@ -409,7 +492,7 @@ func New(cfg *Config, dauthCtx store.DeviceAndAuthContext) *Store {
 		noCDN:           osutil.GetenvBool("SNAPPY_STORE_NO_CDN"),
 		fallbackStoreID: cfg.StoreID,
 		detailFields:    detailFields,
-   infoFields:      infoFields,
+		infoFields:      infoFields,
 		dauthCtx:        dauthCtx,
 		deltaFormat:     deltaFormat,
    proxy:           cfg.Proxy,
@@ -447,12 +530,8 @@ const (
 	assertionsPath = "api/v1/snaps/assertions"
 )
 
-func (s *Store) baseURL(defaultURL *url.URL) *url.URL {
-	return defaultURL
-}
-
 func (s *Store) endpointURL(p string, query url.Values) *url.URL {
-	return endpointURL(s.baseURL(s.cfg.StoreBaseURL), p, query)
+	return endpointURL(s.cfg.StoreBaseURL, p, query)
 }
 
 // LoginUser logs user in the store and returns the authentication macaroons.
@@ -703,8 +782,10 @@ func (s *Store) downloadVersion(channel string, name string) (string, error) {
 }
 
 // SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
-func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
-	channel := s.parseChannel(snapSpec.Channel)
+func (s *Store) SnapInfo(ctx context.Context, snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
+
+
+	channel := s.parseChannel("not implemented")
 
 	resp, err := s.downloadIndex(channel)
 	if err != nil {
@@ -825,7 +906,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 		Revision:        revision,
 		IconURL:         a.Icon,
 		Channel:         channel,
-		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
+		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.DpkgArchitecture()),
 		DownloadSha3_384: SHA3_384,
 	}
 
@@ -926,11 +1007,6 @@ func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
 		Revision: cs.Revision.N,
 		// confinement purposely left empty
 	}
-}
-
-func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.UserState, flags *store.RefreshOptions) (snaps []*snap.Info, err error) {
-	return nil, errors.New("not implemented yet")
-
 }
 
 type HashError struct {
@@ -1048,7 +1124,7 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 			return fmt.Errorf("The download has been cancelled: %s", ctx.Err())
 		}
 		if finalErr != nil {
-			if httputil.ShouldRetryError(attempt, finalErr) {
+			if httputil.ShouldRetryAttempt(attempt, finalErr) {
 				continue
 			}
 			break
@@ -1078,7 +1154,7 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 		_, finalErr = io.Copy(mw, resp.Body)
 		pbar.Finished()
 		if finalErr != nil {
-			if httputil.ShouldRetryError(attempt, finalErr) {
+			if httputil.ShouldRetryAttempt(attempt, finalErr) {
 				// error while downloading should resume
 				var seekerr error
 				resume, seekerr = w.Seek(0, os.SEEK_END)
@@ -1227,31 +1303,6 @@ func buyOptionError(message string) (*BuyResult, error) {
 	return nil, fmt.Errorf("cannot buy snap: %s", message)
 }
 
-func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
-	logger.Noticef("LookupRefresh: %v", installed)
-	channel := s.parseChannel(installed.Channel)
-	snapName, _ := deconstructSnapId(installed.SnapID)
-
-	resp, err := s.downloadIndex(channel)
-	if err != nil {
-		return nil, err
-	}
-
-	apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	latestVersion, err := s.downloadVersion(channel, snapName)
-	if err != nil {
-		return nil, ErrSnapNotFound
-	}
-
-	info := apps[snapName].toInfo(s.cfg.StoreBaseURL, channel, latestVersion)
-
-	return info, nil
-}
-
 func (s *Store) SuggestedCurrency() string {
 	return "USD"
 }
@@ -1263,7 +1314,7 @@ type storeCustomer struct {
 	HasPaymentMethod  bool   `json:"has_payment_method"`
 }
 
-func (s *Store) Buy(options *store.BuyOptions, user *auth.UserState) (*store.BuyResult, error) {
+func (s *Store) Buy(options *client.BuyOptions, user *auth.UserState) (*client.BuyResult, error) {
 	return nil, errors.New("not implemented yet")
 }
 
