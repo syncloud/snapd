@@ -82,7 +82,6 @@ var defaultRetryStrategy = retry.LimitCount(5, retry.LimitTime(38*time.Second,
 func infoFromRemote(d *snapDetails) *snap.Info {
 	info := &snap.Info{}
 	info.Architectures = d.Architectures
-	info.Type = d.Type
 	info.Version = d.Version
 	info.Epoch = d.Epoch
 	info.RealName = d.Name
@@ -91,7 +90,6 @@ func infoFromRemote(d *snapDetails) *snap.Info {
 	info.EditedTitle = d.Title
 	info.EditedSummary = d.Summary
 	info.EditedDescription = d.Description
-	info.PublisherID = d.DeveloperID
 	info.Publisher = d.Developer
 	info.Channel = d.Channel
 	info.Sha3_384 = d.DownloadSha3_384
