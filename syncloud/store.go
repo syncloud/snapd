@@ -162,17 +162,21 @@ type Config struct {
 	StoreBaseURL      *url.URL
 	AssertionsBaseURL *url.URL
 
-	// StoreID is the store id used if we can't get one through the AuthContext.
+	// StoreID is the store id used if we can't get one through the DeviceAndAuthContext.
 	StoreID string
 
 	Architecture string
 	Series       string
 
 	DetailFields []string
+	InfoFields   []string
 	DeltaFormat  string
 
 	// CacheDownloads is the number of downloads that should be cached
 	CacheDownloads int
+
+	// Proxy returns the HTTP proxy to use when talking to the store
+	Proxy func(*http.Request) (*url.URL, error)
 }
 
 // setBaseURL updates the store API's base URL in the Config. Must not be used
@@ -368,7 +372,7 @@ var channelSnapInfoFields = getStructFields(channelSnapInfoDetails{})
 var defaultSupportedDeltaFormat = "xdelta3"
 
 // New creates a new Store with the given access configuration and for given the store id.
-func New(cfg *Config, dauthCtx DeviceAndAuthContext) *Store {
+func New(cfg *Config, dauthCtx store.DeviceAndAuthContext) *Store {
 	if cfg == nil {
 		cfg = &defaultConfig
 	}
