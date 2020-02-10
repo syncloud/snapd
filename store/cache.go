@@ -51,7 +51,7 @@ type NullCache struct{}
 func (cm *NullCache) Get(cacheKey, targetPath string) error {
 	return fmt.Errorf("cannot get items from the nullCache")
 }
-func (cm *nullCache) GetPath(cacheKey string) string {
+func (cm *NullCache) GetPath(cacheKey string) string {
 	return ""
 }
 func (cm *NullCache) Put(cacheKey, sourcePath string) error { return nil }

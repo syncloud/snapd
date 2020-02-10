@@ -20,6 +20,7 @@
 package backends
 
 import (
+  "fmt"
 	"github.com/snapcore/snapd/interfaces"
 	//"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
