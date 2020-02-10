@@ -11,10 +11,6 @@ VERSION=$1
 TESTS=$2
 GO_VERSION=1.9.7
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
-GO_ARCH=armv6l
-if [[ ${ARCH} == "x86_64" ]]; then
-    GO_ARCH=amd64
-fi
 
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 GOROOT=${GOPATH}/golang
@@ -25,8 +21,8 @@ BUILD_DIR=${GOPATH}/build/${NAME}
 export PATH=${GOROOT}/bin:$PATH
 cd ${GOPATH}
 
-wget https://dl.google.com/go/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz --progress dot:giga
-tar xf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
+wget https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz --progress dot:giga
+tar xf go${GO_VERSION}.linux-${ARCH}.tar.gz
 mv go golang
 
 if [ ! -d "src/github.com/snapcore/snapd" ]; then
