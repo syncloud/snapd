@@ -556,7 +556,6 @@ WantedBy={{.ServicesTarget}}
 		Restart            string
 		StartTimeout       time.Duration
 		StopTimeout        time.Duration
-		StartTimeout       time.Duration
 		ServicesTarget     string
 		PrerequisiteTarget string
 		MountUnit          string
@@ -574,7 +573,6 @@ WantedBy={{.ServicesTarget}}
 		Restart:            restartCond,
 		StartTimeout:       serviceStartTimeout(appInfo),
 		StopTimeout:        serviceStopTimeout(appInfo),
-		StartTimeout:       time.Duration(appInfo.StartTimeout),
 		ServicesTarget:     systemd.ServicesTarget,
 		PrerequisiteTarget: systemd.PrerequisiteTarget,
 		MountUnit:          filepath.Base(systemd.MountUnitPath(appInfo.Snap.MountDir())),
