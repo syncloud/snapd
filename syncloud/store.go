@@ -211,7 +211,7 @@ type Store struct {
 	// reused http client
 	client *http.Client
 
-	dauthCtx  DeviceAndAuthContext
+	dauthCtx  store.DeviceAndAuthContext
   sessionMu sync.Mutex
 	mu                sync.Mutex
 	suggestedCurrency string

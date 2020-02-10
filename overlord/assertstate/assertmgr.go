@@ -93,7 +93,7 @@ func doValidateSnap(t *state.Task, _ *tomb.Tomb) error {
 	}
 
 	sha3_384, snapSize, err := asserts.SnapFileSHA3_384(snapsup.SnapPath)
-	appVersion := fmt.Sprintf("%s.%s", snapsup.Name(), snapsup.Revision())
+	appVersion := fmt.Sprintf("%s.%s", snapsup.SnapName(), snapsup.Revision())
 	sha3_384, err = asserts.EncodeDigest(crypto.SHA3_384, []byte(appVersion))
 	if err != nil {
 		return err
