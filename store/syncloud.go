@@ -1,19 +1,10 @@
 package store
 import (
-	"bytes"
 	"context"
-	"crypto"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -78,7 +69,7 @@ func (s *SyncloudStore) SnapInfo(ctx context.Context, snapSpec SnapSpec, user *a
 		return nil, err
 	}
 
-	version, err := s.downloadVersion(channel, snapSpec.Name)
+	version, err = s.downloadVersion(channel, snapSpec.Name)
 	if err != nil {
 		return nil, ErrSnapNotFound
 	}
