@@ -356,3 +356,11 @@ func (s *SyncloudStore) Assertion(assertType *asserts.AssertionType, primaryKey 
 	return asrt, e
 
 }
+
+func (s *SyncloudStore) Buy(options *client.BuyOptions, user *auth.UserState) (*client.BuyResult, error) {
+	return nil, errors.New("not implemented yet")
+}
+
+func (s *SyncloudStore) ReadyToBuy(*auth.UserState) error {
+	return errors.New("not implemented yet")
+}
