@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -289,7 +291,7 @@ func (s *SyncloudStore) downloadVersion(channel string, name string, user *auth.
 
 }
 
-func (s *SyncloudStore) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
+func (s *SyncloudStore) Assertion(assertType *asserts.AssertionType, primaryKey []string, _ *auth.UserState) (asserts.Assertion, error) {
 	logger.Debugf("assert type: %s, key: %s", assertType.Name, strings.Join(primaryKey, "/"))
 
 	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
@@ -361,7 +363,7 @@ func (s *SyncloudStore) Assertion(assertType *asserts.AssertionType, primaryKey 
 
 }
 
-func (s *SyncloudStore) Buy(options *client.BuyOptions, user *auth.UserState) (*client.BuyResult, error) {
+func (s *SyncloudStore) Buy(_ *client.BuyOptions, _ *auth.UserState) (*client.BuyResult, error) {
 	return nil, errors.New("not implemented yet")
 }
 
@@ -377,8 +379,8 @@ func (s *SyncloudStore) CreateCohorts(context.Context, []string) (map[string]str
 	return make(map[string]string), nil
 }
 
-func (s *SyncloudStore) LoginUser(username, password, otp string) (string, string, error) {
-
+func (s *SyncloudStore) LoginUser(_, _, _ string) (string, string, error) {
+	return "macaroon", "discharge", nil
 }
 
 func (s *SyncloudStore) UserInfo(email string) (userinfo *User, err error) {
@@ -398,14 +400,67 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
 }
 
 func (s *SyncloudStore) Sections(ctx context.Context, user *auth.UserState) ([]string, error) {
-
+	return []string{"apps"}, nil
 }
 
 func (s *SyncloudStore) WriteCatalogs(ctx context.Context, names io.Writer, adder SnapAdder) error {
-
+	return nil
 }
 
-func (s *SyncloudStore) Download(context.Context, string, string, *snap.DownloadInfo, progress.Meter, *auth.UserState, *DownloadOptions) error {
+func (s *SyncloudStore) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState, options *DownloadOptions) error {
+	logger.Noticef("expected download sha: %s", downloadInfo.Sha3_384)
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		return err
+	}
+
+	//if err := s.cacher.Get(downloadInfo.Sha3_384, targetPath); err == nil {
+	//	return nil
+	//}
+
+	partialPath := targetPath + ".partial"
+	w, err := os.OpenFile(partialPath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	resume, err := w.Seek(0, os.SEEK_END)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := w.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+		if err != nil {
+			os.Remove(w.Name())
+		}
+	}()
+
+	url := downloadInfo.AnonDownloadURL
+
+	err = download(ctx, name, downloadInfo.Sha3_384, url, user, s.store, w, resume, pbar, options)
+	// If hashsum is incorrect retry once
+	if _, ok := err.(HashError); ok {
+		logger.Debugf("Hashsum error on download: %v", err.Error())
+		err = w.Truncate(0)
+		if err != nil {
+			return err
+		}
+		_, err = w.Seek(0, os.SEEK_SET)
+		if err != nil {
+			return err
+		}
+		err = download(ctx, name, downloadInfo.Sha3_384, url, s, w, 0, pbar)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if err := os.Rename(w.Name(), targetPath); err != nil {
+		return err
+	}
+
+	return w.Sync()
 
 }
 
