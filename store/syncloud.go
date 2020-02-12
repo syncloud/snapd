@@ -14,7 +14,9 @@ import (
 	"github.com/snapcore/snapd/jsonutil/safejson"
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/overlord/auth"
+	"github.com/snapcore/snapd/progress"
 	"github.com/snapcore/snapd/snap"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -369,4 +371,48 @@ func (s *SyncloudStore) ReadyToBuy(*auth.UserState) error {
 
 func (s *SyncloudStore) ConnectivityCheck() (status map[string]bool, err error) {
   return make(map[string]bool), nil
+}
+
+func (s *SyncloudStore) CreateCohorts(context.Context, []string) (map[string]string, error) {
+	return make(map[string]string), nil
+}
+
+func (s *SyncloudStore) LoginUser(username, password, otp string) (string, string, error) {
+
+}
+
+func (s *SyncloudStore) UserInfo(email string) (userinfo *User, err error) {
+
+}
+
+func (s *SyncloudStore) EnsureDeviceSession() (*auth.DeviceState, error) {
+
+}
+
+func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.UserState) ([]*snap.Info, error) {
+
+}
+
+func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
+
+}
+
+func (s *SyncloudStore) Sections(ctx context.Context, user *auth.UserState) ([]string, error) {
+
+}
+
+func (s *SyncloudStore) WriteCatalogs(ctx context.Context, names io.Writer, adder SnapAdder) error {
+
+}
+
+func (s *SyncloudStore) Download(context.Context, string, string, *snap.DownloadInfo, progress.Meter, *auth.UserState, *DownloadOptions) error {
+
+}
+
+func (s *SyncloudStore) DownloadStream(context.Context, string, *snap.DownloadInfo, *auth.UserState) (io.ReadCloser, error) {
+
+}
+
+func (s *SyncloudStore) SuggestedCurrency() string {
+
 }

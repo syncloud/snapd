@@ -370,7 +370,7 @@ func cachedStore(st *state.State) StoreService {
 }
 
 // the store implementation has the interface consumed here
-var _ StoreService = (*store.Store)(nil)
+var _ StoreService = (*store.SyncloudStore)(nil)
 
 // Store returns the store service provided by the optional device context or
 // the one used by the snapstate package if the former has no
