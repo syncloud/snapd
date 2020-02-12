@@ -16,6 +16,7 @@ if [[ ${ARCH} == "armhf" ]]; then
   GO_ARCH=armv6l
 fi
 
+apt install libcap-dev libseccomp-dev 	 xfslibs-dev
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 GOROOT=${GOPATH}/golang
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
