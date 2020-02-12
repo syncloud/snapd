@@ -366,3 +366,7 @@ func (s *SyncloudStore) Buy(options *client.BuyOptions, user *auth.UserState) (*
 func (s *SyncloudStore) ReadyToBuy(*auth.UserState) error {
 	return errors.New("not implemented yet")
 }
+
+func (s *Store) ConnectivityCheck() (status map[string]bool, err error) {
+  return make(map[string]bool), nil
+}
