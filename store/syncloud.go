@@ -489,5 +489,5 @@ func (s *SyncloudStore) DownloadStream(context.Context, string, *snap.DownloadIn
 }
 
 func (s *SyncloudStore) SuggestedCurrency() string {
-
+  return "USD
 }
