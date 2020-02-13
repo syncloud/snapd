@@ -24,8 +24,8 @@ rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
 cp snapd/bin/snapd /usr/lib/snapd
 cp snapd/bin/snap-exec /usr/lib/snapd
-cp snapd/bin/snap-confine /usr/lib/snapd
-cp snapd/bin/snap-discard-ns /usr/lib/snapd
+#cp snapd/bin/snap-confine /usr/lib/snapd
+#cp snapd/bin/snap-discard-ns /usr/lib/snapd
 cp snapd/bin/snap /usr/bin
 cp snapd/bin/snapctl /usr/bin
 cp snapd/bin/mksquashfs /usr/bin
