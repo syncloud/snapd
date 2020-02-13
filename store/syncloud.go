@@ -384,7 +384,11 @@ func (s *SyncloudStore) LoginUser(_, _, _ string) (string, string, error) {
 }
 
 func (s *SyncloudStore) UserInfo(email string) (userinfo *User, err error) {
-
+  return &User{
+		Username:   "syncloud",
+		SSHKeys:      []string{},
+		OpenIDIdentifier: "",
+	}, nil
 }
 
 func (s *SyncloudStore) EnsureDeviceSession() (*auth.DeviceState, error) {
@@ -393,11 +397,11 @@ func (s *SyncloudStore) EnsureDeviceSession() (*auth.DeviceState, error) {
 
 func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.UserState) ([]*snap.Info, error) {
 	channel := "stable"
-	resp, err := s.downloadIndex(channel)
+	resp, err := s.downloadIndex(channel, user)
 	if err != nil {
 		return nil, err
 	}
-	apps, err := parseIndex(resp, s.url)
+	apps, err := parseIndex(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +420,7 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 }
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
-
+ 
 }
 
 func (s *SyncloudStore) Sections(ctx context.Context, user *auth.UserState) ([]string, error) {
@@ -429,7 +433,6 @@ func (s *SyncloudStore) WriteCatalogs(ctx context.Context, names io.Writer, adde
 
 func (s *SyncloudStore) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState, options *DownloadOptions) error {
 	return s.store.Download(ctx, name, targetPath, downloadInfo)
-
 }
 
 func (s *SyncloudStore) DownloadStream(ctx context.Context, name string, downloadInfo *snap.DownloadInfo, userState *auth.UserState) (io.ReadCloser, error) {
@@ -437,5 +440,5 @@ func (s *SyncloudStore) DownloadStream(ctx context.Context, name string, downloa
 }
 
 func (s *SyncloudStore) SuggestedCurrency() string {
-  return "USD
+  return s.store.SuggestedCurrency()
 }
