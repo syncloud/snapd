@@ -868,7 +868,6 @@ func (x *cmdRun) runCmdUnderStrace(origCmd, env []string) error {
 }
 
 func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook string, args []string) error {
-<<<<<<< HEAD
 	snapConfine, err := snapdHelperPath("snap-exec")
 	if err != nil {
 		return err
