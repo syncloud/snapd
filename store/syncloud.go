@@ -418,7 +418,7 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 }
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
- return currentSnaps, nil
+  return nil, &SnapActionError{NoResults: true}
 }
 
 func (s *SyncloudStore) Sections(ctx context.Context, user *auth.UserState) ([]string, error) {
@@ -430,7 +430,7 @@ func (s *SyncloudStore) WriteCatalogs(ctx context.Context, names io.Writer, adde
 }
 
 func (s *SyncloudStore) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState, options *DownloadOptions) error {
-	return s.store.Download(ctx, name, targetPath, downloadInfo, phar, user, options)
+	return s.store.Download(ctx, name, targetPath, downloadInfo, pbar, user, options)
 }
 
 func (s *SyncloudStore) DownloadStream(ctx context.Context, name string, downloadInfo *snap.DownloadInfo, userState *auth.UserState) (io.ReadCloser, error) {
