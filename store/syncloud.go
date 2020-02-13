@@ -428,64 +428,12 @@ func (s *SyncloudStore) WriteCatalogs(ctx context.Context, names io.Writer, adde
 }
 
 func (s *SyncloudStore) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState, options *DownloadOptions) error {
-	logger.Noticef("expected download sha: %s", downloadInfo.Sha3_384)
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-		return err
-	}
-
-	//if err := s.cacher.Get(downloadInfo.Sha3_384, targetPath); err == nil {
-	//	return nil
-	//}
-
-	partialPath := targetPath + ".partial"
-	w, err := os.OpenFile(partialPath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return err
-	}
-	resume, err := w.Seek(0, os.SEEK_END)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := w.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-		if err != nil {
-			os.Remove(w.Name())
-		}
-	}()
-
-	url := downloadInfo.AnonDownloadURL
-
-	err = download(ctx, name, downloadInfo.Sha3_384, url, user, s.store, w, resume, pbar, options)
-	// If hashsum is incorrect retry once
-	if _, ok := err.(HashError); ok {
-		logger.Debugf("Hashsum error on download: %v", err.Error())
-		err = w.Truncate(0)
-		if err != nil {
-			return err
-		}
-		_, err = w.Seek(0, os.SEEK_SET)
-		if err != nil {
-			return err
-		}
-		err = download(ctx, name, downloadInfo.Sha3_384, url, user, s, w.store, 0, pbar, options)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if err := os.Rename(w.Name(), targetPath); err != nil {
-		return err
-	}
-
-	return w.Sync()
+	return s.store.Download(ctx, name, targetPath, downloadInfo)
 
 }
 
-func (s *SyncloudStore) DownloadStream(context.Context, string, *snap.DownloadInfo, *auth.UserState) (io.ReadCloser, error) {
-
+func (s *SyncloudStore) DownloadStream(ctx context.Context, name string, downloadInfo *snap.DownloadInfo, userState *auth.UserState) (io.ReadCloser, error) {
+  return s.store.DownloadStream(ctx, name, downloadInfo, userState)
 }
 
 func (s *SyncloudStore) SuggestedCurrency() string {
