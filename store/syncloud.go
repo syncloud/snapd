@@ -20,8 +20,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -408,11 +406,11 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 	var snaps []*snap.Info
 	for name, app := range apps {
 		if (search.Query == "*" || search.Query == "" || search.Query == name) {
-    		version, err := s.downloadVersion(channel, name)
+    		version, err := s.downloadVersion(channel, name, user)
         	if err != nil {
         		logger.Noticef("No version on the channel: %s", channel)
         	} else {
-			    snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+			    snaps = append(snaps, app.toInfo(s.url, channel, version))
 			}
 		}
 	}
@@ -420,7 +418,7 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 }
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
- 
+ return currentSnaps, nil
 }
 
 func (s *SyncloudStore) Sections(ctx context.Context, user *auth.UserState) ([]string, error) {
@@ -432,7 +430,7 @@ func (s *SyncloudStore) WriteCatalogs(ctx context.Context, names io.Writer, adde
 }
 
 func (s *SyncloudStore) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState, options *DownloadOptions) error {
-	return s.store.Download(ctx, name, targetPath, downloadInfo)
+	return s.store.Download(ctx, name, targetPath, downloadInfo, phar, user, options)
 }
 
 func (s *SyncloudStore) DownloadStream(ctx context.Context, name string, downloadInfo *snap.DownloadInfo, userState *auth.UserState) (io.ReadCloser, error) {
