@@ -449,7 +449,7 @@ func (s *SyncloudStore) Download(ctx context.Context, name string, targetPath st
 		if err != nil {
 			return err
 		}
-		err = download(ctx, name, downloadInfo.Sha3_384, url, s, w, 0, pbar)
+		err = download(ctx, name, downloadInfo.Sha3_384, url, user, s, w.store, 0, pbar, options)
 	}
 
 	if err != nil {
