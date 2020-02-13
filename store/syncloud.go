@@ -388,11 +388,31 @@ func (s *SyncloudStore) UserInfo(email string) (userinfo *User, err error) {
 }
 
 func (s *SyncloudStore) EnsureDeviceSession() (*auth.DeviceState, error) {
-
+  return s.store.EnsureDeviceSession()
 }
 
 func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.UserState) ([]*snap.Info, error) {
-
+	channel := "stable"
+	resp, err := s.downloadIndex(channel)
+	if err != nil {
+		return nil, err
+	}
+	apps, err := parseIndex(resp, s.url)
+	if err != nil {
+		return nil, err
+	}
+	var snaps []*snap.Info
+	for name, app := range apps {
+		if (search.Query == "*" || search.Query == "" || search.Query == name) {
+    		version, err := s.downloadVersion(channel, name)
+        	if err != nil {
+        		logger.Noticef("No version on the channel: %s", channel)
+        	} else {
+			    snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+			}
+		}
+	}
+	return snaps, nil
 }
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
