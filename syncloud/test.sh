@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -34,15 +34,17 @@ sshpass -p syncloud scp -o StrictHostKeyChecking=no install-snapd.sh root@${DEVI
 sshpass -p syncloud scp -o StrictHostKeyChecking=no ../snapd-${VERSION}-${ARCH}.tar.gz root@${DEVICE_HOST}:/
 
 sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} /installer.sh ${VERSION}
-sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap install files
-sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap refresh files
 
+code=0
+set +e
+sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap install files
+code=$?
+sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap refresh files
+code=$(( $code + $? ))
+set -e
 
 mkdir log
 sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap changes > log/snap.changes.log   
 sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} journalctl > log/journalctl.log
 
-
-
-
-
+exit $code
