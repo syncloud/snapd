@@ -415,14 +415,25 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
   channel := "stable"
-  _, err := s.downloadIndex(channel, user)
-	if err != nil {
-		return nil, err
-	}
+  
+  var infos []*snap.Info
   for _, action := range actions {
     logger.Noticef("SnapAction: %v", action)
+    apps, err := s.downloadIndex(action.Channel, user)
+	  if err != nil {
+  		return nil, err
+	  }
+    if app, ok := apps[action.SnapID]; ok {
+      version, err := s.downloadVersion(channel, name, user)
+      	if err != nil {
+      		logger.Noticef("No version on the channel: %s", action.Channel)
+      	} else {
+        snapInfo := app.toInfo(s.url, action.Channel, version)
+        infos = append(infos, snapInfo)
+      }
+    }
   }
-  return nil, &SnapActionError{NoResults: true}
+  return infos, nil
 }
 
 func (s *SyncloudStore) Sections(ctx context.Context, user *auth.UserState) ([]string, error) {
