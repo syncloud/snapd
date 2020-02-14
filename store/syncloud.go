@@ -415,11 +415,11 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
   channel := "stable"
-  apps, err := s.downloadIndex(channel, user)
+  _, err := s.downloadIndex(channel, user)
 	if err != nil {
 		return nil, err
 	}
-  for i, action := range actions {
+  for _, action := range actions {
     logger.Noticef("SnapAction: %v", action)
   }
   return nil, &SnapActionError{NoResults: true}
