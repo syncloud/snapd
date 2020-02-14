@@ -419,16 +419,19 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
   var infos []*snap.Info
   for _, action := range actions {
     logger.Noticef("SnapAction: %v", action)
-    apps, err := s.downloadIndex(action.Channel, user)
+    name := action.SnapID
+    channel := action.Channel
+    
+    apps, err := s.downloadIndex(channel, user)
 	  if err != nil {
   		return nil, err
 	  }
-    if app, ok := apps[action.SnapID]; ok {
+    if app, ok := apps[name]; ok {
       version, err := s.downloadVersion(channel, name, user)
       	if err != nil {
-      		logger.Noticef("No version on the channel: %s", action.Channel)
+      		logger.Noticef("No version on the channel: %s", channel)
       	} else {
-        snapInfo := app.toInfo(s.url, action.Channel, version)
+        snapInfo := app.toInfo(s.url, channel, version)
         infos = append(infos, snapInfo)
       }
     }
