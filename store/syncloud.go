@@ -418,8 +418,8 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
 	if err != nil {
 		return nil, err
 	}
-  for i, action := actions {
-    logger.Noticef("SnaoAction: %v", action)
+  for i, action := range actions {
+    logger.Noticef("SnapAction: %v", action)
   }
   return nil, &SnapActionError{NoResults: true}
 }
