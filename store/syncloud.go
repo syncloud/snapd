@@ -172,12 +172,7 @@ func (s *SyncloudStore) SnapInfo(_ context.Context, snapSpec SnapSpec, user *aut
 
 	//channel := s.parseChannel(snapSpec.Channel)
 	channel := "stable"
-	resp, err := s.downloadIndex(channel, user)
-	if err != nil {
-		return nil, err
-	}
-
-	apps, err := parseIndex(resp)
+	apps, err := s.downloadIndex(channel, user)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +187,7 @@ func (s *SyncloudStore) SnapInfo(_ context.Context, snapSpec SnapSpec, user *aut
 	return info, nil
 }
 
-func (s *SyncloudStore) downloadIndex(channel string, user *auth.UserState) (string, error) {
+func (s *SyncloudStore) downloadIndex(channel string, user *auth.UserState) (map[string]*App, error) {
 	indexUrl, err := url.Parse(s.url + "/releases/" + channel + "/index-v2")
 	if err != nil {
 		return "", err
@@ -205,9 +200,14 @@ func (s *SyncloudStore) downloadIndex(channel string, user *auth.UserState) (str
 
 	resp, err := s.retryRequestString(context.TODO(), reqOptions, user)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp, nil
+
+	apps, err := parseIndex(resp)
+	if err != nil {
+		return nil, err
+	}
+  return apps, nil
 }
 
 func (s *SyncloudStore) retryRequestString(ctx context.Context, reqOptions *requestOptions, user *auth.UserState) (string, error) {
@@ -395,11 +395,7 @@ func (s *SyncloudStore) EnsureDeviceSession() (*auth.DeviceState, error) {
 
 func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.UserState) ([]*snap.Info, error) {
 	channel := "stable"
-	resp, err := s.downloadIndex(channel, user)
-	if err != nil {
-		return nil, err
-	}
-	apps, err := parseIndex(resp)
+	apps, err := s.downloadIndex(channel, user)
 	if err != nil {
 		return nil, err
 	}
@@ -418,6 +414,13 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 }
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
+  apps, err := s.downloadIndex(channel, user)
+	if err != nil {
+		return nil, err
+	}
+  for i, action := actions {
+    logger.Noticef("SnaoAction: %v", action)
+  }
   return nil, &SnapActionError{NoResults: true}
 }
 
