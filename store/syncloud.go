@@ -190,7 +190,7 @@ func (s *SyncloudStore) SnapInfo(_ context.Context, snapSpec SnapSpec, user *aut
 func (s *SyncloudStore) downloadIndex(channel string, user *auth.UserState) (map[string]*App, error) {
 	indexUrl, err := url.Parse(s.url + "/releases/" + channel + "/index-v2")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	reqOptions := &requestOptions{
 		Method: "GET",
@@ -414,6 +414,7 @@ func (s *SyncloudStore) Find(ctx context.Context, search *Search, user *auth.Use
 }
 
 func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentSnap, actions []*SnapAction, user *auth.UserState, opts *RefreshOptions) ([]*snap.Info, error) {
+  channel := "stable"
   apps, err := s.downloadIndex(channel, user)
 	if err != nil {
 		return nil, err
