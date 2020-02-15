@@ -431,6 +431,7 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
       		logger.Noticef("No version on the channel: %s", channel)
       	} else {
         snapInfo := app.toInfo(s.url, channel, version)
+        logger.Noticef("snapninfo: : %v", snapInfo)
         infos = append(infos, snapInfo)
       }
     }
