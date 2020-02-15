@@ -418,7 +418,7 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
   var infos []*snap.Info
   for _, action := range actions {
     logger.Noticef("SnapAction: %v", action)
-    name := action.SnapID
+    name := action.InstanceName
     channel := action.Channel
     
     apps, err := s.downloadIndex(channel, user)
@@ -431,7 +431,7 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
       		logger.Noticef("No version on the channel: %s", channel)
       	} else {
         snapInfo := app.toInfo(s.url, channel, version)
-        logger.Noticef("snapninfo: : %v", snapInfo)
+        logger.Noticef("snapninfo: %v", snapInfo)
         infos = append(infos, snapInfo)
       }
     } else {
