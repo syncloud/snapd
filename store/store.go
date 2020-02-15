@@ -1411,10 +1411,10 @@ func (s *Store) Download(ctx context.Context, name string, targetPath string, do
 		if _, err := io.Copy(h, w); err != nil {
 			return err
 		}
-		actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
-		if downloadInfo.Sha3_384 != actualSha3 {
-			err = HashError{name, actualSha3, downloadInfo.Sha3_384}
-		}
+		//actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
+		//if downloadInfo.Sha3_384 != actualSha3 {
+		//	err = HashError{name, actualSha3, downloadInfo.Sha3_384}
+		//}
 	}
 	// If hashsum is incorrect retry once
 	if _, ok := err.(HashError); ok {

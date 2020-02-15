@@ -136,7 +136,7 @@ func (a *App) toInfo(baseUrl string, channel string, version string) *snap.Info 
 		Revision:         revision,
 		Channel:          channel,
 		AnonDownloadURL:  fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.DpkgArchitecture()),
-		DownloadSha3_384: SHA3_384,
+		DownloadSha3_384: version,
 	}
 
 	return infoFromRemote(&details)
