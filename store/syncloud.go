@@ -434,7 +434,12 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
         logger.Noticef("snapninfo: : %v", snapInfo)
         infos = append(infos, snapInfo)
       }
+    } else {
+        logger.Noticef("App %s not found on the channel: %s", name, channel)
     }
+  }
+  if len(infos) == 0 {
+    nil, &SnapActionError{NoResults: true}
   }
   return infos, nil
 }
