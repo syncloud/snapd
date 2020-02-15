@@ -128,7 +128,7 @@ func (a *App) toInfo(baseUrl string, channel string, version string) *snap.Info 
 	logger.Noticef("snapid: %s", snapId)
   h := crypto.SHA3_384.New()
   h.Write([]byte(version))
-	sha3 := fmt.Sprintf("%x", h.Sum(nil))
+	//sha3 := fmt.Sprintf("%x", h.Sum(nil))
 
 	details := snapDetails{
 		SnapID:           snapId,
@@ -140,7 +140,7 @@ func (a *App) toInfo(baseUrl string, channel string, version string) *snap.Info 
 		Revision:         revision,
 		Channel:          channel,
 		AnonDownloadURL:  fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.DpkgArchitecture()),
-		DownloadSha3_384: sha3,
+		DownloadSha3_384: SHA3_384,
 	}
 
 	return infoFromRemote(&details)
