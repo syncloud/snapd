@@ -1575,10 +1575,10 @@ func downloadImpl(ctx context.Context, name, sha3_384, downloadURL string, user 
 			return fmt.Errorf("The download has been cancelled: %s", ctx.Err())
 		}
 
-		actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
-		if sha3_384 != "" && sha3_384 != actualSha3 {
-			finalErr = HashError{name, actualSha3, sha3_384}
-		}
+		//actualSha3 := fmt.Sprintf("%x", h.Sum(nil))
+		//if sha3_384 != "" && sha3_384 != actualSha3 {
+		//	finalErr = HashError{name, actualSha3, sha3_384}
+		//}
 		break
 	}
 	if finalErr == nil {
