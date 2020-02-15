@@ -439,7 +439,7 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
     }
   }
   if len(infos) == 0 {
-    nil, &SnapActionError{NoResults: true}
+    return nil, &SnapActionError{NoResults: true}
   }
   return infos, nil
 }
