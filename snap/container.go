@@ -20,6 +20,7 @@
 package snap
 
 import (
+  "logger"
 	"bytes"
 	"errors"
 	"fmt"
@@ -123,7 +124,7 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 	needsf := map[string]bool{}
 	// noskipd tracks directories we want to descend into despite not being in needs*
 	noskipd := map[string]bool{}
-
+  logger.Noticef("validate container") 	
 	for _, app := range s.Apps {
 		// for non-services, paths go into the needsrx bag because users
 		// need rx perms to execute it
