@@ -125,6 +125,7 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 	noskipd := map[string]bool{}
   logger.Noticef("validate container") 	
 	for _, app := range s.Apps {
+   logger.Noticef("validate container app: %v", app) 	
 		// for non-services, paths go into the needsrx bag because users
 		// need rx perms to execute it
 		bag := needsrx
