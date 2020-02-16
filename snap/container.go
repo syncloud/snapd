@@ -130,6 +130,8 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 		// need rx perms to execute it
 		bag := needsrx
 		paths := []string{app.Command}
+    logger.Noticef("validate container app paths: %v", paths) 	
+	
 		if app.IsService() {
 			// services' paths just need to not be skipped by the validator
 			bag = noskipd
@@ -137,8 +139,10 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 			// XXX maybe have a method on app to keep this in sync
 			paths = append(paths, app.StopCommand, app.ReloadCommand, app.PostStopCommand)
 		}
-
+   
 		for _, path := range paths {
+   logger.Noticef("validate container app path: %v", path) 	
+	
 			path = normPath(path)
 			if path == "" {
 				continue
@@ -161,6 +165,8 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 			}
 		}
 	}
+  logger.Noticef("validate container app needsr: %v", needsr) 	
+	
 	// note all needsr so far need to be regular files (or symlinks)
 	for k := range needsr {
 		needsf[k] = true
