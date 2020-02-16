@@ -628,16 +628,19 @@ func hasOtherInstances(st *state.State, instanceName string) (bool, error) {
 }
 
 func (m *SnapManager) doMountSnap(t *state.Task, _ *tomb.Tomb) error {
-	st := t.State()
+	logger.Noticef("do mount snap")
+  st := t.State()
 	st.Lock()
 	perfTimings := timings.NewForTask(t)
 	snapsup, snapst, err := snapSetupAndState(t)
+  logger.Noticef("do mount snap: %v, %v", snapsup, snapst)
 	st.Unlock()
 	if err != nil {
 		return err
 	}
 
 	curInfo, err := snapst.CurrentInfo()
+  logger.Noticef("do mount snap: %v, %v", snapsup, snapst)
 	if err != nil && err != ErrNoCurrent {
 		return err
 	}
