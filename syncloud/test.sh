@@ -44,7 +44,8 @@ code=$(( $code + $? ))
 set -e
 
 mkdir log
-sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap changes > log/snap.changes.log   
-sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} journalctl > log/journalctl.log
-
+SSH=sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}
+$SSH snap changes > log/snap.changes.log   
+$SSH journalctl > log/journalctl.log
+$SSH /usr/bin/unsquashfs --help > log/unsquashfs.log
 exit $code
