@@ -184,11 +184,13 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 		}
 	}
 	seen := make(map[string]bool, len(needsx)+len(needsrx)+len(needsr))
-
+  logger.Noticef("seen") 	
+	
 	// bad modes are logged instead of being returned because the end user
 	// can do nothing with the info (and the developer can read the logs)
 	hasBadModes := false
 	err := c.Walk(".", func(path string, info os.FileInfo, err error) error {
+logger.Noticef("walk %v, %v, %v", path, info, err)
 		if err != nil {
 			return err
 		}
@@ -240,6 +242,7 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 		}
 		return nil
 	})
+logger.Noticef("walked")
 	if err != nil {
 		return err
 	}
