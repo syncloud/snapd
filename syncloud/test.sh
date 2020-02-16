@@ -47,5 +47,5 @@ mkdir log
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
 $SSH snap changes > log/snap.changes.log   
 $SSH journalctl > log/journalctl.log
-$SSH /usr/bin/unsquashfs --help > log/unsquashfs.log
+$SSH LD_LIBRARY_PATH=/usr/lib/snapd/lib /usr/bin/unsquashfs --help > log/unsquashfs.log
 exit $code
