@@ -44,8 +44,13 @@ code=$(( $code + $? ))
 set -e
 
 mkdir log
-SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
+VERSION=$(curl http://apps.syncloud.org/releases/stable/files.version)
+FILES=files_${VERSION}_${ARCH}.snap
+SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} LD_LIBRARY_PATH=/usr/lib/snapd/lib"
 $SSH snap changes > log/snap.changes.log   
 $SSH journalctl > log/journalctl.log
-$SSH LD_LIBRARY_PATH=/usr/lib/snapd/lib /usr/bin/unsquashfs --help > log/unsquashfs.log
+$SSH wget http://apps.syncloud.org/apps/${FILES} --progress=dot:giga
+$SSH /usr/bin/unsquashfs --help > log/unsquashfs.log 2>&1
+$SSH /usr/bin/unsquashfs -no-progress -dest . -ll $FILES
+
 exit $code
