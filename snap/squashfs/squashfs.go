@@ -32,6 +32,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"github.com/snapcore/snapd/logger"
 
 	"github.com/snapcore/snapd/cmd/cmdutil"
 	"github.com/snapcore/snapd/dirs"
@@ -229,6 +230,8 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 		cmd = exec.Command("unsquashfs", "-no-progress", "-dest", ".", "-ll", s.path, relative)
 	}
 	cmd.Env = []string{"TZ=UTC"}
+  logger.Noticef("cmd: %v", cmd) 	
+	
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return walkFn(relative, nil, err)
@@ -256,6 +259,7 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 			}
 		} else {
 			path := filepath.Join(relative, st.Path())
+     logger.Noticef("scanner path: %v", path) 	
 			if skipper.Has(path) {
 				continue
 			}
