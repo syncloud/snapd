@@ -257,6 +257,7 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	for scanner.Scan() {
 		st, err := fromRaw(scanner.Bytes())
 		if err != nil {
+     logger.Noticef("from raw err: ", err)
 			err = walkFn(relative, nil, err)
 			if err != nil {
 				return err
