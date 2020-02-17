@@ -4,7 +4,7 @@ Requires=snapd.socket
 
 [Service]
 ExecStart=/usr/lib/snapd/snapd
-Environment=LD_LIBRARY_PATH=/usr/lib/snapd/lib
+Environment=LD_LIBRARY_PATH=/usr/lib/snapd/lib PATH=/snap/bin
 Restart=always
 Type=notify
 
