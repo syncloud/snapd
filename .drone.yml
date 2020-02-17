@@ -48,8 +48,10 @@ steps:
       from_secret: artifact_host
     key:
       from_secret: artifact_key
-    source: syncloud/log/*
-    strip_components: 2
+    source:
+    - syncloud/log/*
+    - syncloud/snapd-*.tar.gz
+    strip_components: 1
     target: /home/artifact/repo/snapd/${DRONE_BUILD_NUMBER}-arm
     timeout: 2m
     username: artifact
@@ -128,8 +130,10 @@ steps:
       from_secret: artifact_host
     key:
       from_secret: artifact_key
-    source: syncloud/log/*
-    strip_components: 2
+    source:
+    - syncloud/log/*
+    - syncloud/snapd-*.tar.gz
+    strip_components: 1
     target: /home/artifact/repo/snapd/${DRONE_BUILD_NUMBER}-amd64
     timeout: 2m
     username: artifact
