@@ -280,10 +280,12 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	}
 
 	if err := scanner.Err(); err != nil {
+   logger.Noticef("scanner err: ", err)
 		return walkFn(relative, nil, err)
 	}
 
 	if err := cmd.Wait(); err != nil {
+    logger.Noticef("wait err: ", err)
 		return walkFn(relative, nil, err)
 	}
 	return nil
