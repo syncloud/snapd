@@ -423,7 +423,8 @@ func (s *SyncloudStore) SnapAction(ctx context.Context, currentSnaps []*CurrentS
   for _, action := range actions {
     logger.Noticef("SnapAction: %v", action)
     name := action.InstanceName
-    channel := action.Channel
+    channelParts := strings.Split(action.Channel, "/")
+    channel := channelParts[len(channelParts)-1]
     
     apps, err := s.downloadIndex(channel, user)
 	  if err != nil {
