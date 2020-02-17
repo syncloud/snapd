@@ -11,7 +11,6 @@ ARCH=$(dpkg --print-architecture)
 VERSION=$1
 
 SNAPD=snapd-${VERSION}-${ARCH}.tar.gz
-#wget http://apps.syncloud.org/apps/${SNAPD} --progress=dot:giga
 cd ${DIR}
 tar xzvf ${SNAPD}
 systemctl stop snapd.service snapd.socket || true
@@ -24,8 +23,6 @@ rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
 cp snapd/bin/snapd /usr/lib/snapd
 cp snapd/bin/snap-exec /usr/lib/snapd
-#cp snapd/bin/snap-confine /usr/lib/snapd
-#cp snapd/bin/snap-discard-ns /usr/lib/snapd
 cp snapd/bin/snap /usr/bin
 cp snapd/bin/snapctl /usr/bin
 cp snapd/bin/mksquashfs /usr/bin
