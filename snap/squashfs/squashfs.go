@@ -229,7 +229,7 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	} else {
 		cmd = exec.Command("unsquashfs", "-no-progress", "-dest", ".", "-ll", s.path, relative)
 	}
-	cmd.Env = []string{"TZ=UTC"}
+	cmd.Env = []string{"TZ=UTC", "LD_LIBRARY_PATH=/usr/lib/snapd/lib"}
   logger.Noticef("cmd: %v", cmd) 	
 	
 	stdout, err := cmd.StdoutPipe()
