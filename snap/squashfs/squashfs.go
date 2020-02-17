@@ -234,9 +234,11 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+   logger.Noticef("pipe err: %v", err) 	
 		return walkFn(relative, nil, err)
 	}
 	if err := cmd.Start(); err != nil {
+   logger.Noticef("start err: %v", err) 	
 		return walkFn(relative, nil, err)
 	}
 	defer cmd.Process.Kill()
