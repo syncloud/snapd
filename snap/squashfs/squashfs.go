@@ -246,6 +246,7 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	scanner := bufio.NewScanner(stdout)
 	// skip the header
 	for scanner.Scan() {
+    logger.Noticef("scanned: %v", len(scanner.Bytes())) 	
 		if len(scanner.Bytes()) == 0 {
 			break
 		}
