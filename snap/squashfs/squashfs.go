@@ -253,6 +253,7 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	}
 
 	skipper := make(skipper)
+  logger.Noticef("skipper") 	
 	for scanner.Scan() {
 		st, err := fromRaw(scanner.Bytes())
 		if err != nil {
