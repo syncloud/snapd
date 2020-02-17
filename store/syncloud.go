@@ -192,6 +192,9 @@ func (s *SyncloudStore) SnapInfo(_ context.Context, snapSpec SnapSpec, user *aut
 }
 
 func (s *SyncloudStore) downloadIndex(channel string, user *auth.UserState) (map[string]*App, error) {
+  if channel == "" {
+    channel = "stable"
+  }
 	indexUrl, err := url.Parse(s.url + "/releases/" + channel + "/index-v2")
 	if err != nil {
 		return nil, err
