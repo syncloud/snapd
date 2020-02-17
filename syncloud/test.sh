@@ -44,8 +44,6 @@ code=$(( $code + $? ))
 set -e
 
 mkdir log
-VERSION=$(curl http://apps.syncloud.org/releases/stable/files.version)
-FILES=files_${VERSION}_${ARCH}.snap
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
 $SSH snap changes > log/snap.changes.log   
 $SSH journalctl > log/journalctl.log
