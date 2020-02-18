@@ -43,8 +43,8 @@ sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST} snap ref
 code=$(( $code + $? ))
 set -e
 
-mkdir log
+mkdir ../log
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
-$SSH snap changes > log/snap.changes.log   
-$SSH journalctl > log/journalctl.log
+$SSH snap changes > ../log/snap.changes.log   
+$SSH journalctl > ../log/journalctl.log
 exit $code
