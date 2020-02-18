@@ -25,7 +25,7 @@ local build(arch) = {
             image: "syncloud/build-deps-" + arch,
             commands: [
                 "VERSION=$(cat version)",
-                "./syncloud/build.sh $VERSION skip-tests "
+                "./build.sh $VERSION skip-tests "
             ]
         },
         {
@@ -33,7 +33,7 @@ local build(arch) = {
             image: "syncloud/build-deps-" + arch,
             commands: [
               "VERSION=$(cat version)",
-              "./syncloud/test.sh $VERSION device"
+              "./test.sh $VERSION device"
             ]
         },
         {
@@ -68,10 +68,9 @@ local build(arch) = {
                 command_timeout: "2m",
                 target: "/home/artifact/repo/" + name + "/${DRONE_BUILD_NUMBER}-" + arch,
                 source: [
-                    "syncloud/log/*",
+                    "log/*",
                     "snapd-*.tar.gz"
-                ],
-		             strip_components: 1
+                ]
             },
             when: {
               status: [ "failure", "success" ]

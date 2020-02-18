@@ -20,13 +20,13 @@ steps:
   image: syncloud/build-deps-arm
   commands:
   - VERSION=$(cat version)
-  - "./syncloud/build.sh $VERSION skip-tests "
+  - "./build.sh $VERSION skip-tests "
 
 - name: test
   image: syncloud/build-deps-arm
   commands:
   - VERSION=$(cat version)
-  - ./syncloud/test.sh $VERSION device
+  - ./test.sh $VERSION device
 
 - name: upload
   image: syncloud/build-deps-arm
@@ -49,9 +49,8 @@ steps:
     key:
       from_secret: artifact_key
     source:
-    - syncloud/log/*
+    - log/*
     - snapd-*.tar.gz
-    strip_components: 1
     target: /home/artifact/repo/snapd/${DRONE_BUILD_NUMBER}-arm
     timeout: 2m
     username: artifact
@@ -102,13 +101,13 @@ steps:
   image: syncloud/build-deps-amd64
   commands:
   - VERSION=$(cat version)
-  - "./syncloud/build.sh $VERSION skip-tests "
+  - "./build.sh $VERSION skip-tests "
 
 - name: test
   image: syncloud/build-deps-amd64
   commands:
   - VERSION=$(cat version)
-  - ./syncloud/test.sh $VERSION device
+  - ./test.sh $VERSION device
 
 - name: upload
   image: syncloud/build-deps-amd64
@@ -131,9 +130,8 @@ steps:
     key:
       from_secret: artifact_key
     source:
-    - syncloud/log/*
+    - log/*
     - snapd-*.tar.gz
-    strip_components: 1
     target: /home/artifact/repo/snapd/${DRONE_BUILD_NUMBER}-amd64
     timeout: 2m
     username: artifact
