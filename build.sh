@@ -17,7 +17,7 @@ if [[ ${ARCH} == "armhf" ]]; then
 fi
 
 apt install libcap-dev libseccomp-dev 	 xfslibs-dev
-export GOPATH=$( cd "$( dirname "${DIR}/../../../.." )" && pwd )
+export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 GOROOT=${GOPATH}/golang
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
