@@ -80,3 +80,4 @@ cmd/test-driver
 .mypy_cache
 .idea
 *.iml
+drone.jsonnet

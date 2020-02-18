@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 if [[ -z "$1" ]]; then
     echo "usage $0 version"
@@ -17,7 +17,7 @@ if [[ ${ARCH} == "armhf" ]]; then
 fi
 
 apt install libcap-dev libseccomp-dev 	 xfslibs-dev
-export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
+export GOPATH=$( cd "$( dirname "${DIR}/../../../.." )" && pwd )
 GOROOT=${GOPATH}/golang
 export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
 NAME=snapd
