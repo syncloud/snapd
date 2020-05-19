@@ -22,6 +22,13 @@ mkdir /var/lib/snapd
 rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
 cp snapd/bin/snapd /usr/lib/snapd
+
+touch /usr/lib/snapd/snap-confine
+touch /usr/lib/snapd/snap-seccomp
+touch /usr/lib/snapd/snap-repair
+touch /usr/lib/snapd/snap-update-ns
+touch /usr/lib/snapd/snap-discard-ns
+
 cp snapd/bin/snap-exec /usr/lib/snapd
 cp snapd/bin/snap /usr/bin
 cp snapd/bin/snapctl /usr/bin
