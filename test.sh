@@ -42,8 +42,10 @@ $SSH /installer.sh ${VERSION}
 code=0
 set +e
 $SSH snap install files
+$SSH snap install mail
 code=$?
 $SSH snap refresh files
+$SSH snap refresh mail
 code=$(( $code + $? ))
 set -e
 
