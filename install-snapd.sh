@@ -23,10 +23,12 @@ rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
 cp snapd/bin/snapd /usr/lib/snapd
 cp snapd/bin/snap-exec /usr/lib/snapd
+cp snapd/bin/snap-seccomp /usr/lib/snapd
 cp snapd/bin/snap /usr/bin
 cp snapd/bin/snapctl /usr/bin
 cp snapd/bin/mksquashfs /usr/bin
 cp snapd/bin/unsquashfs /usr/bin
+
 ls -la snapd/lib/
 mkdir -p /usr/lib/snapd/lib
 cp snapd/lib/* /usr/lib/snapd/lib
