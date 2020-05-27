@@ -21,7 +21,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/snapcore/snapd/logger"
 	"os"
 	"path/filepath"
 	"strings"

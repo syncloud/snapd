@@ -64,14 +64,14 @@ go build -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 sed -i 's/-Wl,-Bstatic//g' ${GOPATH}/src/github.com/snapcore/snapd/cmd/snap-seccomp/main.go
 go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
 
-cd  ${DIR}/cmd
-autoreconf -i -f
-./configure --disable-apparmor --disable-seccomp
-make
-cp snap-confine/snap-confine ${BUILD_DIR}/bin/snap-confine
-cp snap-discard-ns/snap-discard-ns ${BUILD_DIR}/bin/snap-discard-ns
-#touch ${BUILD_DIR}/bin/snap-confine
-#touch ${BUILD_DIR}/bin/snap-discard-ns
+#cd  ${DIR}/cmd
+#autoreconf -i -f
+#./configure --disable-apparmor --disable-seccomp
+#make
+#cp snap-confine/snap-confine ${BUILD_DIR}/bin/snap-confine
+#cp snap-discard-ns/snap-discard-ns ${BUILD_DIR}/bin/snap-discard-ns
+touch ${BUILD_DIR}/bin/snap-confine
+touch ${BUILD_DIR}/bin/snap-discard-ns
 
 cp /usr/bin/mksquashfs ${BUILD_DIR}/bin
 cp /usr/bin/unsquashfs ${BUILD_DIR}/bin
