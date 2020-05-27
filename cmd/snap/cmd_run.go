@@ -432,7 +432,7 @@ func (x *cmdRun) snapRunHook(snapName string) error {
 	}
 
 	hook := info.Hooks[x.HookName]
-	logger.Noticef("snap: app hooks %v", info.Hooks)
+	logger.Noticef("snap: app hooks %v", info)
 	if hook == nil {
 		return fmt.Errorf(i18n.G("cannot find hook %q in %q"), x.HookName, snapName)
 	}
@@ -930,3 +930,4 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 		return syscallExec(cmd[0], cmd, env)
 	}
 }
+
