@@ -89,7 +89,8 @@ var (
 )
 
 func seccompCompilerVersionInfo(path string) (seccomp.VersionInfo, error) {
-	return seccomp.CompilerVersionInfo(func(name string) (string, error) { return filepath.Join(path, name), nil })
+	//return seccomp.CompilerVersionInfo(func(name string) (string, error) { return filepath.Join(path, name), nil })
+	return "disabled", nil
 }
 
 func generateSystemKey() (*systemKey, error) {

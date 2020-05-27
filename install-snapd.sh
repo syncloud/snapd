@@ -32,7 +32,6 @@ cp snapd/bin/unsquashfs /usr/bin
 ls -la snapd/lib/
 mkdir -p /usr/lib/snapd/lib
 cp snapd/lib/* /usr/lib/snapd/lib
-cp /usr/lib/*/libseccomp.so* /usr/lib/snapd/lib
 
 cp snapd/conf/snapd.service /lib/systemd/system/
 cp snapd/conf/snapd.socket /lib/systemd/system/
