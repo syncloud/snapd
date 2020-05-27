@@ -29,7 +29,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-
+"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/osutil/sys"
 	"github.com/snapcore/snapd/snap/naming"
@@ -1113,7 +1113,11 @@ func ReadInfo(name string, si *SideInfo) (*Info, error) {
 // ReadCurrentInfo reads the snap information from the installed snap in 'current' revision
 func ReadCurrentInfo(snapName string) (*Info, error) {
 	curFn := filepath.Join(dirs.SnapMountDir, snapName, "current")
-	realFn, err := os.Readlink(curFn)
+  logger.Noticef("current revision link: %v", curFn)
+
+  realFn, err := os.Readlink(curFn)
+   logger.Noticef("current revision dir: %v", realFn)
+
 	if err != nil {
 		return nil, fmt.Errorf("cannot find current revision for snap %s: %s", snapName, err)
 	}
