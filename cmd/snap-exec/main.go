@@ -253,7 +253,6 @@ func execHook(snapName, revision, hookName string) error {
 	}
 
 	hook := info.Hooks[hookName]
-	logger.Noticef("snap-exec: app hooks", info.Hooks)
 	if hook == nil {
 		return fmt.Errorf("cannot find hook %q in %q", hookName, snapName)
 	}
