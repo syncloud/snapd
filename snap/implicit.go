@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 
 	"github.com/snapcore/snapd/osutil"
+  "github.com/snapcore/snapd/logger"
 )
 
 // addImplicitHooks adds hooks from the installed snap's hookdir to the snap info.
@@ -34,7 +35,9 @@ func addImplicitHooks(snapInfo *Info) error {
 	// First of all, check to ensure the hooks directory exists. If it doesn't,
 	// it's not an error-- there's just nothing to do.
 	hooksDir := snapInfo.HooksDir()
+  logger.Noticef("hooks dir: %v", hooksDir)
 	if !osutil.IsDirectory(hooksDir) {
+    logger.Noticef("hooks dir is not a dir")
 		return nil
 	}
 
@@ -73,6 +76,7 @@ func addImplicitHooksFromContainer(snapInfo *Info, snapf Container) error {
 func addHookIfValid(snapInfo *Info, hookName string) {
 	// Verify that the hook name is actually supported. If not, ignore it.
 	if !IsHookSupported(hookName) {
+   logger.Noticef("hooks is not supported: %v", hookName)
 		return
 	}
 
