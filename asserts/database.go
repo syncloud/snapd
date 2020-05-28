@@ -402,6 +402,7 @@ func (db *Database) Check(assert Assertion) error {
 // It will return an error when trying to add an older revision of the assertion than the one currently stored.
 func (db *Database) Add(assert Assertion) error {
 	ref := assert.Ref()
+  logger.Noticef("Syncloud: adding assertion: %v", assert)
 
 	if len(ref.PrimaryKey) == 0 {
 		return fmt.Errorf("internal error: assertion type %q has no primary key", ref.Type.Name)
