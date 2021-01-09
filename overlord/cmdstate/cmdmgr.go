@@ -61,7 +61,7 @@ func (m *CommandManager) Stop() {
 	m.runner.Stop()
 }
 
-var execTimeout = 5 * time.Second
+var execTimeout = 10 * time.Minute
 
 func doExec(t *state.Task, tomb *tomb.Tomb) error {
 	var argv []string

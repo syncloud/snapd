@@ -91,6 +91,10 @@ type openpgpSigner interface {
 	sign(content []byte) (*packet.Signature, error)
 }
 
+func SignContent(content []byte, privateKey PrivateKey) ([]byte, error) {
+    return signContent(content, privateKey)
+}
+
 func signContent(content []byte, privateKey PrivateKey) ([]byte, error) {
 	signer, ok := privateKey.(openpgpSigner)
 	if !ok {

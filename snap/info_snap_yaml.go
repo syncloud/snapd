@@ -62,12 +62,16 @@ type appYaml struct {
 
 	Daemon string `yaml:"daemon"`
 
-	StopCommand     string          `yaml:"stop-command,omitempty"`
-	ReloadCommand   string          `yaml:"reload-command,omitempty"`
-	PostStopCommand string          `yaml:"post-stop-command,omitempty"`
-	StopTimeout     timeout.Timeout `yaml:"stop-timeout,omitempty"`
-	Completer       string          `yaml:"completer,omitempty"`
-	RefreshMode     string          `yaml:"refresh-mode,omitempty"`
+	User             string          `yaml:"user,omitempty"`
+	PreStartCommand  string          `yaml:"pre-start-command,omitempty"`
+	PostStartCommand string          `yaml:"post-start-command,omitempty"`
+	StopCommand      string          `yaml:"stop-command,omitempty"`
+	ReloadCommand    string          `yaml:"reload-command,omitempty"`
+	PostStopCommand  string          `yaml:"post-stop-command,omitempty"`
+	StartTimeout     timeout.Timeout `yaml:"start-timeout,omitempty"`
+	StopTimeout      timeout.Timeout `yaml:"stop-timeout,omitempty"`
+	Completer        string          `yaml:"completer,omitempty"`
+	RefreshMode      string          `yaml:"refresh-mode,omitempty"`
 
 	RestartCond RestartCondition `yaml:"restart-condition,omitempty"`
 	SlotNames   []string         `yaml:"slots,omitempty"`
@@ -288,6 +292,10 @@ func setAppsFromSnapYaml(y snapYaml, snap *Info) error {
 			LegacyAliases:   yApp.Aliases,
 			Command:         yApp.Command,
 			Daemon:          yApp.Daemon,
+			User:            yApp.User,
+			PreStartCommand:  yApp.PreStartCommand,
+			PostStartCommand: yApp.PostStartCommand,
+			StartTimeout:     yApp.StartTimeout,
 			StopTimeout:     yApp.StopTimeout,
 			StopCommand:     yApp.StopCommand,
 			ReloadCommand:   yApp.ReloadCommand,

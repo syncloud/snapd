@@ -579,7 +579,7 @@ func (x *cmdRun) runCmdUnderStrace(origCmd, env []string) error {
 }
 
 func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook string, args []string) error {
-	snapConfine := filepath.Join(dirs.DistroLibExecDir, "snap-confine")
+	snapConfine := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
 	// if we re-exec, we must run the snap-confine from the core snap
 	// as well, if they get out of sync, havoc will happen
 	if isReexeced() {
@@ -607,31 +607,6 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 	}
 
 	cmd := []string{snapConfine}
-	if info.NeedsClassic() {
-		cmd = append(cmd, "--classic")
-	}
-	if info.Base != "" {
-		cmd = append(cmd, "--base", info.Base)
-	}
-	cmd = append(cmd, securityTag)
-
-	// when under confinement, snap-exec is run from 'core' snap rootfs
-	snapExecPath := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
-
-	if info.NeedsClassic() {
-		// running with classic confinement, carefully pick snap-exec we
-		// are going to use
-		if isReexeced() {
-			// same rule as when choosing the location of snap-confine
-			snapExecPath = filepath.Join(dirs.SnapMountDir, "core/current",
-				dirs.CoreLibExecDir, "snap-exec")
-		} else {
-			// there is no mount namespace where 'core' is the
-			// rootfs, hence we need to use distro's snap-exec
-			snapExecPath = filepath.Join(dirs.DistroLibExecDir, "snap-exec")
-		}
-	}
-	cmd = append(cmd, snapExecPath)
 
 	if x.Shell {
 		cmd = append(cmd, "--command=shell")

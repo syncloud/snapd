@@ -94,8 +94,8 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 	// check if we already have the revision locally (alters tasks)
 	revisionIsLocal := snapst.LastIndex(targetRevision) >= 0
 
-	prereq := st.NewTask("prerequisites", fmt.Sprintf(i18n.G("Ensure prerequisites for %q are available"), snapsup.Name()))
-	prereq.Set("snap-setup", snapsup)
+	//prereq := st.NewTask("prerequisites", fmt.Sprintf(i18n.G("Ensure prerequisites for %q are available"), snapsup.Name()))
+	//prereq.Set("snap-setup", snapsup)
 
 	var prepare, prev *state.Task
 	fromStore := false
@@ -107,9 +107,9 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 		prepare = st.NewTask("download-snap", fmt.Sprintf(i18n.G("Download snap %q%s from channel %q"), snapsup.Name(), revisionStr, snapsup.Channel))
 	}
 	prepare.Set("snap-setup", snapsup)
-	prepare.WaitFor(prereq)
+	//prepare.WaitFor(prereq)
 
-	tasks := []*state.Task{prereq, prepare}
+	tasks := []*state.Task{prepare}
 	addTask := func(t *state.Task) {
 		t.Set("snap-setup-task", prepare.ID())
 		t.WaitFor(prev)
@@ -118,7 +118,7 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 	prev = prepare
 
 	if fromStore {
-		// fetch and check assertions
+		//	 fetch and check assertions
 		checkAsserts := st.NewTask("validate-snap", fmt.Sprintf(i18n.G("Fetch and check assertions for snap %q%s"), snapsup.Name(), revisionStr))
 		addTask(checkAsserts)
 		prev = checkAsserts
