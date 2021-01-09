@@ -29,7 +29,7 @@ import (
 	"github.com/snapcore/snapd/jsonutil"
 )
 
-var shortSetHelp = i18n.G("Change configuration options")
+var shortSetHelp = i18n.G("Changes configuration options")
 var longSetHelp = i18n.G(`
 The set command changes the provided configuration options as requested.
 
@@ -40,14 +40,10 @@ snap's configuration hook returns successfully.
 
 Nested values may be modified via a dotted path:
 
-    $ snap set snap-name author.name=frank
-
-Configuration option may be unset with exclamation mark:
-    $ snap set snap-name author!
+    $ snap set author.name=frank
 `)
 
 type cmdSet struct {
-	waitMixin
 	Positional struct {
 		Snap       installedSnapName
 		ConfValues []string `required:"1"`
@@ -55,16 +51,16 @@ type cmdSet struct {
 }
 
 func init() {
-	addCommand("set", shortSetHelp, longSetHelp, func() flags.Commander { return &cmdSet{} }, waitDescs, []argDesc{
+	addCommand("set", shortSetHelp, longSetHelp, func() flags.Commander { return &cmdSet{} }, nil, []argDesc{
 		{
 			name: "<snap>",
-			// TRANSLATORS: This should not start with a lowercase letter.
+			// TRANSLATORS: This should probably not start with a lowercase letter.
 			desc: i18n.G("The snap to configure (e.g. hello-world)"),
 		}, {
-			// TRANSLATORS: This needs to begin with < and end with >
+			// TRANSLATORS: This needs to be wrapped in <>s.
 			name: i18n.G("<conf value>"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			desc: i18n.G("Set (key=value) or unset (key!) configuration value"),
+			// TRANSLATORS: This should probably not start with a lowercase letter.
+			desc: i18n.G("Configuration value (key=value)"),
 		},
 	})
 }
@@ -73,10 +69,6 @@ func (x *cmdSet) Execute(args []string) error {
 	patchValues := make(map[string]interface{})
 	for _, patchValue := range x.Positional.ConfValues {
 		parts := strings.SplitN(patchValue, "=", 2)
-		if len(parts) == 1 && strings.HasSuffix(patchValue, "!") {
-			patchValues[strings.TrimSuffix(patchValue, "!")] = nil
-			continue
-		}
 		if len(parts) != 2 {
 			return fmt.Errorf(i18n.G("invalid configuration: %q (want key=value)"), patchValue)
 		}
@@ -89,18 +81,16 @@ func (x *cmdSet) Execute(args []string) error {
 		}
 	}
 
-	snapName := string(x.Positional.Snap)
-	id, err := x.client.SetConf(snapName, patchValues)
+	return configure(string(x.Positional.Snap), patchValues)
+}
+
+func configure(snapName string, patchValues map[string]interface{}) error {
+	cli := Client()
+	id, err := cli.SetConf(snapName, patchValues)
 	if err != nil {
 		return err
 	}
 
-	if _, err := x.wait(id); err != nil {
-		if err == noWait {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	_, err = wait(cli, id)
+	return err
 }

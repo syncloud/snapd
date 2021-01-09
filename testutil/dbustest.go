@@ -20,7 +20,6 @@
 package testutil
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,24 +28,6 @@ import (
 
 	. "gopkg.in/check.v1"
 )
-
-func dbusSessionBus() (*dbus.Conn, error) {
-	// the test suite *must* use a private connection to the bus to avoid
-	// breaking things for code that might use a shared connection
-	conn, err := dbus.SessionBusPrivate()
-	if err != nil {
-		return nil, err
-	}
-	if err := conn.Auth(nil); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	if err := conn.Hello(); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	return conn, nil
-}
 
 // DBusTest provides a separate dbus session bus for running tests
 type DBusTest struct {
@@ -69,42 +50,23 @@ func (s *DBusTest) SetUpSuite(c *C) {
 	}
 
 	s.tmpdir = c.MkDir()
-	s.dbusDaemon = exec.Command("dbus-daemon", "--session", "--print-address", fmt.Sprintf("--address=unix:path=%s/user_bus_socket", s.tmpdir))
-	pout, err := s.dbusDaemon.StdoutPipe()
+	s.dbusDaemon = exec.Command("dbus-daemon", "--session", fmt.Sprintf("--address=unix:%s/user_bus_socket", s.tmpdir))
+	err := s.dbusDaemon.Start()
 	c.Assert(err, IsNil)
-	err = s.dbusDaemon.Start()
-	c.Assert(err, IsNil)
-
-	scanner := bufio.NewScanner(pout)
-	scanner.Scan()
-	c.Assert(scanner.Err(), IsNil)
 	s.oldSessionBusEnv = os.Getenv("DBUS_SESSION_BUS_ADDRESS")
-	os.Setenv("DBUS_SESSION_BUS_ADDRESS", scanner.Text())
 
-	s.SessionBus, err = dbusSessionBus()
+	s.SessionBus, err = dbus.SessionBus()
 	c.Assert(err, IsNil)
 }
 
 func (s *DBusTest) TearDownSuite(c *C) {
-	if s.SessionBus != nil {
-		s.SessionBus.Close()
-	}
-
 	os.Setenv("DBUS_SESSION_BUS_ADDRESS", s.oldSessionBusEnv)
 	if s.dbusDaemon != nil && s.dbusDaemon.Process != nil {
 		err := s.dbusDaemon.Process.Kill()
 		c.Assert(err, IsNil)
-		err = s.dbusDaemon.Wait() // do cleanup
-		c.Assert(err, ErrorMatches, `(?i)signal: killed`)
 	}
+
 }
 
 func (s *DBusTest) SetUpTest(c *C)    {}
 func (s *DBusTest) TearDownTest(c *C) {}
-
-func DBusGetConnectionUnixProcessID(conn *dbus.Conn, name string) (pid int, err error) {
-	obj := conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
-
-	err = obj.Call("org.freedesktop.DBus.GetConnectionUnixProcessID", 0, name).Store(&pid)
-	return pid, err
-}

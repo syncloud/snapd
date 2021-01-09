@@ -38,12 +38,9 @@ const pulseaudioBaseDeclarationSlots = `
         - core
     deny-connection:
       on-classic: false
-    deny-auto-connection: true
 `
 
 const pulseaudioConnectedPlugAppArmor = `
-# Allow communicating with pulseaudio service for playback and, on some
-# distributions, recording.
 /{run,dev}/shm/pulse-shm-* mrwk,
 
 owner /{,var/}run/pulse/ r,
@@ -60,7 +57,7 @@ const pulseaudioConnectedPlugAppArmorDesktop = `
 # to read available client side configuration settings. On an Ubuntu Core
 # device those things will be stored inside the snap directory.
 /etc/pulse/ r,
-/etc/pulse/** r,
+/etc/pulse/* r,
 owner @{HOME}/.pulse-cookie rk,
 owner @{HOME}/.config/pulse/cookie rk,
 owner /{,var/}run/user/*/pulse/ rwk,
@@ -175,7 +172,7 @@ func (iface *pulseAudioInterface) SecCompPermanentSlot(spec *seccomp.Specificati
 	return nil
 }
 
-func (iface *pulseAudioInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *pulseAudioInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	return true
 }
 

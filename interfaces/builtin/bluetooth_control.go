@@ -50,9 +50,6 @@ const bluetoothControlConnectedPlugAppArmor = `
 
   # Requires CONFIG_BT_VHCI to be loaded
   /dev/vhci                       rw,
-
-  # Device nodes for MTK combo driver
-  /dev/stpbt                      rw,
 `
 
 const bluetoothControlConnectedPlugSecComp = `
@@ -61,7 +58,7 @@ const bluetoothControlConnectedPlugSecComp = `
 bind
 `
 
-var bluetoothControlConnectedPlugUDev = []string{`SUBSYSTEM=="bluetooth"`, `SUBSYSTEM=="BT_chrdev"`}
+var bluetoothControlConnectedPlugUDev = []string{`SUBSYSTEM=="bluetooth"`}
 
 func init() {
 	registerIface(&commonInterface{
@@ -73,5 +70,6 @@ func init() {
 		connectedPlugAppArmor: bluetoothControlConnectedPlugAppArmor,
 		connectedPlugSecComp:  bluetoothControlConnectedPlugSecComp,
 		connectedPlugUDev:     bluetoothControlConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

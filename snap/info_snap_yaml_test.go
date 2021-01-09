@@ -29,16 +29,12 @@ import (
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/strutil"
 	"github.com/snapcore/snapd/timeout"
-
-	"github.com/snapcore/snapd/testutil"
 )
 
 // Hook up check.v1 into the "go test" runner
 func Test(t *testing.T) { TestingT(t) }
 
-type InfoSnapYamlTestSuite struct {
-	testutil.BaseTest
-}
+type InfoSnapYamlTestSuite struct{}
 
 var _ = Suite(&InfoSnapYamlTestSuite{})
 
@@ -47,54 +43,31 @@ version: 1.0
 type: app
 `)
 
-func (s *InfoSnapYamlTestSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-	s.BaseTest.AddCleanup(snap.MockSanitizePlugsSlots(func(snapInfo *snap.Info) {}))
-}
-
-func (s *InfoSnapYamlTestSuite) TearDownTest(c *C) {
-	s.BaseTest.TearDownTest(c)
-}
-
 func (s *InfoSnapYamlTestSuite) TestSimple(c *C) {
 	info, err := snap.InfoFromSnapYaml(mockYaml)
 	c.Assert(err, IsNil)
-	c.Assert(info.InstanceName(), Equals, "foo")
+	c.Assert(info.Name(), Equals, "foo")
 	c.Assert(info.Version, Equals, "1.0")
-	c.Assert(info.GetType(), Equals, snap.TypeApp)
-	c.Assert(info.Epoch, DeepEquals, snap.E("0"))
-}
-
-func (s *InfoSnapYamlTestSuite) TestSnapdTypeAddedByMagic(c *C) {
-	info, err := snap.InfoFromSnapYaml([]byte(`name: snapd
-version: 1.0`))
-	c.Assert(err, IsNil)
-	c.Assert(info.InstanceName(), Equals, "snapd")
-	c.Assert(info.Version, Equals, "1.0")
-	c.Assert(info.GetType(), Equals, snap.TypeSnapd)
+	c.Assert(info.Type, Equals, snap.TypeApp)
 }
 
 func (s *InfoSnapYamlTestSuite) TestFail(c *C) {
 	_, err := snap.InfoFromSnapYaml([]byte("random-crap"))
-	c.Assert(err, ErrorMatches, "(?m)cannot parse snap.yaml:.*")
+	c.Assert(err, ErrorMatches, "(?m)info failed to parse:.*")
 }
 
 type YamlSuite struct {
 	restore func()
-	testutil.BaseTest
 }
 
 var _ = Suite(&YamlSuite{})
 
 func (s *YamlSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-	s.BaseTest.AddCleanup(snap.MockSanitizePlugsSlots(func(snapInfo *snap.Info) {}))
 	hookType := snap.NewHookType(regexp.MustCompile(".*"))
 	s.restore = snap.MockSupportedHookTypes([]*snap.HookType{hookType})
 }
 
 func (s *YamlSuite) TearDownTest(c *C) {
-	s.BaseTest.TearDownTest(c)
 	s.restore()
 }
 
@@ -121,7 +94,7 @@ plugs:
     network-client:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Assert(info.Plugs["network-client"], DeepEquals, &snap.PlugInfo{
@@ -139,7 +112,7 @@ plugs:
     net: network-client
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Assert(info.Plugs["net"], DeepEquals, &snap.PlugInfo{
@@ -158,7 +131,7 @@ plugs:
         interface: network-client
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Assert(info.Plugs["net"], DeepEquals, &snap.PlugInfo{
@@ -178,7 +151,7 @@ plugs:
         ipv6-aware: true
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Assert(info.Plugs["net"], DeepEquals, &snap.PlugInfo{
@@ -203,7 +176,7 @@ plugs:
           b: B
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Assert(info.Plugs["iface"], DeepEquals, &snap.PlugInfo{
@@ -231,7 +204,7 @@ plugs:
         attr: 2
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Assert(info.Plugs["net"], DeepEquals, &snap.PlugInfo{
@@ -252,7 +225,7 @@ apps:
     app:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 1)
@@ -284,7 +257,7 @@ apps:
     without-plug:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 2)
@@ -321,7 +294,7 @@ apps:
         plugs: ["net"]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 1)
@@ -349,7 +322,7 @@ apps:
         plugs: ["network-client"]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 1)
@@ -377,7 +350,7 @@ plugs:
         ipv6-aware: true
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -398,7 +371,7 @@ plugs:
         label: Disk I/O indicator
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -441,18 +414,7 @@ plugs:
     net:
         1: ok
 `))
-	c.Assert(err, ErrorMatches, `plug "net" has attribute key that is not a string \(found int\)`)
-}
-
-func (s *YamlSuite) TestUnmarshalCorruptedPlugWithEmptyAttributeKey(c *C) {
-	// NOTE: yaml content cannot use tabs, indent the section with spaces.
-	_, err := snap.InfoFromSnapYaml([]byte(`
-name: snap
-plugs:
-    net:
-        "": ok
-`))
-	c.Assert(err, ErrorMatches, `plug "net" has an empty attribute key`)
+	c.Assert(err, ErrorMatches, `plug "net" has attribute that is not a string \(found int\)`)
 }
 
 func (s *YamlSuite) TestUnmarshalCorruptedPlugWithUnexpectedType(c *C) {
@@ -513,7 +475,7 @@ slots:
     network-client:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Assert(info.Slots["network-client"], DeepEquals, &snap.SlotInfo{
@@ -531,7 +493,7 @@ slots:
     net: network-client
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Assert(info.Slots["net"], DeepEquals, &snap.SlotInfo{
@@ -550,7 +512,7 @@ slots:
         interface: network-client
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Assert(info.Slots["net"], DeepEquals, &snap.SlotInfo{
@@ -570,7 +532,7 @@ slots:
         ipv6-aware: true
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Assert(info.Slots["net"], DeepEquals, &snap.SlotInfo{
@@ -594,7 +556,7 @@ slots:
           a: "A"
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Assert(info.Slots["iface"], DeepEquals, &snap.SlotInfo{
@@ -622,7 +584,7 @@ slots:
         attr: 2
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Assert(info.Slots["net"], DeepEquals, &snap.SlotInfo{
@@ -643,7 +605,7 @@ apps:
     app:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 1)
@@ -673,7 +635,7 @@ apps:
         slots: ["net"]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 1)
@@ -701,7 +663,7 @@ apps:
         slots: ["network-client"]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 1)
@@ -729,7 +691,7 @@ slots:
         ipv6-aware: true
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 0)
@@ -751,7 +713,7 @@ slots:
         label: Front panel LED (red)
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 0)
@@ -773,7 +735,7 @@ hooks:
     test-hook:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 0)
@@ -794,8 +756,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Slots: map[string]*snap.SlotInfo{slot.Name: slot},
-
-		Explicit: true,
 	})
 }
 
@@ -808,7 +768,7 @@ hooks:
         slots: [test-slot]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 1)
 	c.Check(info.Apps, HasLen, 0)
@@ -829,8 +789,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Slots: map[string]*snap.SlotInfo{slot.Name: slot},
-
-		Explicit: true,
 	})
 }
 
@@ -865,18 +823,7 @@ slots:
     net:
         1: ok
 `))
-	c.Assert(err, ErrorMatches, `slot "net" has attribute key that is not a string \(found int\)`)
-}
-
-func (s *YamlSuite) TestUnmarshalCorruptedSlotWithEmptyAttributeKey(c *C) {
-	// NOTE: yaml content cannot use tabs, indent the section with spaces.
-	_, err := snap.InfoFromSnapYaml([]byte(`
-name: snap
-slots:
-    net:
-        "": ok
-`))
-	c.Assert(err, ErrorMatches, `slot "net" has an empty attribute key`)
+	c.Assert(err, ErrorMatches, `slot "net" has attribute that is not a string \(found int\)`)
 }
 
 func (s *YamlSuite) TestUnmarshalCorruptedSlotWithUnexpectedType(c *C) {
@@ -921,7 +868,7 @@ hooks:
     test-hook:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -934,8 +881,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Plugs: nil,
-
-		Explicit: true,
 	})
 }
 
@@ -951,7 +896,7 @@ hooks:
     test-hook:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -971,7 +916,7 @@ hooks:
     foo-hook:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 0)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -984,8 +929,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Plugs: nil,
-
-		Explicit: true,
 	})
 }
 
@@ -998,7 +941,7 @@ hooks:
         plugs: [test-plug]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -1019,8 +962,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Plugs: map[string]*snap.PlugInfo{plug.Name: plug},
-
-		Explicit: true,
 	})
 }
 
@@ -1034,7 +975,7 @@ hooks:
     test-hook:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -1055,8 +996,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Plugs: map[string]*snap.PlugInfo{plug.Name: plug},
-
-		Explicit: true,
 	})
 }
 
@@ -1072,7 +1011,7 @@ hooks:
     without-plug:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -1091,15 +1030,11 @@ hooks:
 		Snap:  info,
 		Name:  "with-plug",
 		Plugs: map[string]*snap.PlugInfo{plug.Name: plug},
-
-		Explicit: true,
 	})
 	c.Assert(withoutPlugHook, DeepEquals, &snap.HookInfo{
 		Snap:  info,
 		Name:  "without-plug",
 		Plugs: map[string]*snap.PlugInfo{},
-
-		Explicit: true,
 	})
 }
 
@@ -1114,7 +1049,7 @@ hooks:
         plugs: ["test-plug"]
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 0)
@@ -1135,8 +1070,6 @@ hooks:
 		Snap:  info,
 		Name:  "test-hook",
 		Plugs: map[string]*snap.PlugInfo{plug.Name: plug},
-
-		Explicit: true,
 	})
 }
 
@@ -1153,7 +1086,7 @@ apps:
     test-app:
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "snap")
+	c.Check(info.Name(), Equals, "snap")
 	c.Check(info.Plugs, HasLen, 1)
 	c.Check(info.Slots, HasLen, 0)
 	c.Check(info.Apps, HasLen, 1)
@@ -1173,8 +1106,6 @@ apps:
 		Snap:  info,
 		Name:  "test-hook",
 		Plugs: map[string]*snap.PlugInfo{plug.Name: plug},
-
-		Explicit: true,
 	})
 	c.Assert(app, DeepEquals, &snap.AppInfo{
 		Snap:  info,
@@ -1223,10 +1154,10 @@ slots:
         interface: ptrace
 `))
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceName(), Equals, "foo")
+	c.Check(info.Name(), Equals, "foo")
 	c.Check(info.Version, Equals, "1.2")
-	c.Check(info.GetType(), Equals, snap.TypeApp)
-	c.Check(info.Epoch, DeepEquals, snap.E("1*"))
+	c.Check(info.Type, Equals, snap.TypeApp)
+	c.Check(info.Epoch.String(), Equals, "1*")
 	c.Check(info.Confinement, Equals, snap.DevModeConfinement)
 	c.Check(info.Title(), Equals, "Foo")
 	c.Check(info.Summary(), Equals, "foo app")
@@ -1235,7 +1166,8 @@ slots:
 	c.Check(info.Plugs, HasLen, 4)
 	c.Check(info.Slots, HasLen, 2)
 	// these don't come from snap.yaml
-	c.Check(info.Publisher, Equals, snap.StoreAccount{})
+	c.Check(info.Publisher, Equals, "")
+	c.Check(info.PublisherID, Equals, "")
 	c.Check(info.Channel, Equals, "")
 	c.Check(info.License, Equals, "GPL-3.0")
 
@@ -1358,7 +1290,7 @@ version: 1.0
 `)
 	info, err := snap.InfoFromSnapYaml(y)
 	c.Assert(err, IsNil)
-	c.Assert(info.GetType(), Equals, snap.TypeApp)
+	c.Assert(info.Type, Equals, snap.TypeApp)
 }
 
 func (s *YamlSuite) TestSnapYamlEpochDefault(c *C) {
@@ -1367,7 +1299,7 @@ version: 1.0
 `)
 	info, err := snap.InfoFromSnapYaml(y)
 	c.Assert(err, IsNil)
-	c.Assert(info.Epoch, DeepEquals, snap.E("0"))
+	c.Assert(info.Epoch.String(), Equals, "0")
 }
 
 func (s *YamlSuite) TestSnapYamlConfinementDefault(c *C) {
@@ -1429,6 +1361,18 @@ architectures:
 	c.Assert(err, NotNil)
 }
 
+func (s *YamlSuite) TestSnapYamlLicenseParsing(c *C) {
+	y := []byte(`
+name: foo
+version: 1.0
+license-agreement: explicit
+license-version: 12`)
+	info, err := snap.InfoFromSnapYaml(y)
+	c.Assert(err, IsNil)
+	c.Assert(info.LicenseAgreement, Equals, "explicit")
+	c.Assert(info.LicenseVersion, Equals, "12")
+}
+
 // apps
 
 func (s *YamlSuite) TestSimpleAppExample(c *C) {
@@ -1457,7 +1401,6 @@ apps:
    command: svc1
    description: svc one
    stop-timeout: 25s
-   start-timeout: 42m
    daemon: forking
    stop-command: stop-cmd
    post-stop-command: post-stop-cmd
@@ -1478,7 +1421,6 @@ apps:
 		Daemon:          "forking",
 		RestartCond:     snap.RestartOnAbnormal,
 		StopTimeout:     timeout.Timeout(25 * time.Second),
-		StartTimeout:    timeout.Timeout(42 * time.Minute),
 		StopCommand:     "stop-cmd",
 		PostStopCommand: "post-stop-cmd",
 		BusName:         "busName",
@@ -1538,7 +1480,7 @@ apps:
        socket-mode: asdfasdf
 `)
 	_, err := snap.InfoFromSnapYaml(y)
-	c.Check(err.Error(), Equals, "cannot parse snap.yaml: yaml: unmarshal errors:\n"+
+	c.Check(err.Error(), Equals, "info failed to parse: yaml: unmarshal errors:\n"+
 		"  line 9: cannot unmarshal !!str `asdfasdf` into os.FileMode")
 }
 
@@ -1568,21 +1510,6 @@ apps:
 	info, err := snap.InfoFromSnapYaml(y)
 	c.Assert(err, IsNil)
 	c.Assert(info.Apps["foo"].Environment, DeepEquals, *strutil.NewOrderedMap("k1", "v1", "k2", "v2"))
-}
-
-func (s *YamlSuite) TestSnapYamlPerHookEnvironment(c *C) {
-	y := []byte(`
-name: foo
-version: 1.0
-hooks:
- foo:
-  environment:
-   k1: v1
-   k2: v2
-`)
-	info, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, IsNil)
-	c.Assert(info.Hooks["foo"].Environment, DeepEquals, *strutil.NewOrderedMap("k1", "v1", "k2", "v2"))
 }
 
 // classic confinement
@@ -1672,20 +1599,6 @@ apps:
 	})
 }
 
-func (s *YamlSuite) TestSnapYamlWatchdog(c *C) {
-	y := []byte(`
-name: foo
-version: 1.0
-apps:
-  foo:
-    watchdog-timeout: 12s
-`)
-	info, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, IsNil)
-
-	c.Check(info.Apps["foo"].WatchdogTimeout, Equals, timeout.Timeout(12*time.Second))
-}
-
 func (s *YamlSuite) TestLayout(c *C) {
 	y := []byte(`
 name: foo
@@ -1726,19 +1639,6 @@ layout:
 	})
 }
 
-func (s *YamlSuite) TestLayoutsWithTypo(c *C) {
-	y := []byte(`
-name: foo
-version: 1.0
-layouts:
-  /usr/share/foo:
-    bind: $SNAP/usr/share/foo
-`)
-	info, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `cannot parse snap.yaml: typo detected: use singular "layout" instead of plural "layouts"`)
-	c.Assert(info, IsNil)
-}
-
 func (s *YamlSuite) TestSnapYamlAppTimer(c *C) {
 	y := []byte(`name: wat
 version: 42
@@ -1752,236 +1652,4 @@ apps:
 	c.Assert(err, IsNil)
 	app := info.Apps["foo"]
 	c.Check(app.Timer, DeepEquals, &snap.TimerInfo{App: app, Timer: "mon,10:00-12:00"})
-}
-
-func (s *YamlSuite) TestSnapYamlAppAutostart(c *C) {
-	yAutostart := []byte(`name: wat
-version: 42
-apps:
- foo:
-   command: bin/foo
-   autostart: foo.desktop
-
-`)
-	info, err := snap.InfoFromSnapYaml(yAutostart)
-	c.Assert(err, IsNil)
-	app := info.Apps["foo"]
-	c.Check(app.Autostart, Equals, "foo.desktop")
-
-	yNoAutostart := []byte(`name: wat
-version: 42
-apps:
- foo:
-   command: bin/foo
-
-`)
-	info, err = snap.InfoFromSnapYaml(yNoAutostart)
-	c.Assert(err, IsNil)
-	app = info.Apps["foo"]
-	c.Check(app.Autostart, Equals, "")
-}
-
-func (s *YamlSuite) TestSnapYamlAppCommonID(c *C) {
-	yAutostart := []byte(`name: wat
-version: 42
-apps:
- foo:
-   command: bin/foo
-   common-id: org.foo
- bar:
-   command: bin/foo
-   common-id: org.bar
- baz:
-   command: bin/foo
-
-`)
-	info, err := snap.InfoFromSnapYaml(yAutostart)
-	c.Assert(err, IsNil)
-	c.Check(info.Apps["foo"].CommonID, Equals, "org.foo")
-	c.Check(info.Apps["bar"].CommonID, Equals, "org.bar")
-	c.Check(info.Apps["baz"].CommonID, Equals, "")
-	c.Assert(info.CommonIDs, HasLen, 2)
-	c.Assert((info.CommonIDs[0] == "org.foo" && info.CommonIDs[1] == "org.bar") ||
-		(info.CommonIDs[1] == "org.foo" && info.CommonIDs[0] == "org.bar"),
-		Equals,
-		true)
-}
-
-func (s *YamlSuite) TestSnapYamlCommandChain(c *C) {
-	yAutostart := []byte(`name: wat
-version: 42
-apps:
- foo:
-  command: bin/foo
-  command-chain: [chain1, chain2]
-hooks:
- configure:
-  command-chain: [hookchain1, hookchain2]
-`)
-	info, err := snap.InfoFromSnapYaml(yAutostart)
-	c.Assert(err, IsNil)
-	app := info.Apps["foo"]
-	c.Check(app.CommandChain, DeepEquals, []string{"chain1", "chain2"})
-	hook := info.Hooks["configure"]
-	c.Check(hook.CommandChain, DeepEquals, []string{"hookchain1", "hookchain2"})
-}
-
-func (s *YamlSuite) TestSnapYamlRestartDelay(c *C) {
-	yAutostart := []byte(`name: wat
-version: 42
-apps:
- foo:
-  command: bin/foo
-  daemon: simple
-  restart-delay: 12s
-`)
-	info, err := snap.InfoFromSnapYaml(yAutostart)
-	c.Assert(err, IsNil)
-	app := info.Apps["foo"]
-	c.Assert(app, NotNil)
-	c.Check(app.RestartDelay, Equals, timeout.Timeout(12*time.Second))
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsing(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  foo: shared
-  bar:
-    scope: external
-  baz:
-    scope: private
-    attr1: norf
-    attr2: corge
-    attr3: ""
-`)
-	info, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, IsNil)
-	c.Check(info.SystemUsernames, HasLen, 3)
-	c.Assert(info.SystemUsernames["foo"], DeepEquals, &snap.SystemUsernameInfo{
-		Name:  "foo",
-		Scope: "shared",
-	})
-	c.Assert(info.SystemUsernames["bar"], DeepEquals, &snap.SystemUsernameInfo{
-		Name:  "bar",
-		Scope: "external",
-	})
-	c.Assert(info.SystemUsernames["baz"], DeepEquals, &snap.SystemUsernameInfo{
-		Name:  "baz",
-		Scope: "private",
-		Attrs: map[string]interface{}{
-			"attr1": "norf",
-			"attr2": "corge",
-			"attr3": "",
-		},
-	})
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadType(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  a: true
-`)
-	info, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username "a" has malformed definition \(found bool\)`)
-	c.Assert(info, IsNil)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadValue(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  a: [b, c]
-`)
-	info, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username "a" has malformed definition \(found \[\]interface {}\)`)
-	c.Assert(info, IsNil)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadKeyEmpty(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  "": shared
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username cannot be empty`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadKeyList(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-- foo: shared
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `(?m)cannot parse snap.yaml:.*`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadValueEmpty(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  a: ""
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username "a" does not specify a scope`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadValueNull(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  a: null
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username "a" does not specify a scope`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadAttrKeyEmpty(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  foo:
-    scope: shared
-    "": bar
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username "foo" has an empty attribute key`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadAttrKeyNonString(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  foo:
-    scope: shared
-    1: bar
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `system username "foo" has attribute key that is not a string \(found int\)`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadAttrValue(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  foo:
-    scope: shared
-    bar: null
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `attribute "bar" of system username "foo": invalid scalar:.*`)
-}
-
-func (s *YamlSuite) TestSnapYamlSystemUsernamesParsingBadScopeNonString(c *C) {
-	y := []byte(`name: binary
-version: 1.0
-system-usernames:
-  foo:
-    scope: 10
-`)
-	_, err := snap.InfoFromSnapYaml(y)
-	c.Assert(err, ErrorMatches, `scope on system username "foo" is not a string \(found int\)`)
 }

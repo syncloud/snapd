@@ -45,12 +45,12 @@ const timezoneControlConnectedPlugAppArmor = `
 /etc/{,writable/}localtime.tmp rw, # Required for the timedatectl wrapper (LP: #1650688)
 
 # Introspection of org.freedesktop.timedate1
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/timedate1
     interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
+    member=Introspect
+    peer=(label=unconfined),
 
 dbus (send)
     bus=system
@@ -60,12 +60,12 @@ dbus (send)
     peer=(label=unconfined),
 
 # Read all properties from timedate1
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/timedate1
     interface=org.freedesktop.DBus.Properties
-    member=Get{,All},
+    member=Get{,All}
+    peer=(label=unconfined),
 
 # Receive timedate1 property changed events
 dbus (receive)
@@ -97,5 +97,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  timezoneControlBaseDeclarationSlots,
 		connectedPlugAppArmor: timezoneControlConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

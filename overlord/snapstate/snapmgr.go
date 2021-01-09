@@ -20,13 +20,9 @@
 package snapstate
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"io"
-	"math/rand"
 	"os"
-	"strings"
 	"time"
 
 	"gopkg.in/tomb.v2"
@@ -34,19 +30,11 @@ import (
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/errtracker"
 	"github.com/snapcore/snapd/i18n"
-	"github.com/snapcore/snapd/logger"
-	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/overlord/snapstate/backend"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/snap/channel"
 	"github.com/snapcore/snapd/store"
-	"github.com/snapcore/snapd/strutil"
-)
-
-var (
-	snapdTransitionDelayWithRandomess = 3*time.Hour + time.Duration(rand.Int63n(int64(4*time.Hour)))
 )
 
 // overridden in the tests
@@ -62,53 +50,26 @@ type SnapManager struct {
 	catalogRefresh *catalogRefresh
 
 	lastUbuntuCoreTransitionAttempt time.Time
+
+	runner *state.TaskRunner
 }
 
 // SnapSetup holds the necessary snap details to perform most snap manager tasks.
 type SnapSetup struct {
 	// FIXME: rename to RequestedChannel to convey the meaning better
-	Channel string    `json:"channel,omitempty"`
-	UserID  int       `json:"user-id,omitempty"`
-	Base    string    `json:"base,omitempty"`
-	Type    snap.Type `json:"type,omitempty"`
-	// PlugsOnly indicates whether the relevant revisions for the
-	// operation have only plugs (#plugs >= 0), and absolutely no
-	// slots (#slots == 0).
-	PlugsOnly bool `json:"plugs-only,omitempty"`
-
-	CohortKey string `json:"cohort-key,omitempty"`
-
-	// FIXME: implement rename of this as suggested in
-	//  https://github.com/snapcore/snapd/pull/4103#discussion_r169569717
-	//
-	// Prereq is a list of snap-names that need to get installed
-	// together with this snap. Typically used when installing
-	// content-snaps with default-providers.
-	Prereq []string `json:"prereq,omitempty"`
+	Channel string `json:"channel,omitempty"`
+	UserID  int    `json:"user-id,omitempty"`
+	Base    string `json:"base,omitempty"`
 
 	Flags
 
 	SnapPath string `json:"snap-path,omitempty"`
 
-	// LastActiveDisabledServices is a list of services that were disabled right
-	// before the snap was unlinked to be used for re-disabling those services
-	// right after re-linking a different revision
-	LastActiveDisabledServices []string `json:"last-active-disabled-services,omitempty"`
-
 	DownloadInfo *snap.DownloadInfo `json:"download-info,omitempty"`
 	SideInfo     *snap.SideInfo     `json:"side-info,omitempty"`
-	auxStoreInfo
-
-	// InstanceKey is set by the user during installation and differs for
-	// each instance of given snap
-	InstanceKey string `json:"instance-key,omitempty"`
 }
 
-func (snapsup *SnapSetup) InstanceName() string {
-	return snap.InstanceName(snapsup.SnapName(), snapsup.InstanceKey)
-}
-
-func (snapsup *SnapSetup) SnapName() string {
+func (snapsup *SnapSetup) Name() string {
 	if snapsup.SideInfo.RealName == "" {
 		panic("SnapSetup.SideInfo.RealName not set")
 	}
@@ -120,15 +81,15 @@ func (snapsup *SnapSetup) Revision() snap.Revision {
 }
 
 func (snapsup *SnapSetup) placeInfo() snap.PlaceInfo {
-	return snap.MinimalPlaceInfo(snapsup.InstanceName(), snapsup.Revision())
+	return snap.MinimalPlaceInfo(snapsup.Name(), snapsup.Revision())
 }
 
 func (snapsup *SnapSetup) MountDir() string {
-	return snap.MountDir(snapsup.InstanceName(), snapsup.Revision())
+	return snap.MountDir(snapsup.Name(), snapsup.Revision())
 }
 
 func (snapsup *SnapSetup) MountFile() string {
-	return snap.MountFile(snapsup.InstanceName(), snapsup.Revision())
+	return snap.MountFile(snapsup.Name(), snapsup.Revision())
 }
 
 // SnapState holds the state for a snap installed in the system.
@@ -136,24 +97,11 @@ type SnapState struct {
 	SnapType string           `json:"type"` // Use Type and SetType
 	Sequence []*snap.SideInfo `json:"sequence"`
 	Active   bool             `json:"active,omitempty"`
-
-	// LastActiveDisabledServices is a list of services that were disabled in
-	// this snap when it was last active - i.e. when it was disabled, before
-	// it was reverted, or before a refresh happens.
-	// It is set during unlink-snap and unlink-current-snap and reset during
-	// link-snap since it is only meant to be saved when snapd needs to remove
-	// systemd units.
-	// Note that to handle potential service renames, only services that exist
-	// in the snap are removed from this list on link-snap, so that we can
-	// remember services that were disabled in another revision and then renamed
-	// or otherwise removed from the snap in a future refresh.
-	LastActiveDisabledServices []string `json:"last-active-disabled-services,omitempty"`
-
 	// Current indicates the current active revision if Active is
 	// true or the last active revision if Active is false
 	// (usually while a snap is being operated on or disabled)
-	Current         snap.Revision `json:"current"`
-	TrackingChannel string        `json:"channel,omitempty"`
+	Current snap.Revision `json:"current"`
+	Channel string        `json:"channel,omitempty"`
 	Flags
 	// aliases, see aliasesv2.go
 	Aliases             map[string]*AliasTarget `json:"aliases,omitempty"`
@@ -162,25 +110,6 @@ type SnapState struct {
 
 	// UserID of the user requesting the install
 	UserID int `json:"user-id,omitempty"`
-
-	// InstanceKey is set by the user during installation and differs for
-	// each instance of given snap
-	InstanceKey string `json:"instance-key,omitempty"`
-	CohortKey   string `json:"cohort-key,omitempty"`
-
-	// RefreshInhibitedime records the time when the refresh was first
-	// attempted but inhibited because the snap was busy. This value is
-	// reset on each successful refresh.
-	RefreshInhibitedTime *time.Time `json:"refresh-inhibited-time,omitempty"`
-}
-
-func (snapst *SnapState) SetTrackingChannel(s string) error {
-	s, err := channel.Full(s)
-	if err != nil {
-		return err
-	}
-	snapst.TrackingChannel = s
-	return nil
 }
 
 // Type returns the type of the snap or an error.
@@ -274,56 +203,23 @@ func (snapst *SnapState) Block() []snap.Revision {
 var ErrNoCurrent = errors.New("snap has no current revision")
 
 // Retrieval functions
+var readInfo = readInfoAnyway
 
-const (
-	errorOnBroken = 1 << iota
-	withAuxStoreInfo
-)
-
-var snapReadInfo = snap.ReadInfo
-
-// AutomaticSnapshot allows to hook snapshot manager's AutomaticSnapshot.
-var AutomaticSnapshot func(st *state.State, instanceName string) (ts *state.TaskSet, err error)
-var AutomaticSnapshotExpiration func(st *state.State) (time.Duration, error)
-
-func readInfo(name string, si *snap.SideInfo, flags int) (*snap.Info, error) {
-	info, err := snapReadInfo(name, si)
-	if err != nil && flags&errorOnBroken != 0 {
-		return nil, err
-	}
-	if err != nil {
-		logger.Noticef("cannot read snap info of snap %q at revision %s: %s", name, si.Revision, err)
-	}
-	if bse, ok := err.(snap.BrokenSnapError); ok {
-		_, instanceKey := snap.SplitInstanceName(name)
-		info = &snap.Info{
+func readInfoAnyway(name string, si *snap.SideInfo) (*snap.Info, error) {
+	info, err := snap.ReadInfo(name, si)
+	if _, ok := err.(*snap.NotFoundError); ok {
+		reason := fmt.Sprintf("cannot read snap %q: %s", name, err)
+		info := &snap.Info{
 			SuggestedName: name,
-			Broken:        bse.Broken(),
-			InstanceKey:   instanceKey,
+			Broken:        reason,
 		}
 		info.Apps = snap.GuessAppsForBroken(info)
 		if si != nil {
 			info.SideInfo = *si
 		}
-		err = nil
-	}
-	if err == nil && flags&withAuxStoreInfo != 0 {
-		if err := retrieveAuxStoreInfo(info); err != nil {
-			logger.Debugf("cannot read auxiliary store info for snap %q: %v", name, err)
-		}
+		return info, nil
 	}
 	return info, err
-}
-
-var revisionDate = revisionDateImpl
-
-// revisionDate returns a good approximation of when a revision reached the system.
-func revisionDateImpl(info *snap.Info) time.Time {
-	fi, err := os.Lstat(info.MountFile())
-	if err != nil {
-		return time.Time{}
-	}
-	return fi.ModTime()
 }
 
 // CurrentInfo returns the information about the current active revision or the last active revision (if the snap is inactive). It returns the ErrNoCurrent error if snapst.Current is unset.
@@ -332,17 +228,7 @@ func (snapst *SnapState) CurrentInfo() (*snap.Info, error) {
 	if cur == nil {
 		return nil, ErrNoCurrent
 	}
-
-	name := snap.InstanceName(cur.RealName, snapst.InstanceKey)
-	return readInfo(name, cur, withAuxStoreInfo)
-}
-
-func (snapst *SnapState) InstanceName() string {
-	cur := snapst.CurrentSideInfo()
-	if cur == nil {
-		return ""
-	}
-	return snap.InstanceName(cur.RealName, snapst.InstanceKey)
+	return readInfo(cur.RealName, cur)
 }
 
 func revisionInSequence(snapst *SnapState, needle snap.Revision) bool {
@@ -370,18 +256,10 @@ func cachedStore(st *state.State) StoreService {
 }
 
 // the store implementation has the interface consumed here
-var _ StoreService = (*store.SyncloudStore)(nil)
+var _ StoreService = (*store.Store)(nil)
 
-// Store returns the store service provided by the optional device context or
-// the one used by the snapstate package if the former has no
-// override.
-func Store(st *state.State, deviceCtx DeviceContext) StoreService {
-	if deviceCtx != nil {
-		sto := deviceCtx.Store()
-		if sto != nil {
-			return sto
-		}
-	}
+// Store returns the store service used by the snapstate package.
+func Store(st *state.State) StoreService {
 	if cachedStore := cachedStore(st); cachedStore != nil {
 		return cachedStore
 	}
@@ -389,10 +267,13 @@ func Store(st *state.State, deviceCtx DeviceContext) StoreService {
 }
 
 // Manager returns a new snap manager.
-func Manager(st *state.State, runner *state.TaskRunner) (*SnapManager, error) {
+func Manager(st *state.State) (*SnapManager, error) {
+	runner := state.NewTaskRunner(st)
+
 	m := &SnapManager{
 		state:          st,
 		backend:        backend.Backend{},
+		runner:         runner,
 		autoRefresh:    newAutoRefresh(st),
 		refreshHints:   newRefreshHints(st),
 		catalogRefresh: newCatalogRefresh(st),
@@ -400,10 +281,6 @@ func Manager(st *state.State, runner *state.TaskRunner) (*SnapManager, error) {
 
 	if err := os.MkdirAll(dirs.SnapCookieDir, 0700); err != nil {
 		return nil, fmt.Errorf("cannot create directory %q: %v", dirs.SnapCookieDir, err)
-	}
-
-	if err := genRefreshRequestSalt(st); err != nil {
-		return nil, fmt.Errorf("cannot generate request salt: %v", err)
 	}
 
 	// this handler does nothing
@@ -426,7 +303,6 @@ func Manager(st *state.State, runner *state.TaskRunner) (*SnapManager, error) {
 	runner.AddHandler("start-snap-services", m.startSnapServices, m.stopSnapServices)
 	runner.AddHandler("switch-snap-channel", m.doSwitchSnapChannel, nil)
 	runner.AddHandler("toggle-snap-flags", m.doToggleSnapFlags, nil)
-	runner.AddHandler("check-rerefresh", m.doCheckReRefresh, nil)
 
 	// FIXME: drop the task entirely after a while
 	// (having this wart here avoids yet-another-patch)
@@ -455,48 +331,11 @@ func Manager(st *state.State, runner *state.TaskRunner) (*SnapManager, error) {
 	runner.AddHandler("switch-snap", m.doSwitchSnap, nil)
 
 	// control serialisation
-	runner.AddBlocked(m.blockedTask)
+	runner.SetBlocked(m.blockedTask)
 
-	return m, nil
-}
-
-// StartUp implements StateStarterUp.Startup.
-func (m *SnapManager) StartUp() error {
 	writeSnapReadme()
 
-	m.state.Lock()
-	defer m.state.Unlock()
-	if err := m.SyncCookies(m.state); err != nil {
-		return fmt.Errorf("failed to generate cookies: %q", err)
-	}
-	return nil
-}
-
-func (m *SnapManager) CanStandby() bool {
-	if n, err := NumSnaps(m.state); err == nil && n == 0 {
-		return true
-	}
-	return false
-}
-
-func genRefreshRequestSalt(st *state.State) error {
-	var refreshPrivacyKey string
-
-	st.Lock()
-	defer st.Unlock()
-
-	if err := st.Get("refresh-privacy-key", &refreshPrivacyKey); err != nil && err != state.ErrNoState {
-		return err
-	}
-	if refreshPrivacyKey != "" {
-		// nothing to do
-		return nil
-	}
-
-	refreshPrivacyKey = strutil.MakeRandomString(16)
-	st.Set("refresh-privacy-key", refreshPrivacyKey)
-
-	return nil
+	return m, nil
 }
 
 func (m *SnapManager) blockedTask(cand *state.Task, running []*state.Task) bool {
@@ -521,14 +360,6 @@ func (m *SnapManager) NextRefresh() time.Time {
 	return m.autoRefresh.NextRefresh()
 }
 
-// EffectiveRefreshHold returns the time until to which refreshes are
-// held if refresh.hold configuration is set and accounting for the
-// max postponement since the last refresh.
-// The caller should be holding the state lock.
-func (m *SnapManager) EffectiveRefreshHold() (time.Time, error) {
-	return m.autoRefresh.EffectiveRefreshHold()
-}
-
 // LastRefresh returns the time the last snap update.
 // The caller should be holding the state lock.
 func (m *SnapManager) LastRefresh() (time.Time, error) {
@@ -542,7 +373,7 @@ func (m *SnapManager) RefreshSchedule() (string, bool, error) {
 	return m.autoRefresh.RefreshSchedule()
 }
 
-// ensureForceDevmodeDropsDevmodeFromState undoes the forced devmode
+// ensureForceDevmodeDropsDevmodeFromState undoes the froced devmode
 // in snapstate for forced devmode distros.
 func (m *SnapManager) ensureForceDevmodeDropsDevmodeFromState() error {
 	if !release.ReleaseInfo.ForceDevMode() {
@@ -582,110 +413,6 @@ func (m *SnapManager) ensureForceDevmodeDropsDevmodeFromState() error {
 	return nil
 }
 
-// changeInFlight returns true if there is any change in the state
-// in non-ready state.
-func changeInFlight(st *state.State) bool {
-	for _, chg := range st.Changes() {
-		if !chg.IsReady() {
-			// another change already in motion
-			return true
-		}
-	}
-	return false
-}
-
-// ensureSnapdSnapTransition will migrate systems to use the "snapd" snap
-func (m *SnapManager) ensureSnapdSnapTransition() error {
-	m.state.Lock()
-	defer m.state.Unlock()
-
-	// we only auto-transition people on classic systems, for core we
-	// will need to do a proper re-model
-	if !release.OnClassic {
-		return nil
-	}
-
-	// check if snapd snap is installed
-	var snapst SnapState
-	err := Get(m.state, "snapd", &snapst)
-	if err != nil && err != state.ErrNoState {
-		return err
-	}
-	// nothing to do
-	if snapst.IsInstalled() {
-		return nil
-	}
-
-	// check if the user opts into the snapd snap
-	optedIntoSnapdTransition, err := optedIntoSnapdSnap(m.state)
-	if err != nil {
-		return err
-	}
-	// nothing to do: the user does not want the snapd snap yet
-	if !optedIntoSnapdTransition {
-		return nil
-	}
-
-	// ensure we only transition systems that have snaps already
-	installedSnaps, err := NumSnaps(m.state)
-	if err != nil {
-		return err
-	}
-	// no installed snaps (yet): do nothing (fresh classic install)
-	if installedSnaps == 0 {
-		return nil
-	}
-
-	// get current core snap and use same channel/user for the snapd snap
-	err = Get(m.state, "core", &snapst)
-	// Note that state.ErrNoState should never happen in practise. However
-	// if it *does* happen we still want to fix those systems by installing
-	// the snapd snap.
-	if err != nil && err != state.ErrNoState {
-		return err
-	}
-	coreChannel := snapst.TrackingChannel
-	// snapd/core are never blocked on auth so we don't need to copy
-	// the userID from the snapst here
-	userID := 0
-
-	if changeInFlight(m.state) {
-		// check that there is no change in flight already, this is a
-		// precaution to ensure the snapd transition is safe
-		return nil
-	}
-
-	// ensure we limit the retries in case something goes wrong
-	var lastSnapdTransitionAttempt time.Time
-	err = m.state.Get("snapd-transition-last-retry-time", &lastSnapdTransitionAttempt)
-	if err != nil && err != state.ErrNoState {
-		return err
-	}
-	now := time.Now()
-	if !lastSnapdTransitionAttempt.IsZero() && lastSnapdTransitionAttempt.Add(snapdTransitionDelayWithRandomess).After(now) {
-		return nil
-	}
-	m.state.Set("snapd-transition-last-retry-time", now)
-
-	var retryCount int
-	err = m.state.Get("snapd-transition-retry", &retryCount)
-	if err != nil && err != state.ErrNoState {
-		return err
-	}
-	m.state.Set("snapd-transition-retry", retryCount+1)
-
-	ts, err := Install(context.Background(), m.state, "snapd", &RevisionOptions{Channel: coreChannel}, userID, Flags{})
-	if err != nil {
-		return err
-	}
-
-	msg := i18n.G("Transition to the snapd snap")
-	chg := m.state.NewChange("transition-to-snapd-snap", msg)
-	chg.AddAll(ts)
-
-	return nil
-}
-
 // ensureUbuntuCoreTransition will migrate systems that use "ubuntu-core"
 // to the new "core" snap
 func (m *SnapManager) ensureUbuntuCoreTransition() error {
@@ -703,9 +430,11 @@ func (m *SnapManager) ensureUbuntuCoreTransition() error {
 
 	// check that there is no change in flight already, this is a
 	// precaution to ensure the core transition is safe
-	if changeInFlight(m.state) {
-		// another change already in motion
-		return nil
+	for _, chg := range m.state.Changes() {
+		if !chg.Status().Ready() {
+			// another change already in motion
+			return nil
+		}
 	}
 
 	// ensure we limit the retries in case something goes wrong
@@ -718,13 +447,6 @@ func (m *SnapManager) ensureUbuntuCoreTransition() error {
 	if !lastUbuntuCoreTransitionAttempt.IsZero() && lastUbuntuCoreTransitionAttempt.Add(6*time.Hour).After(now) {
 		return nil
 	}
-
-	tss, trErr := TransitionCore(m.state, "ubuntu-core", "core")
-	if _, ok := trErr.(*ChangeConflictError); ok {
-		// likely just too early, retry at next Ensure
-		return nil
-	}
-
 	m.state.Set("ubuntu-core-transition-last-retry-time", now)
 
 	var retryCount int
@@ -734,11 +456,12 @@ func (m *SnapManager) ensureUbuntuCoreTransition() error {
 	}
 	m.state.Set("ubuntu-core-transition-retry", retryCount+1)
 
-	if trErr != nil {
-		return trErr
+	tss, err := TransitionCore(m.state, "ubuntu-core", "core")
+	if err != nil {
+		return err
 	}
 
-	msg := i18n.G("Transition ubuntu-core to core")
+	msg := fmt.Sprintf(i18n.G("Transition ubuntu-core to core"))
 	chg := m.state.NewChange("transition-ubuntu-core", msg)
 	for _, ts := range tss {
 		chg.AddAll(ts)
@@ -747,97 +470,21 @@ func (m *SnapManager) ensureUbuntuCoreTransition() error {
 	return nil
 }
 
-// atSeed implements at seeding policy for refreshes.
-func (m *SnapManager) atSeed() error {
-	m.state.Lock()
-	defer m.state.Unlock()
-	var seeded bool
-	err := m.state.Get("seeded", &seeded)
-	if err != state.ErrNoState {
-		// already seeded or other error
-		return err
-	}
-	if err := m.autoRefresh.AtSeed(); err != nil {
-		return err
-	}
-	if err := m.refreshHints.AtSeed(); err != nil {
-		return err
-	}
-	return nil
-}
-
-var (
-	localInstallCleanupWait = time.Duration(24 * time.Hour)
-	localInstallLastCleanup time.Time
-)
-
-// localInstallCleanup removes files that might've been left behind by an
-// old aborted local install.
-//
-// They're usually cleaned up, but if they're created and then snapd
-// stops before writing the change to disk (killed, light cut, etc)
-// it'll be left behind.
-//
-// The code that creates the files is in daemon/api.go's postSnaps
-func (m *SnapManager) localInstallCleanup() error {
-	m.state.Lock()
-	defer m.state.Unlock()
-
-	now := time.Now()
-	cutoff := now.Add(-localInstallCleanupWait)
-	if localInstallLastCleanup.After(cutoff) {
-		return nil
-	}
-	localInstallLastCleanup = now
-
-	d, err := os.Open(dirs.SnapBlobDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	defer d.Close()
-
-	var filenames []string
-	var fis []os.FileInfo
-	for err == nil {
-		// TODO: if we had fstatat we could avoid a bunch of stats
-		fis, err = d.Readdir(100)
-		// fis is nil if err isn't
-		for _, fi := range fis {
-			name := fi.Name()
-			if !strings.HasPrefix(name, dirs.LocalInstallBlobTempPrefix) {
-				continue
-			}
-			if fi.ModTime().After(cutoff) {
-				continue
-			}
-			filenames = append(filenames, name)
-		}
-	}
-	if err != io.EOF {
-		return err
-	}
-	return osutil.UnlinkManyAt(d, filenames)
-}
-
 // Ensure implements StateManager.Ensure.
 func (m *SnapManager) Ensure() error {
 	// do not exit right away on error
 	errs := []error{
-		m.atSeed(),
 		m.ensureAliasesV2(),
 		m.ensureForceDevmodeDropsDevmodeFromState(),
 		m.ensureUbuntuCoreTransition(),
-		m.ensureSnapdSnapTransition(),
 		// we should check for full regular refreshes before
 		// considering issuing a hint only refresh request
 		m.autoRefresh.Ensure(),
 		m.refreshHints.Ensure(),
 		m.catalogRefresh.Ensure(),
-		m.localInstallCleanup(),
 	}
+
+	m.runner.Ensure()
 
 	//FIXME: use firstErr helper
 	for _, e := range errs {
@@ -847,4 +494,18 @@ func (m *SnapManager) Ensure() error {
 	}
 
 	return nil
+}
+
+func (m *SnapManager) KnownTaskKinds() []string {
+	return m.runner.KnownTaskKinds()
+}
+
+// Wait implements StateManager.Wait.
+func (m *SnapManager) Wait() {
+	m.runner.Wait()
+}
+
+// Stop implements StateManager.Stop.
+func (m *SnapManager) Stop() {
+	m.runner.Stop()
 }

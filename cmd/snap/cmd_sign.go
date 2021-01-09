@@ -31,10 +31,7 @@ import (
 )
 
 var shortSignHelp = i18n.G("Sign an assertion")
-var longSignHelp = i18n.G(`
-The sign command signs an assertion using the specified key, using the
-input for headers from a JSON mapping provided through stdin. The body
-of the assertion can be specified through a "body" pseudo-header.
+var longSignHelp = i18n.G(`Sign an assertion using the specified key, using the input for headers from a JSON mapping provided through stdin, the body of the assertion can be specified through a "body" pseudo-header.
 `)
 
 type cmdSign struct {
@@ -44,12 +41,8 @@ type cmdSign struct {
 func init() {
 	cmd := addCommand("sign", shortSignHelp, longSignHelp, func() flags.Commander {
 		return &cmdSign{}
-	}, map[string]string{
-		// TRANSLATORS: This should not start with a lowercase letter.
-		"k": i18n.G("Name of the key to use, otherwise use the default key"),
-	}, nil)
+	}, map[string]string{"k": i18n.G("Name of the key to use, otherwise use the default key")}, nil)
 	cmd.hidden = true
-	cmd.completeHidden = true
 }
 
 func (x *cmdSign) Execute(args []string) error {

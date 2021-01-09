@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2019 Canonical Ltd
+ * Copyright (C) 2016 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,8 +20,10 @@
 package snapstate
 
 import (
-	"context"
+	"errors"
 	"time"
+
+	"gopkg.in/tomb.v2"
 
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
@@ -33,25 +35,58 @@ func SetSnapManagerBackend(s *SnapManager, b ManagerBackend) {
 	s.backend = b
 }
 
-func MockSnapReadInfo(mock func(name string, si *snap.SideInfo) (*snap.Info, error)) (restore func()) {
-	old := snapReadInfo
-	snapReadInfo = mock
-	return func() { snapReadInfo = old }
+type ForeignTaskTracker interface {
+	ForeignTask(kind string, status state.Status, snapsup *SnapSetup)
 }
 
-func MockMountPollInterval(intv time.Duration) (restore func()) {
-	old := mountPollInterval
-	mountPollInterval = intv
-	return func() { mountPollInterval = old }
-}
+// AddForeignTaskHandlers registers handlers for tasks handled outside of the snap manager.
+func (m *SnapManager) AddForeignTaskHandlers(tracker ForeignTaskTracker) {
+	// Add fake handlers for tasks handled by interfaces manager
+	fakeHandler := func(task *state.Task, _ *tomb.Tomb) error {
+		task.State().Lock()
+		kind := task.Kind()
+		status := task.Status()
+		snapsup, err := TaskSnapSetup(task)
+		task.State().Unlock()
+		if err != nil {
+			return err
+		}
 
-func MockRevisionDate(mock func(info *snap.Info) time.Time) (restore func()) {
-	old := revisionDate
-	if mock == nil {
-		mock = revisionDateImpl
+		tracker.ForeignTask(kind, status, snapsup)
+
+		return nil
 	}
-	revisionDate = mock
-	return func() { revisionDate = old }
+	m.runner.AddHandler("setup-profiles", fakeHandler, fakeHandler)
+	m.runner.AddHandler("auto-connect", fakeHandler, nil)
+	m.runner.AddHandler("remove-profiles", fakeHandler, fakeHandler)
+	m.runner.AddHandler("discard-conns", fakeHandler, fakeHandler)
+	m.runner.AddHandler("validate-snap", fakeHandler, nil)
+	m.runner.AddHandler("transition-ubuntu-core", fakeHandler, nil)
+
+	// Add handler to test full aborting of changes
+	erroringHandler := func(task *state.Task, _ *tomb.Tomb) error {
+		return errors.New("error out")
+	}
+	m.runner.AddHandler("error-trigger", erroringHandler, nil)
+
+	m.runner.AddHandler("run-hook", func(task *state.Task, _ *tomb.Tomb) error {
+		return nil
+	}, nil)
+	m.runner.AddHandler("configure-snapd", func(t *state.Task, _ *tomb.Tomb) error {
+		return nil
+	}, nil)
+
+}
+
+// AddAdhocTaskHandlers registers handlers for ad hoc test handler
+func (m *SnapManager) AddAdhocTaskHandler(adhoc string, do, undo func(*state.Task, *tomb.Tomb) error) {
+	m.runner.AddHandler(adhoc, do, undo)
+}
+
+func MockReadInfo(mock func(name string, si *snap.SideInfo) (*snap.Info, error)) (restore func()) {
+	old := readInfo
+	readInfo = mock
+	return func() { readInfo = old }
 }
 
 func MockOpenSnapFile(mock func(path string, si *snap.SideInfo) (*snap.Info, snap.Container, error)) (restore func()) {
@@ -72,27 +107,15 @@ func MockPrerequisitesRetryTimeout(d time.Duration) (restore func()) {
 	return func() { prerequisitesRetryTimeout = old }
 }
 
-func MockOsutilEnsureUserGroup(mock func(name string, id uint32, extraUsers bool) error) (restore func()) {
-	old := osutilEnsureUserGroup
-	osutilEnsureUserGroup = mock
-	return func() { osutilEnsureUserGroup = old }
-}
-
 var (
-	CoreInfoInternal       = coreInfo
 	CheckSnap              = checkSnap
 	CanRemove              = canRemove
 	CanDisable             = canDisable
 	CachedStore            = cachedStore
 	DefaultRefreshSchedule = defaultRefreshSchedule
+	NameAndRevnoFromSnap   = nameAndRevnoFromSnap
 	DoInstall              = doInstall
 	UserFromUserID         = userFromUserID
-	ValidateFeatureFlags   = validateFeatureFlags
-	ResolveChannel         = resolveChannel
-
-	DefaultContentPlugProviders = defaultContentPlugProviders
-
-	HasOtherInstances = hasOtherInstances
 )
 
 func PreviousSideInfo(snapst *SnapState) *snap.SideInfo {
@@ -106,7 +129,6 @@ var (
 	RefreshAliases        = refreshAliases
 	CheckAliasesConflicts = checkAliasesConflicts
 	DisableAliases        = disableAliases
-	SwitchSummary         = switchSummary
 )
 
 // readme files
@@ -117,29 +139,13 @@ var (
 
 // refreshes
 var (
-	NewAutoRefresh                = newAutoRefresh
-	NewRefreshHints               = newRefreshHints
-	CanRefreshOnMeteredConnection = canRefreshOnMeteredConnection
-
-	NewCatalogRefresh            = newCatalogRefresh
-	CatalogRefreshDelayBase      = catalogRefreshDelayBase
-	CatalogRefreshDelayWithDelta = catalogRefreshDelayWithDelta
+	NewAutoRefresh    = newAutoRefresh
+	NewRefreshHints   = newRefreshHints
+	NewCatalogRefresh = newCatalogRefresh
 )
-
-func MockNextRefresh(ar *autoRefresh, when time.Time) {
-	ar.nextRefresh = when
-}
-
-func MockLastRefreshSchedule(ar *autoRefresh, schedule string) {
-	ar.lastRefreshSchedule = schedule
-}
 
 func MockCatalogRefreshNextRefresh(cr *catalogRefresh, when time.Time) {
 	cr.nextCatalogRefresh = when
-}
-
-func NextCatalogRefresh(cr *catalogRefresh) time.Time {
-	return cr.nextCatalogRefresh
 }
 
 func MockRefreshRetryDelay(d time.Duration) func() {
@@ -149,76 +155,3 @@ func MockRefreshRetryDelay(d time.Duration) func() {
 		refreshRetryDelay = origRefreshRetryDelay
 	}
 }
-
-func MockIsOnMeteredConnection(mock func() (bool, error)) func() {
-	old := IsOnMeteredConnection
-	IsOnMeteredConnection = mock
-	return func() {
-		IsOnMeteredConnection = old
-	}
-}
-
-func MockLocalInstallCleanupWait(d time.Duration) (restore func()) {
-	old := localInstallCleanupWait
-	localInstallCleanupWait = d
-	return func() {
-		localInstallCleanupWait = old
-	}
-}
-
-func MockLocalInstallLastCleanup(t time.Time) (restore func()) {
-	old := localInstallLastCleanup
-	localInstallLastCleanup = t
-	return func() {
-		localInstallLastCleanup = old
-	}
-}
-
-// re-refresh related
-var (
-	RefreshedSnaps  = refreshedSnaps
-	ReRefreshFilter = reRefreshFilter
-)
-
-type UpdateFilter = updateFilter
-
-func MockReRefreshUpdateMany(f func(context.Context, *state.State, []string, int, UpdateFilter, *Flags, string) ([]string, []*state.TaskSet, error)) (restore func()) {
-	old := reRefreshUpdateMany
-	reRefreshUpdateMany = f
-	return func() {
-		reRefreshUpdateMany = old
-	}
-}
-
-func MockReRefreshRetryTimeout(d time.Duration) (restore func()) {
-	old := reRefreshRetryTimeout
-	reRefreshRetryTimeout = d
-	return func() {
-		reRefreshRetryTimeout = old
-	}
-}
-
-// aux store info
-var (
-	AuxStoreInfoFilename = auxStoreInfoFilename
-	RetrieveAuxStoreInfo = retrieveAuxStoreInfo
-	KeepAuxStoreInfo     = keepAuxStoreInfo
-	DiscardAuxStoreInfo  = discardAuxStoreInfo
-)
-
-type AuxStoreInfo = auxStoreInfo
-
-func MockPidsCgroupDir(dir string) (restore func()) {
-	old := pidsCgroupDir
-	pidsCgroupDir = dir
-	return func() {
-		pidsCgroupDir = old
-	}
-}
-
-// link, misc handlers
-var (
-	MissingDisabledServices = missingDisabledServices
-
-	MaybeUndoRemodelBootChanges = maybeUndoRemodelBootChanges
-)

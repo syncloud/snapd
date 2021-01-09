@@ -59,5 +59,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  dcdbasControlBaseDeclarationSlots,
 		connectedPlugAppArmor: dcdbasControlConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

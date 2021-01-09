@@ -27,29 +27,23 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/xerrors"
-
 	"github.com/snapcore/snapd/snap"
 )
 
 // Snap holds the data for a snap as obtained from snapd.
 type Snap struct {
-	ID            string             `json:"id"`
-	Title         string             `json:"title,omitempty"`
-	Summary       string             `json:"summary"`
-	Description   string             `json:"description"`
-	DownloadSize  int64              `json:"download-size,omitempty"`
-	Icon          string             `json:"icon,omitempty"`
-	InstalledSize int64              `json:"installed-size,omitempty"`
-	InstallDate   time.Time          `json:"install-date,omitempty"`
-	Name          string             `json:"name"`
-	Publisher     *snap.StoreAccount `json:"publisher,omitempty"`
-	StoreURL      string             `json:"store-url,omitempty"`
-	// Developer is also the publisher's username for historic reasons.
+	ID               string        `json:"id"`
+	Title            string        `json:"title,omitempty"`
+	Summary          string        `json:"summary"`
+	Description      string        `json:"description"`
+	DownloadSize     int64         `json:"download-size,omitempty"`
+	Icon             string        `json:"icon,omitempty"`
+	InstalledSize    int64         `json:"installed-size,omitempty"`
+	InstallDate      time.Time     `json:"install-date,omitempty"`
+	Name             string        `json:"name"`
 	Developer        string        `json:"developer"`
 	Status           string        `json:"status"`
 	Type             string        `json:"type"`
-	Base             string        `json:"base,omitempty"`
 	Version          string        `json:"version"`
 	Channel          string        `json:"channel"`
 	TrackingChannel  string        `json:"tracking-channel,omitempty"`
@@ -64,30 +58,15 @@ type Snap struct {
 	Broken           string        `json:"broken,omitempty"`
 	Contact          string        `json:"contact"`
 	License          string        `json:"license,omitempty"`
-	CommonIDs        []string      `json:"common-ids,omitempty"`
-	MountedFrom      string        `json:"mounted-from,omitempty"`
-	CohortKey        string        `json:"cohort-key,omitempty"`
-	Website          string        `json:"website,omitempty"`
 
-	Prices      map[string]float64    `json:"prices,omitempty"`
-	Screenshots []snap.ScreenshotInfo `json:"screenshots,omitempty"`
-	Media       snap.MediaInfos       `json:"media,omitempty"`
+	Prices      map[string]float64 `json:"prices,omitempty"`
+	Screenshots []Screenshot       `json:"screenshots,omitempty"`
 
 	// The flattended channel map with $track/$risk
 	Channels map[string]*snap.ChannelSnapInfo `json:"channels,omitempty"`
 
 	// The ordered list of tracks that contains channels
 	Tracks []string `json:"tracks,omitempty"`
-
-	Health *SnapHealth `json:"health,omitempty"`
-}
-
-type SnapHealth struct {
-	Revision  snap.Revision `json:"revision"`
-	Timestamp time.Time     `json:"timestamp"`
-	Status    string        `json:"status"`
-	Message   string        `json:"message,omitempty"`
-	Code      string        `json:"code,omitempty"`
 }
 
 func (s *Snap) MarshalJSON() ([]byte, error) {
@@ -103,6 +82,12 @@ func (s *Snap) MarshalJSON() ([]byte, error) {
 		m.InstallDate = &s.InstallDate
 	}
 	return json.Marshal(&m)
+}
+
+type Screenshot struct {
+	URL    string `json:"url"`
+	Width  int64  `json:"width,omitempty"`
+	Height int64  `json:"height,omitempty"`
 }
 
 // Statuses and types a snap may have.
@@ -132,17 +117,11 @@ type ResultInfo struct {
 // - Private: return snaps that are private
 // - Query: only return snaps that match the query string
 type FindOptions struct {
-	// Query is a term to search by or a prefix (if Prefix is true)
-	Query  string
-	Prefix bool
-
-	CommonID string
-
-	Section string
-	Private bool
-	Scope   string
-
 	Refresh bool
+	Private bool
+	Prefix  bool
+	Query   string
+	Section string
 }
 
 var ErrNoSnapsInstalled = errors.New("no snaps installed")
@@ -183,8 +162,7 @@ func (client *Client) Sections() ([]string, error) {
 	var sections []string
 	_, err := client.doSync("GET", "/v2/sections", nil, nil, nil, &sections)
 	if err != nil {
-		fmt := "cannot get snap sections: %w"
-		return nil, xerrors.Errorf(fmt, err)
+		return nil, fmt.Errorf("cannot get snap sections: %s", err)
 	}
 	return sections, nil
 }
@@ -200,14 +178,8 @@ func (client *Client) Find(opts *FindOptions) ([]*Snap, *ResultInfo, error) {
 	if opts.Prefix {
 		q.Set("name", opts.Query+"*")
 	} else {
-		if opts.CommonID != "" {
-			q.Set("common-id", opts.CommonID)
-		}
-		if opts.Query != "" {
-			q.Set("q", opts.Query)
-		}
+		q.Set("q", opts.Query)
 	}
-
 	switch {
 	case opts.Refresh && opts.Private:
 		return nil, nil, fmt.Errorf("cannot specify refresh and private together")
@@ -219,9 +191,6 @@ func (client *Client) Find(opts *FindOptions) ([]*Snap, *ResultInfo, error) {
 	if opts.Section != "" {
 		q.Set("section", opts.Section)
 	}
-	if opts.Scope != "" {
-		q.Set("scope", opts.Scope)
-	}
 
 	return client.snapsFromPath("/v2/find", q)
 }
@@ -232,8 +201,7 @@ func (client *Client) FindOne(name string) (*Snap, *ResultInfo, error) {
 
 	snaps, ri, err := client.snapsFromPath("/v2/find", q)
 	if err != nil {
-		fmt := "cannot find snap %q: %w"
-		return nil, nil, xerrors.Errorf(fmt, name, err)
+		return nil, nil, fmt.Errorf("cannot find snap %q: %s", name, err)
 	}
 
 	if len(snaps) == 0 {
@@ -250,8 +218,7 @@ func (client *Client) snapsFromPath(path string, query url.Values) ([]*Snap, *Re
 		return nil, nil, e
 	}
 	if err != nil {
-		fmt := "cannot list snaps: %w"
-		return nil, nil, xerrors.Errorf(fmt, err)
+		return nil, nil, fmt.Errorf("cannot list snaps: %s", err)
 	}
 	return snaps, ri, nil
 }
@@ -263,8 +230,7 @@ func (client *Client) Snap(name string) (*Snap, *ResultInfo, error) {
 	path := fmt.Sprintf("/v2/snaps/%s", name)
 	ri, err := client.doSync("GET", path, nil, nil, nil, &snap)
 	if err != nil {
-		fmt := "cannot retrieve snap %q: %w"
-		return nil, nil, xerrors.Errorf(fmt, name, err)
+		return nil, nil, fmt.Errorf("cannot retrieve snap %q: %s", name, err)
 	}
 	return snap, ri, nil
 }

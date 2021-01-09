@@ -19,7 +19,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include <sys/sysmacros.h>
+#include <linux/kdev_t.h>
 #include <sched.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -61,26 +61,10 @@ _run_snappy_app_dev_add_majmin(struct snappy_udev *udev_s,
 			sc_must_snprintf(buf, sizeof(buf), "%u:%u", major,
 					 minor);
 		}
-		debug("running snap-device-helper add %s %s %s",
-		      udev_s->tagname, path, buf);
-		// This code runs inside the core snap. We have two paths
-		// for the udev helper.
-		//
-		// First try new "snap-device-helper" path first but
-		// when running against an older core snap fallback to
-		// the old name.
-		if (access("/usr/lib/snapd/snap-device-helper", X_OK) == 0)
-			execle("/usr/lib/snapd/snap-device-helper",
-			       "/usr/lib/snapd/snap-device-helper", "add",
-			       udev_s->tagname, path, buf, NULL, env);
-		else if (access("/usr/libexec/snapd/snap-device-helper", X_OK) == 0)
-			execle("/usr/libexec/snapd/snap-device-helper",
-			       "/usr/libexec/snapd/snap-device-helper", "add",
-			       udev_s->tagname, path, buf, NULL, env);
-		else
-			execle("/lib/udev/snappy-app-dev",
-			       "/lib/udev/snappy-app-dev", "add",
-			       udev_s->tagname, path, buf, NULL, env);
+		debug("running snap-device-helper add %s %s %s", udev_s->tagname,
+		      path, buf);
+		execle("/usr/lib/snapd/snap-device-helper", "/usr/lib/snapd/snap-device-helper",
+		       "add", udev_s->tagname, path, buf, NULL, env);
 		die("execl failed");
 	}
 	if (waitpid(pid, &status, 0) < 0)
@@ -112,8 +96,9 @@ void run_snappy_app_dev_add(struct snappy_udev *udev_s, const char *path)
 	dev_t devnum = udev_device_get_devnum(d);
 	udev_device_unref(d);
 
-	_run_snappy_app_dev_add_majmin(udev_s, path, major(devnum),
-				       minor(devnum));
+	unsigned major = MAJOR(devnum);
+	unsigned minor = MINOR(devnum);
+	_run_snappy_app_dev_add_majmin(udev_s, path, major, minor);
 }
 
 /*
@@ -143,10 +128,10 @@ int snappy_udev_init(const char *security_tag, struct snappy_udev *udev_s)
 	if (udev_s->devices == NULL)
 		die("udev_enumerate_new failed");
 
-	if (udev_enumerate_add_match_tag(udev_s->devices, udev_s->tagname) < 0)
+	if (udev_enumerate_add_match_tag(udev_s->devices, udev_s->tagname) != 0)
 		die("udev_enumerate_add_match_tag");
 
-	if (udev_enumerate_scan_devices(udev_s->devices) < 0)
+	if (udev_enumerate_scan_devices(udev_s->devices) != 0)
 		die("udev_enumerate_scan failed");
 
 	udev_s->assigned = udev_enumerate_get_list_entry(udev_s->devices);
@@ -208,7 +193,7 @@ void setup_devices_cgroup(const char *security_tag, struct snappy_udev *udev_s)
 	// move ourselves into it
 	char cgroup_file[PATH_MAX] = { 0 };
 	sc_must_snprintf(cgroup_file, sizeof(cgroup_file), "%s%s", cgroup_dir,
-			 "cgroup.procs");
+			 "tasks");
 
 	char buf[128] = { 0 };
 	sc_must_snprintf(buf, sizeof(buf), "%i", getpid());
@@ -267,34 +252,34 @@ void setup_devices_cgroup(const char *security_tag, struct snappy_udev *udev_s)
 			break;
 		}
 		_run_snappy_app_dev_add_majmin(udev_s, nv_path,
-					       major(sbuf.st_rdev),
-					       minor(sbuf.st_rdev));
+					       MAJOR(sbuf.st_rdev),
+					       MINOR(sbuf.st_rdev));
 	}
 
 	// /dev/nvidiactl
 	if (stat(nvctl_path, &sbuf) == 0) {
 		_run_snappy_app_dev_add_majmin(udev_s, nvctl_path,
-					       major(sbuf.st_rdev),
-					       minor(sbuf.st_rdev));
+					       MAJOR(sbuf.st_rdev),
+					       MINOR(sbuf.st_rdev));
 	}
 	// /dev/nvidia-uvm
 	if (stat(nvuvm_path, &sbuf) == 0) {
 		_run_snappy_app_dev_add_majmin(udev_s, nvuvm_path,
-					       major(sbuf.st_rdev),
-					       minor(sbuf.st_rdev));
+					       MAJOR(sbuf.st_rdev),
+					       MINOR(sbuf.st_rdev));
 	}
 	// /dev/nvidia-modeset
 	if (stat(nvidia_modeset_path, &sbuf) == 0) {
 		_run_snappy_app_dev_add_majmin(udev_s, nvidia_modeset_path,
-					       major(sbuf.st_rdev),
-					       minor(sbuf.st_rdev));
+					       MAJOR(sbuf.st_rdev),
+					       MINOR(sbuf.st_rdev));
 	}
 	// /dev/uhid isn't represented in sysfs, so add it to the device cgroup
 	// if it exists and let AppArmor handle the mediation
 	if (stat("/dev/uhid", &sbuf) == 0) {
 		_run_snappy_app_dev_add_majmin(udev_s, "/dev/uhid",
-					       major(sbuf.st_rdev),
-					       minor(sbuf.st_rdev));
+					       MAJOR(sbuf.st_rdev),
+					       MINOR(sbuf.st_rdev));
 	}
 	// add the assigned devices
 	while (udev_s->assigned != NULL) {

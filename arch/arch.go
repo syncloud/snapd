@@ -22,8 +22,9 @@ package arch
 import (
 	"log"
 	"runtime"
+	"syscall"
 
-	"github.com/snapcore/snapd/osutil"
+	"github.com/snapcore/snapd/release"
 )
 
 // ArchitectureType is the type for a supported snappy architecture
@@ -33,30 +34,33 @@ type ArchitectureType string
 // change the architecture. This is important to e.g. install
 // armhf snaps onto a armhf image that is generated on an amd64
 // machine
-var arch = ArchitectureType(dpkgArchFromGoArch(runtime.GOARCH))
+var arch = ArchitectureType(ubuntuArchFromGoArch(runtime.GOARCH))
 
 // SetArchitecture allows overriding the auto detected Architecture
 func SetArchitecture(newArch ArchitectureType) {
 	arch = newArch
 }
 
-// DpkgArchitecture returns the debian equivalent architecture for the
+// FIXME: rename all Ubuntu*Architecture() to SnapdArchitecture()
+//        (or DpkgArchitecture)
+
+// UbuntuArchitecture returns the debian equivalent architecture for the
 // currently running architecture.
 //
 // If the architecture does not map any debian architecture, the
 // GOARCH is returned.
-func DpkgArchitecture() string {
+func UbuntuArchitecture() string {
 	return string(arch)
 }
 
-// dpkgArchFromGoArch maps a go architecture string to the coresponding
-// Debian equivalent architecture string.
+// ubuntuArchFromGoArch maps a go architecture string to the coresponding
+// Ubuntu architecture string.
 //
 // E.g. the go "386" architecture string maps to the ubuntu "i386"
 // architecture.
-func dpkgArchFromGoArch(goarch string) string {
+func ubuntuArchFromGoArch(goarch string) string {
 	goArchMapping := map[string]string{
-		// go      dpkg
+		// go      ubuntu
 		"386":     "i386",
 		"amd64":   "amd64",
 		"arm":     "armhf",
@@ -74,32 +78,50 @@ func dpkgArchFromGoArch(goarch string) string {
 	// arch mapping. The Go arch sadly doesn't map this out
 	// for us so we have to fallback to uname here.
 	if goarch == "arm" {
-		if osutil.MachineName() == "armv6l" {
+		machineName := release.Machine()
+		if machineName == "armv6l" {
 			return "armel"
 		}
 	}
 
-	dpkgArch := goArchMapping[goarch]
-	if dpkgArch == "" {
+	ubuntuArch := goArchMapping[goarch]
+	if ubuntuArch == "" {
 		log.Panicf("unknown goarch %q", goarch)
 	}
 
-	return dpkgArch
+	return ubuntuArch
 }
 
-// DpkgKernelArchitecture returns the debian equivalent architecture
+// UbuntuKernelArchitecture return the debian equivalent architecture
 // for the current running kernel. This is usually the same as the
-// DpkgArchitecture - however there maybe cases that you run e.g.
+// UbuntuArchitecture - however there maybe cases that you run e.g.
 // a snapd:i386 on an amd64 kernel.
-func DpkgKernelArchitecture() string {
-	return dpkgArchFromKernelArch(osutil.MachineName())
+func UbuntuKernelArchitecture() string {
+	var utsname syscall.Utsname
+	if err := syscall.Uname(&utsname); err != nil {
+		log.Panicf("cannot get kernel architecture: %v", err)
+	}
+
+	// syscall.Utsname{} is using [65]int8 for all char[] inside it,
+	// this makes converting it so awkward. The alternative would be
+	// to use a unsafe.Pointer() to cast it to a [65]byte slice.
+	// see https://github.com/golang/go/issues/20753
+	kernelArch := make([]byte, 0, len(utsname.Machine))
+	for _, c := range utsname.Machine {
+		if c == 0 {
+			break
+		}
+		kernelArch = append(kernelArch, byte(c))
+	}
+
+	return ubuntuArchFromKernelArch(string(kernelArch))
 }
 
-// dpkgArchFromkernelArch maps the kernel architecture as reported
+// ubuntuArchFromkernelArch maps the kernel architecture as reported
 // via uname() to the dpkg architecture
-func dpkgArchFromKernelArch(utsMachine string) string {
+func ubuntuArchFromKernelArch(utsMachine string) string {
 	kernelArchMapping := map[string]string{
-		// kernel  dpkg
+		// kernel  ubuntu
 		"i686":    "i386",
 		"x86_64":  "amd64",
 		"armv7l":  "armhf",
@@ -112,12 +134,12 @@ func dpkgArchFromKernelArch(utsMachine string) string {
 		"ppc64": "ppc64",
 	}
 
-	dpkgArch := kernelArchMapping[utsMachine]
-	if dpkgArch == "" {
+	ubuntuArch := kernelArchMapping[utsMachine]
+	if ubuntuArch == "" {
 		log.Panicf("unknown kernel arch %q", utsMachine)
 	}
 
-	return dpkgArch
+	return ubuntuArch
 }
 
 // IsSupportedArchitecture returns true if the system architecture is in the

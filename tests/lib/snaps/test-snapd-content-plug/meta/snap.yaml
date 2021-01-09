@@ -9,4 +9,4 @@ plugs:
         interface: content
         target: import
         content: mylib
-        default-provider: test-snapd-content-slot
+        default-provider: test-snapd-tools

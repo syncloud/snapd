@@ -32,21 +32,11 @@ bool sc_streq(const char *a, const char *b);
 bool sc_endswith(const char *str, const char *suffix);
 
 /**
- * Check if a string has a given prefix.
- **/
-bool sc_startswith(const char *str, const char *prefix);
-
-/**
- * Allocate and return a copy of a string.
-**/
-char *sc_strdup(const char *str);
-
-/**
  * Safer version of snprintf.
  *
  * This version dies on any error condition.
  **/
-__attribute__((format(printf, 3, 4)))
+__attribute__ ((format(printf, 3, 4)))
 int sc_must_snprintf(char *str, size_t size, const char *format, ...);
 
 /**

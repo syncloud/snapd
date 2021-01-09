@@ -24,7 +24,7 @@ import (
 	"fmt"
 )
 
-// Type represents the kind of snap (app, core, gadget, os, kernel, snapd)
+// Type represents the kind of snap (app, core, gadget, os, kernel)
 type Type string
 
 // The various types of snap parts we support
@@ -33,27 +33,10 @@ const (
 	TypeGadget Type = "gadget"
 	TypeKernel Type = "kernel"
 	TypeBase   Type = "base"
-	TypeSnapd  Type = "snapd"
 
 	// FIXME: this really should be TypeCore
 	TypeOS Type = "os"
 )
-
-// This is the sort order from least important to most important for
-// types. On e.g. firstboot this will be used to order the snaps this
-// way.
-var typeOrder = map[Type]int{
-	TypeApp:    50,
-	TypeGadget: 40,
-	TypeBase:   30,
-	TypeKernel: 20,
-	TypeOS:     10,
-	TypeSnapd:  0,
-}
-
-func (m Type) SortsBefore(other Type) bool {
-	return typeOrder[m] < typeOrder[other]
-}
 
 // UnmarshalJSON sets *m to a copy of data.
 func (m *Type) UnmarshalJSON(data []byte) error {
@@ -65,7 +48,7 @@ func (m *Type) UnmarshalJSON(data []byte) error {
 	return m.fromString(str)
 }
 
-// UnmarshalYAML so Type implements yaml's Unmarshaler interface
+// UnmarshalYAML so ConfinementType implements yaml's Unmarshaler interface
 func (m *Type) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var str string
 	if err := unmarshal(&str); err != nil {
@@ -85,7 +68,7 @@ func (m *Type) fromString(str string) error {
 		t = TypeApp
 	}
 
-	if t != TypeApp && t != TypeGadget && t != TypeOS && t != TypeKernel && t != TypeBase && t != TypeSnapd {
+	if t != TypeApp && t != TypeGadget && t != TypeOS && t != TypeKernel && t != TypeBase {
 		return fmt.Errorf("invalid snap type: %q", str)
 	}
 

@@ -31,24 +31,21 @@ import (
 )
 
 type cmdLogin struct {
-	clientMixin
 	Positional struct {
 		Email string
 	} `positional-args:"yes"`
 }
 
-var shortLoginHelp = i18n.G("Authenticate to snapd and the store")
+var shortLoginHelp = i18n.G("Authenticates on snapd and the store")
 
 var longLoginHelp = i18n.G(`
-The login command authenticates the user to snapd and the snap store, and saves
-credentials into the ~/.snap/auth.json file. Further communication with snapd
-will then be made using those credentials.
+The login command authenticates on snapd and the snap store and saves credentials
+into the ~/.snap/auth.json file. Further communication with snapd will then be made
+using those credentials.
 
-It's not necessary to log in to interact with snapd. Doing so, however, enables
-purchasing of snaps using 'snap buy', as well as some some developer-oriented
-features as detailed in the help for the find, install and refresh commands.
+Login only works for local users in the sudo, admin or wheel groups.
 
-An account can be set up at https://login.ubuntu.com
+An account can be setup at https://login.ubuntu.com
 `)
 
 func init() {
@@ -58,14 +55,14 @@ func init() {
 		func() flags.Commander {
 			return &cmdLogin{}
 		}, nil, []argDesc{{
-			// TRANSLATORS: This is a noun, and it needs to begin with < and end with >
+			// TRANSLATORS: This is a noun, and it needs to be wrapped in <>s.
 			name: i18n.G("<email>"),
-			// TRANSLATORS: This should not start with a lowercase letter (unless it's "login.ubuntu.com")
+			// TRANSLATORS: This should probably not start with a lowercase letter.
 			desc: i18n.G("The login.ubuntu.com email to login as"),
 		}})
 }
 
-func requestLoginWith2faRetry(cli *client.Client, email, password string) error {
+func requestLoginWith2faRetry(email, password string) error {
 	var otp []byte
 	var err error
 
@@ -75,6 +72,7 @@ func requestLoginWith2faRetry(cli *client.Client, email, password string) error 
 		i18n.G("Wrong again. Once more: "),
 	}
 
+	cli := Client()
 	reader := bufio.NewReader(nil)
 
 	for i := 0; ; i++ {
@@ -94,7 +92,7 @@ func requestLoginWith2faRetry(cli *client.Client, email, password string) error 
 	}
 }
 
-func requestLogin(cli *client.Client, email string) error {
+func requestLogin(email string) error {
 	fmt.Fprint(Stdout, fmt.Sprintf(i18n.G("Password of %q: "), email))
 	password, err := ReadPassword(0)
 	fmt.Fprint(Stdout, "\n")
@@ -103,17 +101,13 @@ func requestLogin(cli *client.Client, email string) error {
 	}
 
 	// strings.TrimSpace needed because we get \r from the pty in the tests
-	return requestLoginWith2faRetry(cli, email, strings.TrimSpace(string(password)))
+	return requestLoginWith2faRetry(email, strings.TrimSpace(string(password)))
 }
 
 func (x *cmdLogin) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs
 	}
-
-	//TRANSLATORS: after the "... at" follows a URL in the next line
-	fmt.Fprint(Stdout, i18n.G("Personal information is handled as per our privacy notice at\n"))
-	fmt.Fprint(Stdout, "https://www.ubuntu.com/legal/dataprivacy/snap-store\n\n")
 
 	email := x.Positional.Email
 	if email == "" {
@@ -125,7 +119,7 @@ func (x *cmdLogin) Execute(args []string) error {
 		email = string(in)
 	}
 
-	err := requestLogin(x.client, email)
+	err := requestLogin(email)
 	if err != nil {
 		return err
 	}

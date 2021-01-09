@@ -1,40 +1,31 @@
 summary: Check that snap info works
 
-# core18 has no python3-yaml
-# amazon: no PyYAML is not packaged for python3
-systems: [-amazon-*, -centos-*]
-
 prepare: |
-    snap pack "$TESTSLIB"/snaps/basic
+    . $TESTSLIB/pkgdb.sh
+    distro_install_package python3-yaml
+
+    snap pack $TESTSLIB/snaps/basic
     snap install test-snapd-tools
     snap install --channel beta --devmode test-snapd-devmode
-    # ensures that an empty directory doesn't confuse things
-    mkdir -v core
 
 restore: |
-    rmdir -v core
+    rm -f basic_1.0_all.snap
+    . $TESTSLIB/pkgdb.sh
+    distro_purge_package python3-yaml
+    rm -f out
 
 execute: |
     echo "With no arguments, errors out"
-    not snap info
+    snap info && exit 1 || true
 
     echo "With one non-snap argument, errors out"
-    not snap info /etc/passwd
+    snap info /etc/passwd && exit 1 || true
 
-    snap info --unicode=always        \
-      basic_1.0_all.snap              \
-      "$TESTSLIB"/snaps/basic-desktop \
-      test-snapd-tools                \
-      test-snapd-devmode              \
-      core                            \
-      /etc/passwd                     \
-      test-snapd-python-webserver     \
-      > out
-    PYTHONIOENCODING=utf8 python3 check.py < out
+    snap info basic_1.0_all.snap $TESTSLIB/snaps/basic-desktop test-snapd-tools test-snapd-devmode core /etc/passwd test-snapd-python-webserver > out
+    python3 check.py < out
 
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB"/snaps.sh
-    snap info --verbose "$TESTSLIB"/snaps/basic-desktop|MATCH "path: "
+    . $TESTSLIB/snaps.sh
+    snap info --verbose $TESTSLIB/snaps/basic-desktop|MATCH "path: "
     install_local basic-desktop
     snap info basic-desktop|MATCH "license:[ ]+GPL-3.0"
 
@@ -53,7 +44,7 @@ execute: |
     snap info no-such-snap test-snapd-tools > out.stdout 2> out.stderr
     MATCH 'warning: no snap found for "no-such-snap"' < out.stdout
     # no error output generated
-    not test -s out.stderr
+    ! test -s out.stderr
 
     echo "Ensure we show versions as strings (LP: 1669291)"
     snap info test-snapd-number-version | MATCH "edge:[ ]+2.10"

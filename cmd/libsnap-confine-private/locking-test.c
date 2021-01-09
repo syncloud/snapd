@@ -32,12 +32,6 @@ static void sc_set_lock_dir(const char *dir)
 	sc_lock_dir = dir;
 }
 
-// A variant of unsetenv that is compatible with GDestroyNotify
-static void my_unsetenv(const char *k)
-{
-	unsetenv(k);
-}
-
 // Use temporary directory for locking.
 //
 // The directory is automatically reset to the real value at the end of the
@@ -56,7 +50,7 @@ static const char *sc_test_use_fake_lock_dir(void)
 		g_test_queue_free(lock_dir);
 		g_assert_cmpint(setenv("SNAP_CONFINE_LOCK_DIR", lock_dir, 0),
 				==, 0);
-		g_test_queue_destroy((GDestroyNotify) my_unsetenv,
+		g_test_queue_destroy((GDestroyNotify) unsetenv,
 				     "SNAP_CONFINE_LOCK_DIR");
 		g_test_queue_destroy((GDestroyNotify) rm_rf_tmp, lock_dir);
 	}
@@ -69,10 +63,10 @@ static const char *sc_test_use_fake_lock_dir(void)
 static void test_sc_lock_unlock(void)
 {
 	const char *lock_dir = sc_test_use_fake_lock_dir();
-	int fd = sc_lock_generic("foo", 123);
+	int fd = sc_lock("foo");
 	// Construct the name of the lock file
 	char *lock_file SC_CLEANUP(sc_cleanup_string) = NULL;
-	lock_file = g_strdup_printf("%s/foo.123.lock", lock_dir);
+	lock_file = g_strdup_printf("%s/foo.lock", lock_dir);
 	// Open the lock file again to obtain a separate file descriptor.
 	// According to flock(2) locks are associated with an open file table entry
 	// so this descriptor will be separate and can compete for the same lock.
@@ -86,33 +80,10 @@ static void test_sc_lock_unlock(void)
 	g_assert_cmpint(err, ==, -1);
 	g_assert_cmpint(saved_errno, ==, EWOULDBLOCK);
 	// Unlock the lock.
-	sc_unlock(fd);
+	sc_unlock("foo", fd);
 	// Re-attempt the locking operation. This time it should succeed.
 	err = flock(lock_fd, LOCK_EX | LOCK_NB);
 	g_assert_cmpint(err, ==, 0);
-}
-
-// Check that holding a lock is properly detected.
-static void test_sc_verify_snap_lock__locked(void)
-{
-	(void)sc_test_use_fake_lock_dir();
-	int fd = sc_lock_snap("foo");
-	sc_verify_snap_lock("foo");
-	sc_unlock(fd);
-}
-
-// Check that holding a lock is properly detected.
-static void test_sc_verify_snap_lock__unlocked(void)
-{
-	(void)sc_test_use_fake_lock_dir();
-	if (g_test_subprocess()) {
-		sc_verify_snap_lock("foo");
-		return;
-	}
-	g_test_trap_subprocess(NULL, 0, 0);
-	g_test_trap_assert_failed();
-	g_test_trap_assert_stderr
-	    ("unexpectedly managed to acquire exclusive lock over snap foo\n");
 }
 
 static void test_sc_enable_sanity_timeout(void)
@@ -125,20 +96,14 @@ static void test_sc_enable_sanity_timeout(void)
 		sc_disable_sanity_timeout();
 		return;
 	}
-	g_test_trap_subprocess(NULL, 1 * G_USEC_PER_SEC,
+	g_test_trap_subprocess(NULL, 5 * G_USEC_PER_SEC,
 			       G_TEST_SUBPROCESS_INHERIT_STDERR);
 	g_test_trap_assert_failed();
-	g_test_trap_assert_stderr
-	    ("sanity timeout expired: Interrupted system call\n");
 }
 
-static void __attribute__((constructor)) init(void)
+static void __attribute__ ((constructor)) init(void)
 {
 	g_test_add_func("/locking/sc_lock_unlock", test_sc_lock_unlock);
 	g_test_add_func("/locking/sc_enable_sanity_timeout",
 			test_sc_enable_sanity_timeout);
-	g_test_add_func("/locking/sc_verify_snap_lock__locked",
-			test_sc_verify_snap_lock__locked);
-	g_test_add_func("/locking/sc_verify_snap_lock__unlocked",
-			test_sc_verify_snap_lock__unlocked);
 }

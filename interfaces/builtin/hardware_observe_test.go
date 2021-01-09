@@ -53,14 +53,14 @@ var _ = Suite(&HardwareObserveInterfaceSuite{
 
 func (s *HardwareObserveInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "hardware-observe",
 		Interface: "hardware-observe",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, hwobserveMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["hardware-observe"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *HardwareObserveInterfaceSuite) TestName(c *C) {
@@ -69,6 +69,13 @@ func (s *HardwareObserveInterfaceSuite) TestName(c *C) {
 
 func (s *HardwareObserveInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "hardware-observe",
+		Interface: "hardware-observe",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"hardware-observe slots are reserved for the core snap")
 }
 
 func (s *HardwareObserveInterfaceSuite) TestSanitizePlug(c *C) {

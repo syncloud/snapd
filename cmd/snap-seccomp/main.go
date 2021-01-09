@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2017-2019 Canonical Ltd
+ * Copyright (C) 2017-2018 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -41,7 +41,6 @@ package main
 //#include <sys/stat.h>
 //#include <sys/types.h>
 //#include <sys/utsname.h>
-//#include <sys/ptrace.h>
 //#include <termios.h>
 //#include <unistd.h>
 // //The XFS interface requires a 64 bit file system interface
@@ -123,9 +122,6 @@ package main
 //#define SCMP_ARCH_S390X ARCH_BAD
 //#endif
 //
-//#ifndef SECCOMP_RET_LOG
-//#define SECCOMP_RET_LOG 0x7ffc0000U
-//#endif
 //
 //typedef struct seccomp_data kernel_seccomp_data;
 //
@@ -145,29 +141,6 @@ package main
 //		return htobe64(val);
 //}
 //
-// /* Define missing ptrace constants. They are available on some architectures
-//    only but the missing values are not reused on architectures that lack them.
-//    As such we can simply define the missing pair and have a simpler cross-arch
-//    code to support. */
-//
-// #ifndef PTRACE_GETREGS
-// #define PTRACE_GETREGS 12
-// #endif
-// #ifndef PTRACE_SETREGS
-// #define PTRACE_SETREGS 13
-// #endif
-// #ifndef PTRACE_GETFPREGS
-// #define PTRACE_GETFPREGS 14
-// #endif
-// #ifndef PTRACE_SETFPREGS
-// #define PTRACE_SETFPREGS 15
-// #endif
-// #ifndef PTRACE_GETFPXREGS
-// #define PTRACE_GETFPXREGS 18
-// #endif
-// #ifndef PTRACE_SETFPXREGS
-// #define PTRACE_SETFPXREGS 19
-// #endif
 import "C"
 
 import (
@@ -176,6 +149,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -411,25 +385,17 @@ var seccompResolver = map[string]uint64{
 	"NETLINK_RDMA":           C.NETLINK_RDMA,
 	"NETLINK_CRYPTO":         C.NETLINK_CRYPTO,
 	"NETLINK_INET_DIAG":      C.NETLINK_INET_DIAG, // synonymous with NETLINK_SOCK_DIAG
-
-	// man 2 ptrace
-	"PTRACE_ATTACH":     C.PTRACE_ATTACH,
-	"PTRACE_DETACH":     C.PTRACE_DETACH,
-	"PTRACE_GETREGS":    C.PTRACE_GETREGS,
-	"PTRACE_GETFPREGS":  C.PTRACE_GETFPREGS,
-	"PTRACE_GETFPXREGS": C.PTRACE_GETFPXREGS,
-	"PTRACE_GETREGSET":  C.PTRACE_GETREGSET,
-	"PTRACE_PEEKDATA":   C.PTRACE_PEEKDATA,
-	// <linux/ptrace.h> and <sys/ptrace.h> have different spellings for PEEKUS{,E}R
-	"PTRACE_PEEKUSR":  C.PTRACE_PEEKUSER,
-	"PTRACE_PEEKUSER": C.PTRACE_PEEKUSER,
-	"PTRACE_CONT":     C.PTRACE_CONT,
 }
 
-// DpkgArchToScmpArch takes a dpkg architecture and converts it to
+const (
+	SeccompRetAllow = C.SECCOMP_RET_ALLOW
+	SeccompRetKill  = C.SECCOMP_RET_KILL
+)
+
+// UbuntuArchToScmpArch takes a dpkg architecture and converts it to
 // the seccomp.ScmpArch as used in the libseccomp-golang library
-func DpkgArchToScmpArch(dpkgArch string) seccomp.ScmpArch {
-	switch dpkgArch {
+func UbuntuArchToScmpArch(ubuntuArch string) seccomp.ScmpArch {
+	switch ubuntuArch {
 	case "amd64":
 		return seccomp.ArchAMD64
 	case "arm64":
@@ -447,7 +413,32 @@ func DpkgArchToScmpArch(dpkgArch string) seccomp.ScmpArch {
 	case "s390x":
 		return seccomp.ArchS390X
 	}
-	panic(fmt.Sprintf("cannot map dpkg arch %q to a seccomp arch", dpkgArch))
+	panic(fmt.Sprintf("cannot map ubuntu arch %q to a seccomp arch", ubuntuArch))
+}
+
+// ScmpArchToSeccompNativeArch takes a seccomp.ScmpArch and converts
+// it into the native kernel architecture uint32. This is required for
+// the tests to simulate the bpf kernel behaviour.
+func ScmpArchToSeccompNativeArch(scmpArch seccomp.ScmpArch) uint32 {
+	switch scmpArch {
+	case seccomp.ArchAMD64:
+		return C.SCMP_ARCH_X86_64
+	case seccomp.ArchARM64:
+		return C.SCMP_ARCH_AARCH64
+	case seccomp.ArchARM:
+		return C.SCMP_ARCH_ARM
+	case seccomp.ArchPPC64:
+		return C.SCMP_ARCH_PPC64
+	case seccomp.ArchPPC64LE:
+		return C.SCMP_ARCH_PPC64LE
+	case seccomp.ArchPPC:
+		return C.SCMP_ARCH_PPC
+	case seccomp.ArchS390X:
+		return C.SCMP_ARCH_S390X
+	case seccomp.ArchX86:
+		return C.SCMP_ARCH_X86
+	}
+	panic(fmt.Sprintf("cannot map scmpArch %q to a native seccomp arch", scmpArch))
 }
 
 // important for unit testing
@@ -465,65 +456,14 @@ func (sc *SeccompData) SetArgs(args [6]uint64) {
 	}
 }
 
-// Only support negative args for syscalls where we understand the glibc/kernel
-// prototypes and behavior. This lists all the syscalls that support negative
-// arguments where we want to ignore the high 32 bits (ie, we'll mask it since
-// the arg is known to be 32 bit (uid_t/gid_t) and the kernel accepts one
-// or both of uint32(-1) and uint64(-1) and does its own masking).
-var syscallsWithNegArgsMaskHi32 = map[string]bool{
-	"chown":       true,
-	"chown32":     true,
-	"fchown":      true,
-	"fchown32":    true,
-	"fchownat":    true,
-	"lchown":      true,
-	"lchown32":    true,
-	"setgid":      true,
-	"setgid32":    true,
-	"setregid":    true,
-	"setregid32":  true,
-	"setresgid":   true,
-	"setresgid32": true,
-	"setreuid":    true,
-	"setreuid32":  true,
-	"setresuid":   true,
-	"setresuid32": true,
-	"setuid":      true,
-	"setuid32":    true,
-}
-
-// The kernel uses uint32 for all syscall arguments, but seccomp takes a
-// uint64. For unsigned ints in our policy, just read straight into uint32
-// since we don't need to worry about sign extending.
-//
-// For negative signed ints in our policy, we first read in as int32, convert
-// to uint32 and then again uint64 to avoid sign extension woes (see
-// https://github.com/seccomp/libseccomp/issues/69). For syscalls that take
-// a 64bit arg that we want to express in our policy, we can add an exception
-// for reading into a uint64. For now there are no exceptions, so don't need to
-// do anything extra.
-func readNumber(token string, syscallName string) (uint64, error) {
+func readNumber(token string) (uint64, error) {
 	if value, ok := seccompResolver[token]; ok {
 		return value, nil
 	}
 
-	if value, err := strconv.ParseUint(token, 10, 32); err == nil {
-		return value, nil
-	}
-
-	// Not a positive integer, see if negative is allowed for this syscall
-	if !syscallsWithNegArgsMaskHi32[syscallName] {
-		return 0, fmt.Errorf(`negative argument not supported with "%s"`, syscallName)
-	}
-
-	// It is, so try to parse as an int32
-	value, err := strconv.ParseInt(token, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-
-	// convert the int32 to uint32 then to uint64 (see above)
-	return uint64(uint32(value)), nil
+	// Negative numbers are not supported yet, but when they are,
+	// adjust this accordingly
+	return strconv.ParseUint(token, 10, 64)
 }
 
 func parseLine(line string, secFilter *seccomp.ScmpFilter) error {
@@ -539,8 +479,7 @@ func parseLine(line string, secFilter *seccomp.ScmpFilter) error {
 	}
 
 	// fish out syscall
-	syscallName := tokens[0]
-	secSyscall, err := seccomp.GetSyscallFromName(syscallName)
+	secSyscall, err := seccomp.GetSyscallFromName(tokens[0])
 	if err != nil {
 		// FIXME: use structed error in libseccomp-golang when
 		//   https://github.com/seccomp/libseccomp-golang/pull/26
@@ -561,22 +500,22 @@ func parseLine(line string, secFilter *seccomp.ScmpFilter) error {
 
 		if strings.HasPrefix(arg, ">=") {
 			cmpOp = seccomp.CompareGreaterEqual
-			value, err = readNumber(arg[2:], syscallName)
+			value, err = readNumber(arg[2:])
 		} else if strings.HasPrefix(arg, "<=") {
 			cmpOp = seccomp.CompareLessOrEqual
-			value, err = readNumber(arg[2:], syscallName)
+			value, err = readNumber(arg[2:])
 		} else if strings.HasPrefix(arg, "!") {
 			cmpOp = seccomp.CompareNotEqual
-			value, err = readNumber(arg[1:], syscallName)
+			value, err = readNumber(arg[1:])
 		} else if strings.HasPrefix(arg, "<") {
 			cmpOp = seccomp.CompareLess
-			value, err = readNumber(arg[1:], syscallName)
+			value, err = readNumber(arg[1:])
 		} else if strings.HasPrefix(arg, ">") {
 			cmpOp = seccomp.CompareGreater
-			value, err = readNumber(arg[1:], syscallName)
+			value, err = readNumber(arg[1:])
 		} else if strings.HasPrefix(arg, "|") {
 			cmpOp = seccomp.CompareMaskedEqual
-			value, err = readNumber(arg[1:], syscallName)
+			value, err = readNumber(arg[1:])
 		} else if strings.HasPrefix(arg, "u:") {
 			cmpOp = seccomp.CompareEqual
 			value, err = findUid(arg[2:])
@@ -591,26 +530,15 @@ func parseLine(line string, secFilter *seccomp.ScmpFilter) error {
 			}
 		} else {
 			cmpOp = seccomp.CompareEqual
-			value, err = readNumber(arg, syscallName)
+			value, err = readNumber(arg)
 		}
 		if err != nil {
 			return fmt.Errorf("cannot parse token %q (line %q)", arg, line)
 		}
 
-		// For now only support EQ with negative args. If changing
-		// this, be sure to adjust readNumber accordingly and use
-		// libseccomp carefully.
-		if syscallsWithNegArgsMaskHi32[syscallName] {
-			if cmpOp != seccomp.CompareEqual {
-				return fmt.Errorf("cannot parse token %q (line %q): unsupported comparison", arg, line)
-			}
-		}
-
 		var scmpCond seccomp.ScmpCondition
 		if cmpOp == seccomp.CompareMaskedEqual {
 			scmpCond, err = seccomp.MakeCondition(uint(pos), cmpOp, value, value)
-		} else if syscallsWithNegArgsMaskHi32[syscallName] {
-			scmpCond, err = seccomp.MakeCondition(uint(pos), seccomp.CompareMaskedEqual, 0xFFFFFFFF, value)
 		} else {
 			scmpCond, err = seccomp.MakeCondition(uint(pos), cmpOp, value)
 		}
@@ -631,13 +559,13 @@ func parseLine(line string, secFilter *seccomp.ScmpFilter) error {
 
 // used to mock in tests
 var (
-	archDpkgArchitecture       = arch.DpkgArchitecture
-	archDpkgKernelArchitecture = arch.DpkgKernelArchitecture
+	archUbuntuArchitecture       = arch.UbuntuArchitecture
+	archUbuntuKernelArchitecture = arch.UbuntuKernelArchitecture
 )
 
 var (
-	dpkgArchitecture       = archDpkgArchitecture()
-	dpkgKernelArchitecture = archDpkgKernelArchitecture()
+	ubuntuArchitecture       = archUbuntuArchitecture()
+	ubuntuKernelArchitecture = archUbuntuKernelArchitecture()
 )
 
 // For architectures that support a compat architecture, when the
@@ -653,8 +581,8 @@ func addSecondaryArches(secFilter *seccomp.ScmpFilter) error {
 	// add a compat architecture for some architectures that
 	// support it, e.g. on amd64 kernel and userland, we add
 	// compat i386 syscalls.
-	if dpkgArchitecture == dpkgKernelArchitecture {
-		switch archDpkgArchitecture() {
+	if ubuntuArchitecture == ubuntuKernelArchitecture {
+		switch archUbuntuArchitecture() {
 		case "amd64":
 			compatArch = seccomp.ArchX86
 		case "arm64":
@@ -672,7 +600,7 @@ func addSecondaryArches(secFilter *seccomp.ScmpFilter) error {
 		// snaps. While unusual from a traditional Linux distribution
 		// perspective, certain classes of embedded devices are known
 		// to use this configuration.
-		compatArch = DpkgArchToScmpArch(archDpkgKernelArchitecture())
+		compatArch = UbuntuArchToScmpArch(archUbuntuKernelArchitecture())
 	}
 
 	if compatArch != seccomp.ArchInvalid {
@@ -682,98 +610,48 @@ func addSecondaryArches(secFilter *seccomp.ScmpFilter) error {
 	return nil
 }
 
-var errnoOnDenial int16 = C.EPERM
-
-func preprocess(content []byte) (unrestricted, complain bool) {
-	scanner := bufio.NewScanner(bytes.NewBuffer(content))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		switch line {
-		case "@unrestricted":
-			unrestricted = true
-		case "@complain":
-			complain = true
-		}
-	}
-	return unrestricted, complain
-}
-
-// With golang-seccomp <= 0.9.0, seccomp.ActLog is not available so guess
-// at the ActLog value by adding one to ActAllow and then verify that the
-// string representation is what we expect for ActLog. The value and string is
-// defined in https://github.com/seccomp/libseccomp-golang/pull/29.
-//
-// Ultimately, the fix for this workaround is to be able to use the GetApi()
-// function created in the PR above. It'll tell us if the kernel, libseccomp,
-// and libseccomp-golang all support ActLog, but GetApi() is also not available
-// in golang-seccomp <= 0.9.0.
-const actLog seccomp.ScmpAction = seccomp.ActAllow + 1
-
-func actLogSupported() bool {
-	return actLog.String() == "Action: Log system call"
-}
-
-func complainAction() seccomp.ScmpAction {
-	// XXX: Work around some distributions not having a new enough
-	// libseccomp-golang that declares ActLog.
-	if actLogSupported() {
-		return actLog
-	}
-
-	// Because ActLog is functionally ActAllow with logging, if we don't
-	// support ActLog, fallback to ActLog.
-	return seccomp.ActAllow
-}
-
 func compile(content []byte, out string) error {
 	var err error
 	var secFilter *seccomp.ScmpFilter
 
-	unrestricted, complain := preprocess(content)
-	switch {
-	case unrestricted:
-		return osutil.AtomicWrite(out, bytes.NewBufferString("@unrestricted\n"), 0644, 0)
-	case complain:
-		var complainAct seccomp.ScmpAction = complainAction()
-
-		secFilter, err = seccomp.NewFilter(complainAct)
-		if err != nil {
-			if complainAct != seccomp.ActAllow {
-				// ActLog is only supported in newer versions
-				// of the kernel, libseccomp, and
-				// libseccomp-golang. Attempt to fall back to
-				// ActAllow before erroring out.
-				complainAct = seccomp.ActAllow
-				secFilter, err = seccomp.NewFilter(complainAct)
-			}
-		}
-
-		// Set unrestricted to 'true' to fallback to the pre-ActLog
-		// behavior of simply setting the allow filter without adding
-		// any rules.
-		if complainAct == seccomp.ActAllow {
-			unrestricted = true
-		}
-	default:
-		secFilter, err = seccomp.NewFilter(seccomp.ActErrno.SetReturnCode(errnoOnDenial))
-	}
+	secFilter, err = seccomp.NewFilter(seccomp.ActKill)
 	if err != nil {
 		return fmt.Errorf("cannot create seccomp filter: %s", err)
 	}
+
 	if err := addSecondaryArches(secFilter); err != nil {
 		return err
 	}
 
-	if !unrestricted {
-		scanner := bufio.NewScanner(bytes.NewBuffer(content))
-		for scanner.Scan() {
-			if err := parseLine(scanner.Text(), secFilter); err != nil {
-				return fmt.Errorf("cannot parse line: %s", err)
+	scanner := bufio.NewScanner(bytes.NewBuffer(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// special case: unrestricted means we stop early, we just
+		// write this special tag and evalulate in snap-confine
+		if line == "@unrestricted" {
+			return osutil.AtomicWrite(out, bytes.NewBufferString(line+"\n"), 0644, 0)
+		}
+		// complain mode is a "allow-all" filter for now until
+		// we can land https://github.com/snapcore/snapd/pull/3998
+		if line == "@complain" {
+			secFilter, err = seccomp.NewFilter(seccomp.ActAllow)
+			if err != nil {
+				return fmt.Errorf("cannot create seccomp filter: %s", err)
 			}
+			if err := addSecondaryArches(secFilter); err != nil {
+				return err
+			}
+			break
 		}
-		if scanner.Err(); err != nil {
-			return err
+
+		// look for regular syscall/arg rule
+		if err := parseLine(line, secFilter); err != nil {
+			return fmt.Errorf("cannot parse line: %s", err)
 		}
+	}
+	if scanner.Err(); err != nil {
+		return err
 	}
 
 	if osutil.GetenvBool("SNAP_SECCOMP_DEBUG") {
@@ -785,8 +663,7 @@ func compile(content []byte, out string) error {
 	if err != nil {
 		return err
 	}
-	// Cancel once Committed is a NOP
-	defer fout.Cancel()
+	defer fout.Close()
 
 	if err := secFilter.ExportBPF(fout.File); err != nil {
 		return err
@@ -794,38 +671,24 @@ func compile(content []byte, out string) error {
 	return fout.Commit()
 }
 
-// caches for uid and gid lookups
-var uidCache = make(map[string]uint64)
-var gidCache = make(map[string]uint64)
+// Be very strict so usernames and groups specified in policy are widely
+// compatible. From NAME_REGEX in /etc/adduser.conf
+var userGroupNamePattern = regexp.MustCompile("^[a-z][-a-z0-9_]*$")
 
 // findUid returns the identifier of the given UNIX user name.
 func findUid(username string) (uint64, error) {
-	if uid, ok := uidCache[username]; ok {
-		return uid, nil
-	}
-	if !osutil.IsValidUsername(username) {
+	if !userGroupNamePattern.MatchString(username) {
 		return 0, fmt.Errorf("%q must be a valid username", username)
 	}
-	uid, err := osutil.FindUid(username)
-	if err == nil {
-		uidCache[username] = uid
-	}
-	return uid, err
+	return osutil.FindUid(username)
 }
 
 // findGid returns the identifier of the given UNIX group name.
 func findGid(group string) (uint64, error) {
-	if gid, ok := gidCache[group]; ok {
-		return gid, nil
-	}
-	if !osutil.IsValidUsername(group) {
+	if !userGroupNamePattern.MatchString(group) {
 		return 0, fmt.Errorf("%q must be a valid group name", group)
 	}
-	gid, err := osutil.FindGid(group)
-	if err == nil {
-		gidCache[group] = gid
-	}
-	return gid, err
+	return osutil.FindGid(group)
 }
 
 func showSeccompLibraryVersion() error {
@@ -857,8 +720,6 @@ func main() {
 		err = compile(content, os.Args[3])
 	case "library-version":
 		err = showSeccompLibraryVersion()
-	case "version-info":
-		err = showVersionInfo()
 	default:
 		err = fmt.Errorf("unsupported argument %q", cmd)
 	}

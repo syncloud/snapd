@@ -153,7 +153,7 @@ func (iface *storageFrameworkServiceInterface) SecCompPermanentSlot(spec *seccom
 	return nil
 }
 
-func (iface *storageFrameworkServiceInterface) AutoConnect(plug *snap.PlugInfo, slot *snap.SlotInfo) bool {
+func (iface *storageFrameworkServiceInterface) AutoConnect(plug *interfaces.Plug, slot *interfaces.Slot) bool {
 	return true
 }
 

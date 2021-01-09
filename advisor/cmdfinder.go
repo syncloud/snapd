@@ -19,21 +19,13 @@
 
 package advisor
 
-import (
-	"os"
-)
-
 type Command struct {
 	Snap    string
-	Version string `json:"Version,omitempty"`
 	Command string
 }
 
 func FindCommand(command string) ([]Command, error) {
 	finder, err := newFinder()
-	if err != nil && os.IsNotExist(err) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -87,9 +79,6 @@ func FindMisspelledCommand(command string) ([]Command, error) {
 		return nil, nil
 	}
 	finder, err := newFinder()
-	if err != nil && os.IsNotExist(err) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

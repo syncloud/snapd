@@ -23,24 +23,22 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/jessevdk/go-flags"
-
-	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/i18n"
+
+	"github.com/jessevdk/go-flags"
 )
 
 type cmdAck struct {
-	clientMixin
 	AckOptions struct {
 		AssertionFile flags.Filename
 	} `positional-args:"true" required:"true"`
 }
 
-var shortAckHelp = i18n.G("Add an assertion to the system")
+var shortAckHelp = i18n.G("Adds an assertion to the system")
 var longAckHelp = i18n.G(`
 The ack command tries to add an assertion to the system assertion database.
 
-The assertion may also be a newer revision of a pre-existing assertion that it
+The assertion may also be a newer revision of a preexisting assertion that it
 will replace.
 
 To succeed the assertion must be valid, its signature verified with a known
@@ -52,27 +50,27 @@ func init() {
 	addCommand("ack", shortAckHelp, longAckHelp, func() flags.Commander {
 		return &cmdAck{}
 	}, nil, []argDesc{{
-		// TRANSLATORS: This needs to begin with < and end with >
+		// TRANSLATORS: This needs to be wrapped in <>s.
 		name: i18n.G("<assertion file>"),
-		// TRANSLATORS: This should not start with a lowercase letter.
+		// TRANSLATORS: This should probably not start with a lowercase letter.
 		desc: i18n.G("Assertion file"),
 	}})
 }
 
-func ackFile(cli *client.Client, assertFile string) error {
+func ackFile(assertFile string) error {
 	assertData, err := ioutil.ReadFile(assertFile)
 	if err != nil {
 		return err
 	}
 
-	return cli.Ack(assertData)
+	return Client().Ack(assertData)
 }
 
 func (x *cmdAck) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs
 	}
-	if err := ackFile(x.client, string(x.AckOptions.AssertionFile)); err != nil {
+	if err := ackFile(string(x.AckOptions.AssertionFile)); err != nil {
 		return fmt.Errorf("cannot assert: %v", err)
 	}
 	return nil

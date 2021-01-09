@@ -67,6 +67,13 @@ func (s *HardwareRandomObserveInterfaceSuite) TestName(c *C) {
 
 func (s *HardwareRandomObserveInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "hardware-random-observe",
+		Interface: "hardware-random-observe",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"hardware-random-observe slots are reserved for the core snap")
 }
 
 func (s *HardwareRandomObserveInterfaceSuite) TestSanitizePlug(c *C) {
@@ -98,7 +105,8 @@ func (s *HardwareRandomObserveInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *HardwareRandomObserveInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *HardwareRandomObserveInterfaceSuite) TestInterfaces(c *C) {

@@ -44,20 +44,6 @@ func (ts *timeutilSuite) TestClock(c *C) {
 
 	td = timeutil.Clock{Hour: 10, Minute: 1}
 	c.Check(td.Sub(timeutil.Clock{Hour: 10, Minute: 0}), Equals, time.Minute)
-
-	td = timeutil.Clock{Hour: 23, Minute: 0}
-	c.Check(td.Add(time.Hour), Equals, timeutil.Clock{Hour: 0, Minute: 0})
-	c.Check(td.Add(2*time.Hour), Equals, timeutil.Clock{Hour: 1, Minute: 0})
-	c.Check(td.Sub(timeutil.Clock{Hour: 1, Minute: 0}), Equals, 22*time.Hour)
-	c.Check(td.Sub(timeutil.Clock{Hour: 0, Minute: 0}), Equals, 23*time.Hour)
-
-	td = timeutil.Clock{Hour: 1, Minute: 0}
-	c.Check(td.Sub(timeutil.Clock{Hour: 23, Minute: 0}), Equals, -2*time.Hour)
-	c.Check(td.Sub(timeutil.Clock{Hour: 1, Minute: 0}), Equals, time.Duration(0))
-
-	td = timeutil.Clock{Hour: 0, Minute: 0}
-	c.Check(td.Sub(timeutil.Clock{Hour: 23, Minute: 0}), Equals, -1*time.Hour)
-	c.Check(td.Sub(timeutil.Clock{Hour: 1, Minute: 0}), Equals, -23*time.Hour)
 }
 
 func (ts *timeutilSuite) TestParseClock(c *C) {
@@ -210,10 +196,6 @@ func parse(c *C, s string) (time.Duration, time.Duration) {
 	return a, b
 }
 
-const (
-	maxDuration = 60 * 24 * time.Hour
-)
-
 func (ts *timeutilSuite) TestLegacyScheduleNext(c *C) {
 	const shortForm = "2006-01-02 15:04"
 
@@ -307,7 +289,7 @@ func (ts *timeutilSuite) TestLegacyScheduleNext(c *C) {
 		c.Assert(err, IsNil)
 		minDist, maxDist := parse(c, t.next)
 
-		next := timeutil.Next(sched, last, maxDuration)
+		next := timeutil.Next(sched, last)
 		c.Check(next >= minDist && next <= maxDist, Equals, true, Commentf("invalid  distance for schedule %q with last refresh %q, now %q, expected %v, got %v", t.schedule, t.last, t.now, t.next, next))
 	}
 
@@ -336,6 +318,7 @@ func (ts *timeutilSuite) TestParseSchedule(c *C) {
 		{"mon9,9:00", nil, `cannot parse "mon9": "mon9" is not a valid weekday`},
 		{"mon0,9:00", nil, `cannot parse "mon0": "mon0" is not a valid weekday`},
 		{"mon5-mon1,9:00", nil, `cannot parse "mon5-mon1": unsupported schedule`},
+		{"mon-mon2,9:00", nil, `cannot parse "mon-mon2": week number must be present for both weekdays or neither`},
 		{"mon%,9:00", nil, `cannot parse "mon%": "mon%" is not a valid weekday`},
 		{"foo2,9:00", nil, `cannot parse "foo2": "foo2" is not a valid weekday`},
 		{"9:00---11:00", nil, `cannot parse "9:00---11:00": not a valid time`},
@@ -484,14 +467,6 @@ func (ts *timeutilSuite) TestParseSchedule(c *C) {
 				WeekSpans: []timeutil.WeekSpan{
 					{Start: timeutil.Week{Weekday: time.Friday}, End: timeutil.Week{Weekday: time.Monday}}},
 			}},
-		}, {
-			in: "mon-mon2,9:00",
-			expected: []*timeutil.Schedule{{
-				ClockSpans: []timeutil.ClockSpan{
-					{Start: timeutil.Clock{Hour: 9}, End: timeutil.Clock{Hour: 9}}},
-				WeekSpans: []timeutil.WeekSpan{
-					{Start: timeutil.Week{Weekday: time.Monday}, End: timeutil.Week{Weekday: time.Monday, Pos: 2}}},
-			}},
 		},
 	} {
 		c.Logf("trying %+v", t)
@@ -564,7 +539,6 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 			// from now
 			next: "503h-503h",
 		}, {
-			// (deprecated syntax, interpreted as mon1-tue)
 			// from the first Monday of the month to the second Tuesday of
 			// the month, at 10:00
 			schedule: "mon1-tue2,10:00",
@@ -572,21 +546,21 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 			last: "2017-02-06 10:00",
 			// Tuesday, the day after the first Monday of the month
 			now: "2017-02-07 11:00",
-			// expecting to run on 03.06.2017
-			next: "647h-647h",
+			// expecting to run the next day at 10:00
+			next: "23h-23h",
 		}, {
-			// from the first Monday of the month to the following Tuesday of
+			// from the first Monday of the month to the second Tuesday of
 			// the month, at 10:00
-			schedule: "mon1-tue,10:00",
+			schedule: "mon1-tue2,10:00",
 			last:     "2017-02-01 10:00",
 			// Sunday, 10:00
 			now: "2017-02-05 10:00",
 			// expecting to run the next day at 10:00
 			next: "24h-24h",
 		}, {
-			// from the first Monday of the month to the following Tuesday of
+			// from the first Monday of the month to the second Tuesday of
 			// the month, at 10:00
-			schedule: "mon1-tue,10:00",
+			schedule: "mon1-tue2,10:00",
 			// Tuesday, 10:00
 			last: "2017-02-14 22:00",
 			// Thursday, 10:00
@@ -594,9 +568,9 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 			// expecting to run in 18 days
 			next: "432h-432h",
 		}, {
-			// from the first Monday of the month to the following Tuesday of
+			// from the first Monday of the month to the second Tuesday of
 			// the month, at 10:00
-			schedule: "mon1-tue,10:00",
+			schedule: "mon1-tue2,10:00",
 			// Sunday, 22:00
 			last: "2017-02-05 22:00",
 			// first Monday of the month
@@ -604,9 +578,9 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 			// expecting to run the next day at 10:00
 			next: "23h-23h",
 		}, {
-			// from the first Monday of the month to the following Tuesday of
+			// from the first Monday of the month to the second Tuesday of
 			// the month, at 10:00
-			schedule: "mon1-tue,10:00-12:00",
+			schedule: "mon1-tue2,10:00-12:00",
 			// Sunday, 22:00
 			last: "2017-02-05 22:00",
 			// first Monday of the month, within the update window
@@ -614,9 +588,9 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 			// expecting to run now
 			next: "0h-0h",
 		}, {
-			// from the first Monday of the month to the following Tuesday of
+			// from the first Monday of the month to the second Tuesday of
 			// the month, at 10:00
-			schedule: "mon1-tue,10:00~12:00",
+			schedule: "mon1-tue2,10:00~12:00",
 			// Sunday, 22:00
 			last: "2017-02-05 22:00",
 			// first Monday of the month, within the update window
@@ -746,39 +720,6 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 			now:        "2017-02-06 9:30",
 			next:       "30m-90m",
 			randomized: true,
-		}, {
-			// first Wednesday at 13:00
-			schedule: "wed1,13:00",
-			now:      "2018-07-30 9:00",
-			// yesterday
-			last: "2018-07-29 13:00",
-			// next one on 2018-08-01 13:00
-			next: "52h-52h",
-		}, {
-			//   October 2019
-			// Su Mo Tu We Th Fr Sa
-			// 29 30| 1  2  3  4  5
-			//  6  7  8  9 10 11 12
-			// 13 14 15 16 17 18 19
-			// 20 21 22 23 24 25 26
-			// 27 28 29 30 31
-
-			// first Monday to the following Wednesday of the month, in Oct
-			// 2019, matches 07.10-09.10
-			schedule: "mon1-wed,9:00-13:00",
-			now:      "2019-09-30 9:00",
-			// yesterday
-			last: "2019-09-30 9:00",
-			// next one on 2019-10-07 9:00
-			next: "168h-168h",
-		}, {
-			// first Monday to the following Wednesday of the month, in Oct
-			// 2019, matches 30.09-04.10
-			schedule: "mon-fri1,9:00-13:00",
-			now:      "2019-09-29 9:00",
-			last:     "2019-09-29 9:00",
-			// next one on 2019-09-30 9:00
-			next: "24h-24h",
 		},
 	} {
 		c.Logf("trying %+v", t)
@@ -802,7 +743,7 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 		calls := 2
 
 		for i := 0; i < calls; i++ {
-			next := timeutil.Next(sched, last, maxDuration)
+			next := timeutil.Next(sched, last)
 			if t.randomized {
 				c.Check(next, Not(Equals), previous)
 			} else if previous != 0 {
@@ -815,8 +756,8 @@ func (ts *timeutilSuite) TestScheduleNext(c *C) {
 
 			c.Check(next >= minDist && next <= maxDist,
 				Equals, true,
-				Commentf("invalid  distance for schedule %q with last refresh %q, now %q, expected %v, got %v, date %s",
-					t.schedule, t.last, t.now, t.next, next, fakeNow.Add(next)))
+				Commentf("invalid  distance for schedule %q with last refresh %q, now %q, expected %v, got %v",
+					t.schedule, t.last, t.now, t.next, next))
 			previous = next
 		}
 	}
@@ -861,80 +802,70 @@ func (ts *timeutilSuite) TestScheduleIncludes(c *C) {
 			now:       "2017-02-27 10:59:20",
 			expecting: true,
 		}, {
-			// (deprecated syntax)
 			// from first Monday of the month to the second Tuesday of
 			// the month, at 10:00 to 12:00
 			schedule: "mon1-tue2,10:00-12:00",
 			// Thursday, 11:10
 			now:       "2017-02-09 11:10:00",
-			expecting: false,
+			expecting: true,
 		}, {
-			// from first Monday of the month to the following Tuesday of
+			// from first Monday of the month to the second Tuesday of
 			// the month, at 10:00 to 12:00
-			schedule: "mon1-tue,10:00~12:00",
+			schedule: "mon1-tue2,10:00~12:00",
 			// Thursday, 11:10
 			now:       "2017-02-02 11:10:00",
 			expecting: false,
 		}, {
-			// from first Monday of the month to the following Tuesday of
+			// from first Monday of the month to the second Tuesday of
 			// the month, at 10:00 to 12:00
-			schedule: "mon1-tue,10:00~12:00",
+			schedule: "mon1-tue2,10:00~12:00",
 			// Monday, 11:10
 			now:       "2017-02-06 11:10:00",
 			expecting: true,
 		}, {
-			// from first Monday of the month to the following Tuesday of
+			// from first Monday of the month to the second Tuesday of
 			// the month, at 10:00 to 12:00
-			schedule: "mon1-tue,10:00~12:00",
+			schedule: "mon1-tue2,10:00~12:00",
 			// Thursday, 11:10
 			now:       "2017-02-16 11:10:00",
 			expecting: false,
 		}, {
-			// from first Monday of the month to the following Tuesday of
+			// from first Monday of the month to the second Tuesday of
 			// the month, at 10:00 to 12:00
-			schedule: "mon1-tue,10:00~12:00",
+			schedule: "mon1-tue2,10:00~12:00",
 			// Thursday, 11:10
-			now:       "2017-03-06 11:10:00",
-			expecting: true,
-		}, {
-			// from first Monday of the month to the following Tuesday of
-			// the month, at 10:00 to 12:00
-			schedule: "mon1-tue,10:00~12:00",
-			// Thursday, 11:10
-			now:       "2017-02-09 11:10:00",
+			now:       "2017-02-16 11:10:00",
 			expecting: false,
 		}, {
-			// from first Tuesday of the month to the following Monday of
+			// from first Monday of the month to the second Tuesday of
 			// the month, at 10:00 to 12:00
-			schedule: "tue1-mon,10:00~12:00",
+			schedule: "mon1-tue2,10:00~12:00",
 			// Thursday, 11:10
 			now:       "2017-02-09 11:10:00",
 			expecting: true,
 		}, {
-			// (deprecated syntax)
-			// from 4th Monday of the month to the following Wednesday of
+			// from first Tuesday of the month to the second Monday of
+			// the month, at 10:00 to 12:00
+			schedule: "tue1-mon2,10:00~12:00",
+			// Thursday, 11:10
+			now:       "2017-02-09 11:10:00",
+			expecting: true,
+		}, {
+			// from 4th Monday of the month to the last Wednesday of
 			// the month, at 10:00 to 12:00
 			schedule: "mon4-wed5,10:00~12:00",
-			// Schedule ends up being Feb 27 - Mar 01 2017
-			now:       "2017-03-02 11:10:00",
-			expecting: false,
-		}, {
-			// from last Monday of the month to the following Wednesday of
-			// the month, at 10:00 to 12:00
-			schedule: "mon5-wed,10:00~12:00",
-			// Schedule ends up being Feb 27 - Mar 01 2017
+			// Schedule ends up being Feb 20 - Feb 22 2017
 			now:       "2017-03-01 11:10:00",
-			expecting: true,
-		}, {
-			// from last Monday of the month to the following Wednesday of
-			// the month, at 10:00 to 12:00
-			schedule: "mon5-wed,10:00~12:00",
-			// Schedule ends up being Feb 27 - Mar 01 2017
-			now:       "2017-03-02 11:10:00",
 			expecting: false,
 		}, {
-			// (deprecated syntax)
-			// from last Monday of the month to the following Tuesday of
+			// from 4th Monday of the month to the last Wednesday of
+			// the month, at 10:00 to 12:00
+			schedule: "mon4-wed5,10:00~12:00",
+			// Schedule ends up being Feb 20 - Feb 22 2017
+			now:       "2017-02-23 11:10:00",
+			expecting: false,
+		}, {
+			// from last Monday of the month to the second Tuesday of
 			// the month, at 10:00
 			schedule: "mon1-tue2,10:00~12:00",
 			// Sunday, 11:10
@@ -960,16 +891,6 @@ func (ts *timeutilSuite) TestScheduleIncludes(c *C) {
 			// sometime between 10am and 11am
 			now:       "2017-02-06 9:30:00",
 			expecting: true,
-		}, {
-			schedule: "mon1-wed,9:00-10:00",
-			// Tue, 9:30
-			now:       "2019-10-08 9:30:00",
-			expecting: true,
-		}, {
-			schedule: "tue1,9:00-10:00",
-			// Tue, 9:30
-			now:       "2019-10-01 9:30:00",
-			expecting: true,
 		},
 	} {
 		c.Logf("trying %+v", t)
@@ -983,277 +904,4 @@ func (ts *timeutilSuite) TestScheduleIncludes(c *C) {
 		c.Check(timeutil.Includes(sched, now), Equals, t.expecting,
 			Commentf("unexpected result for schedule %v and time %v", t.schedule, now))
 	}
-}
-
-func (ts *timeutilSuite) TestClockSpans(c *C) {
-	const shortForm = "2006-01-02 15:04:05"
-
-	for _, t := range []struct {
-		clockspan  string
-		flattenend []string
-	}{
-		{
-			clockspan:  "23:00-01:00/2",
-			flattenend: []string{"23:00-00:00", "00:00-01:00"},
-		}, {
-			clockspan:  "23:00-01:00/4",
-			flattenend: []string{"23:00-23:30", "23:30-00:00", "00:00-00:30", "00:30-01:00"},
-		},
-	} {
-		c.Logf("trying %+v", t)
-		spans, err := timeutil.ParseClockSpan(t.clockspan)
-		c.Assert(err, IsNil)
-
-		spanStrings := make([]string, len(t.flattenend))
-		flattened := spans.ClockSpans()
-		c.Assert(flattened, HasLen, len(t.flattenend))
-		for i := range flattened {
-			spanStrings[i] = flattened[i].String()
-		}
-
-		c.Assert(spanStrings, DeepEquals, t.flattenend)
-	}
-}
-
-func (ts *timeutilSuite) TestWeekSpans(c *C) {
-	const shortForm = "2006-01-02"
-
-	//     July 2018            August 2018
-	// Su Mo Tu We Th Fr Sa  Su Mo Tu We Th Fr Sa
-	//  1  2  3  4  5  6  7            1  2  3  4
-	//  8  9 10 11 12 13 14   5  6  7  8  9 10 11
-	// 15 16 17 18 19 20 21  12 13 14 15 16 17 18
-	// 22 23 24 25 26 27 28  19 20 21 22 23 24 25
-	// 29 30 31              26 27 28 29 30 31
-
-	for _, t := range []struct {
-		week  string
-		when  string
-		match bool
-	}{
-		{
-			// first Wednesday
-			week:  "wed1",
-			when:  "2018-08-01",
-			match: true,
-		}, {
-			// first Wednesday
-			week: "wed1",
-			// actually 2nd Wednesday
-			when:  "2018-08-08",
-			match: false,
-		}, {
-			// second Wednesday
-			week:  "wed2",
-			when:  "2018-08-08",
-			match: true,
-		}, {
-			// first Tuesday
-			week:  "tue1",
-			when:  "2018-08-07",
-			match: true,
-		}, {
-			// first Sunday
-			week:  "sun1",
-			when:  "2018-07-01",
-			match: true,
-		}, {
-			// last Tuesday
-			week:  "tue5",
-			when:  "2018-07-31",
-			match: true,
-		}, {
-			// last Tuesday
-			week:  "tue5",
-			when:  "2018-07-24",
-			match: false,
-		}, {
-			// last Thursday
-			week:  "thu5",
-			when:  "2018-07-26",
-			match: true,
-		}, {
-			// using deprecated syntax
-			// first Monday (06.08) to first Friday (03.08), see August calendar above
-			// includes: 01.08-03.08 and 06.08-07.08
-			week: "mon1-fri1",
-			// Wednesday
-			when:  "2018-08-01",
-			match: false,
-		}, {
-			// using deprecated syntax
-			// first Monday (06.08) to first Friday (03.08), see August calendar above
-			week: "mon1-fri",
-			// Tuesday
-			when:  "2018-08-07",
-			match: true,
-		}, {
-			// first Monday (06.08) to first Friday (03.08), see August calendar above
-			week: "mon1-fri",
-			// Thursday
-			when:  "2018-08-08",
-			match: true,
-		}, {
-			// second Monday (13.08) to second Friday (10.08), see August calendar above
-			// includes: 13.08-14.08 and 08.08-10.08
-			week: "mon2-fri",
-			// Thursday
-			when:  "2018-08-13",
-			match: true,
-		}, {
-			// second Monday (13.08) to second Friday (10.08), see August calendar above
-			week: "mon2-fri",
-			// Thursday
-			when:  "2018-08-13",
-			match: true,
-		}, {
-			// first Friday (03.08) to the following Monday (06.08), see August calendar above
-			// includes: 03.08-06.08
-			week: "fri1-mon",
-			// Saturday
-			when:  "2018-08-04",
-			match: true,
-		}, {
-			// first Friday (06.07) to the following Monday (09.07), see July calendar above
-			// includes: 03.07-09.07
-			week: "fri1-mon",
-			// Sunday
-			when:  "2018-07-08",
-			match: true,
-		}, {
-			// first Friday (03.08) to the preceding Monday (30.07), see July. August calendar above
-			// includes: 30.07-03.08
-			week: "mon-fri1",
-			// Saturday
-			when:  "2018-08-01",
-			match: true,
-		}, {
-			// first Friday (03.08) to the preceding Monday (30.07), see July. August calendar above
-			// includes: 30.07-03.08
-			week: "mon-fri1",
-			// Saturday
-			when:  "2018-07-30",
-			match: true,
-		}, {
-			// 4th Friday (27.08) to the following Monday (02.08), see July. August calendar above
-			// includes: 27.07-02.08
-			week: "fri4-thu",
-			// Saturday
-			when:  "2018-08-01",
-			match: true,
-		}, {
-			// using deprecated syntax
-			// first Friday (06.07) to the following Monday (09.07), see July calendar above
-			// includes: 03.07-09.07
-			week: "fri1-mon1",
-			// Sunday
-			when:  "2018-07-08",
-			match: true,
-		}, {
-			// first Friday (06.07) to the following Monday (09.07), see July calendar above
-			// includes: 06.07-09.07
-			week: "fri1-mon",
-			// Sunday
-			when:  "2018-07-15",
-			match: false,
-		}, {
-			// last Monday (30.07) to the following Friday (03.07), see July calendar above
-			// includes: 03.07-03.08
-			week: "mon5-fri",
-			// Sunday
-			when:  "2018-07-31",
-			match: true,
-		}, {
-			// last Friday (27.07) to the preceding Monday (23.07), see July calendar above
-			// includes: 23.07-27.07
-			week: "mon-fri5",
-			// Sunday
-			when:  "2018-07-28",
-			match: false,
-		}, {
-			// last Friday (27.07) to the preceding Monday (23.07), see July calendar above
-			// includes: 23.07-27.07
-			week: "mon-fri5",
-			// Sunday
-			when:  "2018-07-25",
-			match: true,
-		}, {
-			// first Monday (2.07) to the following Monday (9.07), see July calendar above
-			// includes: 2.07-9.07
-			week: "mon1-mon",
-			// Tuesday
-			when:  "2018-07-03",
-			match: true,
-		}, {
-			week: "mon1-mon",
-			// Monday (the farther edge of the span)
-			when:  "2018-07-09",
-			match: true,
-		}, {
-			week: "mon1-mon",
-			// Tuesday
-			when:  "2018-07-10",
-			match: false,
-		},
-	} {
-		c.Logf("trying %+v", t)
-		ws, err := timeutil.ParseWeekSpan(t.week)
-		c.Assert(err, IsNil)
-
-		when, err := time.ParseInLocation(shortForm, t.when, time.Local)
-		c.Assert(err, IsNil)
-		c.Logf("when: %v %s", when, when.Weekday())
-
-		c.Check(ws.Match(when), Equals, t.match)
-	}
-}
-
-func (ts *timeutilSuite) TestTimeZero(c *C) {
-	// test with a zero time stamp to make sure that code does not do
-	// anything silly
-
-	// zero time is: time is: 0001-01-01 00:00:00 +0000 UTC and ... Monday
-	zero := time.Time{}
-	c.Logf("time is: %v weekday: %v", zero, zero.Weekday())
-
-	for _, schedule := range []string{
-		"mon-tue,0:00-12:00",
-		"mon1-tue,0:00-12:00",
-		"mon-tue1,0:00-12:00",
-	} {
-		c.Logf("trying: %v", schedule)
-		sch, err := timeutil.ParseSchedule(schedule)
-		c.Assert(err, IsNil)
-
-		c.Check(timeutil.Includes(sch, zero), Equals, true)
-		c.Check(timeutil.Includes(sch, zero.Add(5*time.Hour)), Equals, true)
-		// wednesday
-		c.Check(timeutil.Includes(sch, zero.Add(2*24*time.Hour)), Equals, false)
-	}
-}
-
-func (ts *timeutilSuite) TestMonthNext(c *C) {
-	const shortForm = "2006-01-02"
-	for _, t := range []struct {
-		when, next string
-	}{
-		{"2018-07-01", "2018-08-01"},
-		{"2018-07-31", "2018-08-01"},
-		{"2018-07-20", "2018-08-01"},
-		{"2018-02-01", "2018-03-01"},
-		{"2018-02-28", "2018-03-01"},
-		{"2018-01-31", "2018-02-01"},
-		// in 2020 Feb is 29 days
-		{"2020-01-31", "2020-02-01"},
-		{"2020-02-01", "2020-03-01"},
-		{"2020-02-14", "2020-03-01"},
-	} {
-		when, err := time.ParseInLocation(shortForm, t.when, time.Local)
-		c.Assert(err, IsNil)
-		c.Logf("when: %v expecting: %v", when, t.next)
-
-		next := timeutil.MonthNext(when)
-		c.Check(next.Format(shortForm), Equals, t.next)
-	}
-
 }

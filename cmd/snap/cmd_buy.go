@@ -25,31 +25,30 @@ import (
 
 	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/i18n"
+	"github.com/snapcore/snapd/store"
 
 	"github.com/jessevdk/go-flags"
 )
 
-var shortBuyHelp = i18n.G("Buy a snap")
+var shortBuyHelp = i18n.G("Buys a snap")
 var longBuyHelp = i18n.G(`
 The buy command buys a snap from the store.
 `)
 
 type cmdBuy struct {
-	clientMixin
 	Positional struct {
 		SnapName remoteSnapName
 	} `positional-args:"yes" required:"yes"`
 }
 
 func init() {
-	cmd := addCommand("buy", shortBuyHelp, longBuyHelp, func() flags.Commander {
+	addCommand("buy", shortBuyHelp, longBuyHelp, func() flags.Commander {
 		return &cmdBuy{}
 	}, map[string]string{}, []argDesc{{
 		name: "<snap>",
-		// TRANSLATORS: This should not start with a lowercase letter.
+		// TRANSLATORS: This should probably not start with a lowercase letter.
 		desc: i18n.G("Snap name"),
 	}})
-	cmd.hidden = true
 }
 
 func (x *cmdBuy) Execute(args []string) error {
@@ -57,10 +56,12 @@ func (x *cmdBuy) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	return buySnap(x.client, string(x.Positional.SnapName))
+	return buySnap(string(x.Positional.SnapName))
 }
 
-func buySnap(cli *client.Client, snapName string) error {
+func buySnap(snapName string) error {
+	cli := Client()
+
 	user := cli.LoggedInUser()
 	if user == nil {
 		return fmt.Errorf(i18n.G("You need to be logged in to purchase software. Please run 'snap login' and try again."))
@@ -75,7 +76,7 @@ func buySnap(cli *client.Client, snapName string) error {
 		return err
 	}
 
-	opts := &client.BuyOptions{
+	opts := &store.BuyOptions{
 		SnapID:   snap.ID,
 		Currency: resultInfo.SuggestedCurrency,
 	}
@@ -108,10 +109,10 @@ Once completed, return here and run 'snap buy %s' again.`), snap.Name, snap.Name
 
 	// TRANSLATORS: %q, %q and %s are the snap name, developer, and price. Please wrap the translation at 80 characters.
 	fmt.Fprintf(Stdout, i18n.G(`Please re-enter your Ubuntu One password to purchase %q from %q
-for %s. Press ctrl-c to cancel.`), snap.Name, snap.Publisher.Username, formatPrice(opts.Price, opts.Currency))
+for %s. Press ctrl-c to cancel.`), snap.Name, snap.Developer, formatPrice(opts.Price, opts.Currency))
 	fmt.Fprint(Stdout, "\n")
 
-	err = requestLogin(cli, user.Email)
+	err = requestLogin(user.Email)
 	if err != nil {
 		return err
 	}

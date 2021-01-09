@@ -102,15 +102,6 @@ func MockLogger() (buf *bytes.Buffer, restore func()) {
 	}
 }
 
-// WithLoggerLock invokes f with the global logger lock, useful for
-// tests involving goroutines with MockLogger.
-func WithLoggerLock(f func()) {
-	lock.Lock()
-	defer lock.Unlock()
-
-	f()
-}
-
 // SetLogger sets the global logger to the given one
 func SetLogger(l Logger) {
 	lock.Lock()
@@ -142,12 +133,7 @@ func New(w io.Writer, flag int) (Logger, error) {
 
 // SimpleSetup creates the default (console) logger
 func SimpleSetup() error {
-	flags := log.Lshortfile
-	if term := os.Getenv("TERM"); term != "" {
-		// snapd is probably not running under systemd
-		flags = DefaultFlags
-	}
-	l, err := New(os.Stderr, flags)
+	l, err := New(os.Stderr, DefaultFlags)
 	if err == nil {
 		SetLogger(l)
 	}

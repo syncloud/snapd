@@ -36,7 +36,6 @@ const fwupdBaseDeclarationSlots = `
     allow-installation:
       slot-snap-type:
         - app
-        - core
     deny-connection: true
     deny-auto-connection: true
 `
@@ -224,47 +223,34 @@ func (iface *fwupdInterface) Name() string {
 func (iface *fwupdInterface) StaticInfo() interfaces.StaticInfo {
 	return interfaces.StaticInfo{
 		Summary:              fwupdSummary,
-		ImplicitOnClassic:    true,
 		BaseDeclarationSlots: fwupdBaseDeclarationSlots,
 	}
 }
 
 func (iface *fwupdInterface) DBusPermanentSlot(spec *dbus.Specification, slot *snap.SlotInfo) error {
-	if !implicitSystemPermanentSlot(slot) {
-		spec.AddSnippet(fwupdPermanentSlotDBus)
-	}
+	spec.AddSnippet(fwupdPermanentSlotDBus)
 	return nil
 }
 
 func (iface *fwupdInterface) AppArmorConnectedPlug(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
 	old := "###SLOT_SECURITY_TAGS###"
-	var new string
-	if implicitSystemConnectedSlot(slot) {
-		new = "unconfined"
-	} else {
-		new = slotAppLabelExpr(slot)
-	}
+	new := slotAppLabelExpr(slot)
 	snippet := strings.Replace(fwupdConnectedPlugAppArmor, old, new, -1)
 	spec.AddSnippet(snippet)
 	return nil
 }
 
 func (iface *fwupdInterface) AppArmorPermanentSlot(spec *apparmor.Specification, slot *snap.SlotInfo) error {
-	// Only apply slot snippet when running as application snap on
-	// classic, slot side can be system or application
-	if !implicitSystemPermanentSlot(slot) {
-		spec.AddSnippet(fwupdPermanentSlotAppArmor)
-	}
+	spec.AddSnippet(fwupdPermanentSlotAppArmor)
 	return nil
+
 }
 
 func (iface *fwupdInterface) AppArmorConnectedSlot(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	if !implicitSystemConnectedSlot(slot) {
-		old := "###PLUG_SECURITY_TAGS###"
-		new := plugAppLabelExpr(plug)
-		snippet := strings.Replace(fwupdConnectedSlotAppArmor, old, new, -1)
-		spec.AddSnippet(snippet)
-	}
+	old := "###PLUG_SECURITY_TAGS###"
+	new := plugAppLabelExpr(plug)
+	snippet := strings.Replace(fwupdConnectedSlotAppArmor, old, new, -1)
+	spec.AddSnippet(snippet)
 	return nil
 }
 
@@ -274,13 +260,11 @@ func (iface *fwupdInterface) SecCompConnectedPlug(spec *seccomp.Specification, p
 }
 
 func (iface *fwupdInterface) SecCompPermanentSlot(spec *seccomp.Specification, slot *snap.SlotInfo) error {
-	if !implicitSystemPermanentSlot(slot) {
-		spec.AddSnippet(fwupdPermanentSlotSecComp)
-	}
+	spec.AddSnippet(fwupdPermanentSlotSecComp)
 	return nil
 }
 
-func (iface *fwupdInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *fwupdInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

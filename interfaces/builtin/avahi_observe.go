@@ -25,6 +25,7 @@ import (
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
+	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 )
 
@@ -43,10 +44,6 @@ const avahiObserveBaseDeclarationSlots = `
 
 const avahiObservePermanentSlotAppArmor = `
 network netlink,
-
-# Allow access to daemon to create socket
-/{,var/}run/avahi-daemon/  w,
-/{,var/}run/avahi-daemon/{pid,socket} rwk,
 
 # Description: Allow operating as the avahi service. This gives
 # privileged access to the system.
@@ -235,8 +232,6 @@ const avahiObserveConnectedPlugAppArmor = `
 # Description: allows domain, record, service, and service type browsing
 # as well as address, host and service resolving
 
-/{,var/}run/avahi-daemon/socket rw,
-
 #include <abstractions/dbus-strict>
 dbus (send)
     bus=system
@@ -261,12 +256,12 @@ dbus (receive)
 
 # Don't allow introspection since it reveals too much (path is not service
 # specific for unconfined)
-# do not use peer=(label=unconfined) here since this is DBus activated
 #dbus (send)
 #    bus=system
 #    path=/
 #    interface=org.freedesktop.DBus.Introspectable
-#    member=Introspect,
+#    member=Introspect
+#    peer=(label=unconfined),
 
 # These allows tampering with other snap's browsers, so don't autoconnect for
 # now.
@@ -429,12 +424,10 @@ func (iface *avahiObserveInterface) StaticInfo() interfaces.StaticInfo {
 func (iface *avahiObserveInterface) AppArmorConnectedPlug(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
 	old := "###SLOT_SECURITY_TAGS###"
 	var new string
-	// If we're running on classic, Avahi may be installed either as a snap of
-	// as part of the OS. If it is part of the OS, it will not have a security
-	// label like it would when installed as a snap.
-	if implicitSystemConnectedSlot(slot) {
-		// avahi from the OS is typically unconfined but known to sometimes be confined
-		new = "\"{unconfined,/usr/sbin/avahi-daemon}\""
+	if release.OnClassic {
+		// If we're running on classic Avahi will be part
+		// of the OS snap and will run unconfined.
+		new = "unconfined"
 	} else {
 		new = slotAppLabelExpr(slot)
 	}
@@ -444,18 +437,14 @@ func (iface *avahiObserveInterface) AppArmorConnectedPlug(spec *apparmor.Specifi
 }
 
 func (iface *avahiObserveInterface) AppArmorPermanentSlot(spec *apparmor.Specification, slot *snap.SlotInfo) error {
-	// Only apply slot snippet when running as application snap
-	// on classic, slot side can be system or application
-	if !implicitSystemPermanentSlot(slot) {
+	if !release.OnClassic {
 		spec.AddSnippet(avahiObservePermanentSlotAppArmor)
 	}
 	return nil
 }
 
 func (iface *avahiObserveInterface) AppArmorConnectedSlot(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	// Only apply slot snippet when running as application snap
-	// on classic, slot side can be system or application
-	if !implicitSystemConnectedSlot(slot) {
+	if !release.OnClassic {
 		old := "###PLUG_SECURITY_TAGS###"
 		new := plugAppLabelExpr(plug)
 		snippet := strings.Replace(avahiObserveConnectedSlotAppArmor, old, new, -1)
@@ -465,15 +454,13 @@ func (iface *avahiObserveInterface) AppArmorConnectedSlot(spec *apparmor.Specifi
 }
 
 func (iface *avahiObserveInterface) DBusPermanentSlot(spec *dbus.Specification, slot *snap.SlotInfo) error {
-	// Only apply slot snippet when running as application snap
-	// on classic, slot side can be system or application
-	if !implicitSystemPermanentSlot(slot) {
+	if !release.OnClassic {
 		spec.AddSnippet(avahiObservePermanentSlotDBus)
 	}
 	return nil
 }
 
-func (iface *avahiObserveInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *avahiObserveInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

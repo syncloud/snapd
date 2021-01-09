@@ -196,14 +196,9 @@ func (iface *mprisInterface) AppArmorConnectedSlot(spec *apparmor.Specification,
 	return nil
 }
 
-var isValidDBusElement = regexp.MustCompile("^[a-zA-Z0-9_-]*$").MatchString
-
 func (iface *mprisInterface) getName(attribs map[string]interface{}) (string, error) {
-	// default to snap instance name if 'name' attribute not set
-	// parallel-installs: snaps utilizing the mpris interface must adjust
-	// themselves accordingly for parallel installs and use
-	// SNAP_INSTANCE_NAME as part of their well-known name.
-	mprisName := "@{SNAP_INSTANCE_NAME}"
+	// default to snap name if 'name' attribute not set
+	mprisName := "@{SNAP_NAME}"
 	for attr := range attribs {
 		if attr != "name" {
 			return "", fmt.Errorf("unknown attribute '%s'", attr)
@@ -217,7 +212,8 @@ func (iface *mprisInterface) getName(attribs map[string]interface{}) (string, er
 			return "", fmt.Errorf("name element %v is not a string", raw)
 		}
 
-		if !isValidDBusElement(name) {
+		validDBusElement := regexp.MustCompile("^[a-zA-Z0-9_-]*$")
+		if !validDBusElement.MatchString(name) {
 			return "", fmt.Errorf("invalid name element: %q", name)
 		}
 		mprisName = name
@@ -230,7 +226,7 @@ func (iface *mprisInterface) BeforePrepareSlot(slot *snap.SlotInfo) error {
 	return err
 }
 
-func (iface *mprisInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *mprisInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

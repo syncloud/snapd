@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016-2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -75,15 +75,15 @@ apps:
 	// mir snap with mir-server slot on an core/all-snap install.
 	snapInfo := snaptest.MockInfo(c, mirMockSlotSnapInfoYaml, nil)
 	s.coreSlotInfo = snapInfo.Slots["mir"]
-	s.coreSlot = interfaces.NewConnectedSlot(s.coreSlotInfo, nil, nil)
+	s.coreSlot = interfaces.NewConnectedSlot(s.coreSlotInfo, nil)
 	// mir slot on a core snap in a classic install.
 	snapInfo = snaptest.MockInfo(c, mirMockClassicSlotSnapInfoYaml, nil)
 	s.classicSlotInfo = snapInfo.Slots["mir"]
-	s.classicSlot = interfaces.NewConnectedSlot(s.classicSlotInfo, nil, nil)
+	s.classicSlot = interfaces.NewConnectedSlot(s.classicSlotInfo, nil)
 	// snap with the mir plug
 	snapInfo = snaptest.MockInfo(c, mockPlugSnapInfoYaml, nil)
 	s.plugInfo = snapInfo.Plugs["mir"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *MirInterfaceSuite) TestName(c *C) {
@@ -159,7 +159,6 @@ KERNEL=="event[0-9]*", TAG+="snap_mir-server_mir"`)
 	c.Assert(udevSpec.Snippets(), testutil.Contains, `# mir
 KERNEL=="ts[0-9]*", TAG+="snap_mir-server_mir"`)
 	c.Assert(udevSpec.Snippets(), testutil.Contains, `TAG=="snap_mir-server_mir", RUN+="/usr/lib/snapd/snap-device-helper $env{ACTION} snap_mir-server_mir $devpath $major:$minor"`)
-	c.Assert(udevSpec.TriggeredSubsystems(), DeepEquals, []string{"input"})
 }
 
 func (s *MirInterfaceSuite) TestInterfaces(c *C) {

@@ -10,7 +10,7 @@ prepare: |
     fi
 
     echo "Ensure jq is installed"
-    if ! command -v jq; then
+    if ! which jq; then
         snap install --devmode jq
     fi
 
@@ -18,14 +18,12 @@ prepare: |
 
     snap ack "$TESTSLIB/assertions/testrootorg-store.account-key"
 
-    #shellcheck source=tests/lib/store.sh
-    . "$TESTSLIB"/store.sh
-    setup_fake_store "$BLOB_DIR"
+    . $TESTSLIB/store.sh
+    setup_fake_store $BLOB_DIR
 
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB"/snaps.sh
+    . $TESTSLIB/snaps.sh
     snap_path=$(make_snap test-snapd-control-consumer)
-    make_snap_installable "$BLOB_DIR" "${snap_path}"
+    make_snap_installable $BLOB_DIR ${snap_path}
     cat > snap-decl.json <<'EOF'
     {
       "format": "1",
@@ -42,33 +40,24 @@ prepare: |
     }
     EOF
     fakestore new-snap-declaration --dir "${BLOB_DIR}" --snap-decl-json snap-decl.json
-    snap ack "${BLOB_DIR}"/asserts/*.snap-declaration
+    snap ack ${BLOB_DIR}/asserts/*.snap-declaration
 
 restore: |
     if [ "$TRUST_TEST_KEYS" = "false" ]; then
         echo "This test needs test keys to be trusted"
         exit
     fi
-    #shellcheck source=tests/lib/store.sh
-    . "$TESTSLIB"/store.sh
-    teardown_fake_store "$BLOB_DIR"
-
-debug: |
-    jq .data.auth.device /var/lib/snapd/state.json
-
+    . $TESTSLIB/store.sh
+    teardown_fake_store $BLOB_DIR
+    
 execute: |
-    # shellcheck source=tests/lib/journalctl.sh
-    . "$TESTSLIB/journalctl.sh"
-
     if [ "$TRUST_TEST_KEYS" = "false" ]; then
         echo "This test needs test keys to be trusted"
         exit
     fi
 
     snap install test-snapd-control-consumer
-
-    echo "The interface is connected by default"
-    snap interfaces -i snapd-control | MATCH ":snapd-control .*test-snapd-control-consumer:snapd-control-with-manage"
+    snap interfaces
 
     echo "When the snapd-control-with-manage plug is connected"
     snap connect test-snapd-control-consumer:snapd-control-with-manage
@@ -78,21 +67,18 @@ execute: |
 
     echo "Then the core refresh.schedule can be set to 'managed'"
     snap set core refresh.schedule=managed
-    if get_journalctl_log -u snapd |grep 'cannot parse "managed"'; then
-        echo "refresh.schedule=managed was not accepted as it should be"
+    if journalctl -u snapd |grep 'cannot parse "managed"'; then
+        echo "refresh.schedule=managed was not rejected as it should be"
         exit 1
     fi
     snap refresh --time | MATCH 'schedule: managed'
 
-    echo "Reset refresh.schedule"
-    snap set core refresh.schedule=
-    if snap refresh --time | grep -q -E 'schedule: managed'; then
-        echo "Refresh schedule not reset, test broken"
+    echo "Check that the snapd.refresh.service is disabled as well"
+    systemctl start snapd.refresh.service
+    if snap changes | MATCH "Refresh all snaps"; then
+        echo "snapd.refresh.service did refresh, this should not happen"
         exit 1
     fi
-    echo "Then the core refresh.timer can be set to 'managed'"
-    snap set core refresh.timer=managed
-    snap refresh --time | MATCH 'timer: managed'
 
     # make sure we trigger a refresh for hints at least once
     systemctl stop snapd.socket snapd.service
@@ -101,13 +87,13 @@ execute: |
     systemctl start snapd.socket snapd.service
 
     echo "Ensure that last-refresh-hit happens"
-    for _ in $(seq 120); do
-        if jq '.data["last-refresh-hints"]' /var/lib/snapd/state.json | grep "$(date +%Y)"; then
+    for i in $(seq 120); do
+        if jq '.data["last-refresh-hints"]' /var/lib/snapd/state.json | grep $(date +%Y); then
             break
         fi
         sleep 1
     done
-    jq '.data["last-refresh-hints"]' /var/lib/snapd/state.json | grep "$(date +%Y)"
+    jq '.data["last-refresh-hints"]' /var/lib/snapd/state.json | grep $(date +%Y)
 
     # prevent refreshes again
     systemctl stop snapd.socket snapd.service
@@ -121,10 +107,5 @@ execute: |
     echo "Then the snap refresh schedule cannot be set to managed"
     if snap set core refresh.schedule=managed; then
        echo "refresh.schedule=managed was not rejected as it should be"
-       exit 1
-    fi
-    echo "Then the snap refresh timer cannot be set to managed"
-    if snap set core refresh.timer=managed; then
-       echo "refresh.timer=managed was not rejected as it should be"
        exit 1
     fi

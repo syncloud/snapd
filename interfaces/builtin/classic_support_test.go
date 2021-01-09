@@ -53,14 +53,14 @@ var _ = Suite(&ClassicSupportInterfaceSuite{
 
 func (s *ClassicSupportInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "classic-support",
 		Interface: "classic-support",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, classicSupportMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["classic-support"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *ClassicSupportInterfaceSuite) TestName(c *C) {

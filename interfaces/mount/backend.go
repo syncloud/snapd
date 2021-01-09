@@ -37,9 +37,7 @@ import (
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/sandbox/cgroup"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/timings"
 )
 
 // Backend is responsible for maintaining mount files for snap-confine
@@ -56,15 +54,14 @@ func (b *Backend) Name() interfaces.SecuritySystem {
 }
 
 // Setup creates mount mount profile files specific to a given snap.
-func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementOptions, repo *interfaces.Repository, tm timings.Measurer) error {
+func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementOptions, repo *interfaces.Repository) error {
 	// Record all changes to the mount system for this snap.
-	snapName := snapInfo.InstanceName()
+	snapName := snapInfo.Name()
 	spec, err := repo.SnapSpecification(b.Name(), snapName)
 	if err != nil {
 		return fmt.Errorf("cannot obtain mount security snippets for snap %q: %s", snapName, err)
 	}
-	spec.(*Specification).AddOvername(snapInfo)
-	spec.(*Specification).AddLayout(snapInfo)
+	spec.(*Specification).AddSnapLayout(snapInfo)
 	content := deriveContent(spec.(*Specification), snapInfo)
 	// synchronize the content with the filesystem
 	glob := fmt.Sprintf("snap.%s.*fstab", snapName)
@@ -90,13 +87,13 @@ func (b *Backend) Remove(snapName string) error {
 	if err != nil {
 		return fmt.Errorf("cannot synchronize mount configuration files for snap %q: %s", snapName, err)
 	}
-	return DiscardSnapNamespace(snapName)
+	return nil
 }
 
 // addMountProfile adds a mount profile with the given name, based on the given entries.
 //
 // If there are no entries no profile is generated.
-func addMountProfile(content map[string]osutil.FileState, fname string, entries []osutil.MountEntry) {
+func addMountProfile(content map[string]*osutil.FileState, fname string, entries []osutil.MountEntry) {
 	if len(entries) == 0 {
 		return
 	}
@@ -104,13 +101,13 @@ func addMountProfile(content map[string]osutil.FileState, fname string, entries 
 	for _, entry := range entries {
 		fmt.Fprintf(&buffer, "%s\n", entry)
 	}
-	content[fname] = &osutil.MemoryFileState{Content: buffer.Bytes(), Mode: 0644}
+	content[fname] = &osutil.FileState{Content: buffer.Bytes(), Mode: 0644}
 }
 
 // deriveContent computes .fstab tables based on requests made to the specification.
-func deriveContent(spec *Specification, snapInfo *snap.Info) map[string]osutil.FileState {
-	content := make(map[string]osutil.FileState, 2)
-	snapName := snapInfo.InstanceName()
+func deriveContent(spec *Specification, snapInfo *snap.Info) map[string]*osutil.FileState {
+	content := make(map[string]*osutil.FileState, 2)
+	snapName := snapInfo.Name()
 	// Add the per-snap fstab file.
 	// This file is read by snap-update-ns in the global pass.
 	addMountProfile(content, fmt.Sprintf("snap.%s.fstab", snapName), spec.MountEntries())
@@ -123,28 +120,4 @@ func deriveContent(spec *Specification, snapInfo *snap.Info) map[string]osutil.F
 // NewSpecification returns a new mount specification.
 func (b *Backend) NewSpecification() interfaces.Specification {
 	return &Specification{}
-}
-
-// SandboxFeatures returns the list of features supported by snapd for composing mount namespaces.
-func (b *Backend) SandboxFeatures() []string {
-	commonFeatures := []string{
-		"layouts",                 /* Mount profiles take layout data into account */
-		"mount-namespace",         /* Snapd creates a mount namespace for each snap */
-		"per-snap-persistency",    /* Per-snap profiles are persisted across invocations */
-		"per-snap-profiles",       /* Per-snap profiles allow changing mount namespace of a given snap */
-		"per-snap-updates",        /* Changes to per-snap mount profiles are applied instantly */
-		"per-snap-user-profiles",  /* Per-snap profiles allow changing mount namespace of a given snap for a given user */
-		"stale-base-invalidation", /* Mount namespaces that go stale because base snap changes are automatically invalidated */
-	}
-	cgroupv1Features := []string{
-		"freezer-cgroup-v1", /* Snapd creates a freezer cgroup (v1) for each snap */
-	}
-
-	if cgroup.IsUnified() {
-		// TODO: update we get feature parity on cgroup v2
-		return commonFeatures
-	}
-
-	features := append(commonFeatures, cgroupv1Features...)
-	return features
 }

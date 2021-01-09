@@ -26,13 +26,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/snapcore/snapd/logger"
+
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/snap/snapdir"
 	"github.com/snapcore/snapd/snap/squashfs"
 )
 
-// Container is the interface to interact with the low-level snap files.
+// Container is the interface to interact with the low-level snap files
 type Container interface {
 	// Size returns the size of the snap in bytes.
 	Size() (int64, error)
@@ -46,9 +46,8 @@ type Container interface {
 	// ListDir returns the content of a single directory inside the snap.
 	ListDir(path string) ([]string, error)
 
-	// Install copies the snap file to targetPath (and possibly unpacks it to mountDir).
-	// The bool return value indicates if the backend had nothing to do on install.
-	Install(targetPath, mountDir string) (bool, error)
+	// Install copies the snap file to targetPath (and possibly unpacks it to mountDir)
+	Install(targetPath, mountDir string) error
 
 	// Unpack unpacks the src parts to the dst directory
 	Unpack(src, dst string) error
@@ -67,7 +66,7 @@ var formatHandlers = []snapFormat{
 	}},
 }
 
-// Open opens a given snap file with the right backend.
+// Open opens a given snap file with the right backend
 func Open(path string) (Container, error) {
 
 	if osutil.IsDirectory(path) {
@@ -123,15 +122,12 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 	needsf := map[string]bool{}
 	// noskipd tracks directories we want to descend into despite not being in needs*
 	noskipd := map[string]bool{}
-  logger.Noticef("validate container") 	
+
 	for _, app := range s.Apps {
-   logger.Noticef("validate container app: %v", app) 	
 		// for non-services, paths go into the needsrx bag because users
 		// need rx perms to execute it
 		bag := needsrx
 		paths := []string{app.Command}
-    logger.Noticef("validate container app paths: %v", paths) 	
-	
 		if app.IsService() {
 			// services' paths just need to not be skipped by the validator
 			bag = noskipd
@@ -139,10 +135,8 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 			// XXX maybe have a method on app to keep this in sync
 			paths = append(paths, app.StopCommand, app.ReloadCommand, app.PostStopCommand)
 		}
-   
+
 		for _, path := range paths {
-   logger.Noticef("validate container app path: %v", path) 	
-	
 			path = normPath(path)
 			if path == "" {
 				continue
@@ -165,8 +159,6 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 			}
 		}
 	}
-  logger.Noticef("validate container app needsr: %v", needsr) 	
-	
 	// note all needsr so far need to be regular files (or symlinks)
 	for k := range needsr {
 		needsf[k] = true
@@ -184,13 +176,11 @@ func ValidateContainer(c Container, s *Info, logf func(format string, v ...inter
 		}
 	}
 	seen := make(map[string]bool, len(needsx)+len(needsrx)+len(needsr))
-  logger.Noticef("seen") 	
-	
+
 	// bad modes are logged instead of being returned because the end user
 	// can do nothing with the info (and the developer can read the logs)
 	hasBadModes := false
 	err := c.Walk(".", func(path string, info os.FileInfo, err error) error {
-logger.Noticef("walk %v, %v, %v", path, info, err)
 		if err != nil {
 			return err
 		}
@@ -211,7 +201,7 @@ logger.Noticef("walk %v, %v, %v", path, info, err)
 
 		if needsrx[path] || mode.IsDir() {
 			if mode.Perm()&0555 != 0555 {
-				logf("in snap %q: %q should be world-readable and executable, and isn't: %s", s.InstanceName(), path, mode)
+				logf("in snap %q: %q should be world-readable and executable, and isn't: %s", s.Name(), path, mode)
 				hasBadModes = true
 			}
 		} else {
@@ -223,26 +213,25 @@ logger.Noticef("walk %v, %v, %v", path, info, err)
 				// more than anything else, not worth it IMHO (as I can't
 				// imagine this happening by accident).
 				if mode&(os.ModeDir|os.ModeNamedPipe|os.ModeSocket|os.ModeDevice) != 0 {
-					logf("in snap %q: %q should be a regular file (or a symlink) and isn't", s.InstanceName(), path)
+					logf("in snap %q: %q should be a regular file (or a symlink) and isn't", s.Name(), path)
 					hasBadModes = true
 				}
 			}
 			if needsx[path] || strings.HasPrefix(path, "meta/hooks/") {
 				if mode.Perm()&0111 == 0 {
-					logf("in snap %q: %q should be executable, and isn't: %s", s.InstanceName(), path, mode)
+					logf("in snap %q: %q should be executable, and isn't: %s", s.Name(), path, mode)
 					hasBadModes = true
 				}
 			} else {
 				// in needsr, or under meta but not a hook
 				if mode.Perm()&0444 != 0444 {
-					logf("in snap %q: %q should be world-readable, and isn't: %s", s.InstanceName(), path, mode)
+					logf("in snap %q: %q should be world-readable, and isn't: %s", s.Name(), path, mode)
 					hasBadModes = true
 				}
 			}
 		}
 		return nil
 	})
-logger.Noticef("walked")
 	if err != nil {
 		return err
 	}
@@ -250,7 +239,7 @@ logger.Noticef("walked")
 		for _, needs := range []map[string]bool{needsx, needsrx, needsr} {
 			for path := range needs {
 				if !seen[path] {
-					logf("in snap %q: path %q does not exist", s.InstanceName(), path)
+					logf("in snap %q: path %q does not exist", s.Name(), path)
 				}
 			}
 		}

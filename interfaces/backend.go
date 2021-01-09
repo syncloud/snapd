@@ -21,7 +21,6 @@ package interfaces
 
 import (
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/timings"
 )
 
 // ConfinementOptions describe confinement configuration.
@@ -83,7 +82,7 @@ type SecurityBackend interface {
 	//
 	// This method should be called after changing plug, slots, connections
 	// between them or application present in the snap.
-	Setup(snapInfo *snap.Info, opts ConfinementOptions, repo *Repository, tm timings.Measurer) error
+	Setup(snapInfo *snap.Info, opts ConfinementOptions, repo *Repository) error
 
 	// Remove removes and unloads security artefacts of a given snap.
 	//
@@ -92,15 +91,4 @@ type SecurityBackend interface {
 
 	// NewSpecification returns a new specification associated with this backend.
 	NewSpecification() Specification
-
-	// SandboxFeatures returns a list of tags that identify sandbox features.
-	SandboxFeatures() []string
-}
-
-// SecurityBackendSetupMany interface may be implemented by backends that can optimize their operations
-// when setting up multiple snaps at once.
-type SecurityBackendSetupMany interface {
-	// SetupMany creates and loads apparmor profiles of multiple snaps. It tries to process all snaps and doesn't interrupt processing
-	// on errors of individual snaps.
-	SetupMany(snaps []*snap.Info, confinement func(snapName string) ConfinementOptions, repo *Repository, tm timings.Measurer) []error
 }

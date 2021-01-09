@@ -52,7 +52,7 @@ dbus (send)
 
 # Allow services to communicate with each other
 dbus (receive, send)
-	peer=(label="snap.@{SNAP_INSTANCE_NAME}.*"),
+	peer=(label="snap.@{SNAP_NAME}.*"),
 
 # Allow binding the service to the requested connection name
 dbus (bind)
@@ -165,7 +165,7 @@ func (iface *unity8PimCommonInterface) SecCompPermanentSlot(spec *seccomp.Specif
 	return nil
 }
 
-func (iface *unity8PimCommonInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *unity8PimCommonInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

@@ -23,11 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"sync"
 	"time"
 
 	. "gopkg.in/check.v1"
@@ -52,24 +49,6 @@ var testRetryStrategy = retry.LimitCount(5, retry.LimitTime(1*time.Second,
 		Factor:  1,
 	},
 ))
-
-type counter struct {
-	n  int
-	mu sync.Mutex
-}
-
-func (cnt *counter) Inc() int {
-	cnt.mu.Lock()
-	defer cnt.mu.Unlock()
-	cnt.n++
-	return cnt.n
-}
-
-func (cnt *counter) Count() int {
-	cnt.mu.Lock()
-	defer cnt.mu.Unlock()
-	return cnt.n
-}
 
 func (s *retrySuite) TestRetryRequestOnEOF(c *C) {
 	n := 0
@@ -113,10 +92,10 @@ func (s *retrySuite) TestRetryRequestOnEOF(c *C) {
 }
 
 func (s *retrySuite) TestRetryRequestFailWithEOF(c *C) {
-	n := new(counter)
+	n := 0
 	var mockServer *httptest.Server
 	mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n.Inc()
+		n++
 		io.WriteString(w, "{")
 		mockServer.CloseClientConnections()
 		return
@@ -147,7 +126,7 @@ func (s *retrySuite) TestRetryRequestFailWithEOF(c *C) {
 	c.Check(err, ErrorMatches, `^Get http://127.0.0.1:.*?: EOF$`)
 
 	c.Check(failure, Equals, false)
-	c.Assert(n.Count(), Equals, 5)
+	c.Assert(n, Equals, 5)
 }
 
 func (s *retrySuite) TestRetryRequestOn500(c *C) {
@@ -357,21 +336,21 @@ func (s *retrySuite) TestRetryRequestReadResponseBodyFailure(c *C) {
 }
 
 func (s *retrySuite) TestRetryRequestTimeoutHandling(c *C) {
-	permanentlyBrokenSrvCalls := new(counter)
-	somewhatBrokenSrvCalls := new(counter)
+	permanentlyBrokenSrvCalls := 0
+	somewhatBrokenSrvCalls := 0
 
 	finished := make(chan struct{})
 
 	mockPermanentlyBrokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		permanentlyBrokenSrvCalls.Inc()
+		permanentlyBrokenSrvCalls++
 		<-finished
 	}))
 	c.Assert(mockPermanentlyBrokenServer, NotNil)
 	defer mockPermanentlyBrokenServer.Close()
 
 	mockSomewhatBrokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls := somewhatBrokenSrvCalls.Inc()
-		if calls > 2 {
+		somewhatBrokenSrvCalls++
+		if somewhatBrokenSrvCalls > 2 {
 			io.WriteString(w, `{"ok": true}`)
 			return
 		}
@@ -382,7 +361,7 @@ func (s *retrySuite) TestRetryRequestTimeoutHandling(c *C) {
 
 	defer close(finished)
 
-	cli := httputil.NewHTTPClient(&httputil.ClientOptions{
+	cli := httputil.NewHTTPClient(&httputil.ClientOpts{
 		Timeout: 50 * time.Millisecond,
 	})
 
@@ -408,7 +387,7 @@ func (s *retrySuite) TestRetryRequestTimeoutHandling(c *C) {
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, `.*Client.Timeout.*`)
 	// check that we exhausted all retries (as defined by mocked retry strategy)
-	c.Assert(permanentlyBrokenSrvCalls.Count(), Equals, 5)
+	c.Assert(permanentlyBrokenSrvCalls, Equals, 5)
 	c.Check(failure, Equals, false)
 	c.Check(got, Equals, nil)
 
@@ -421,85 +400,30 @@ func (s *retrySuite) TestRetryRequestTimeoutHandling(c *C) {
 	// check that we retried 4 times
 	c.Check(failure, Equals, false)
 	c.Check(got, DeepEquals, map[string]interface{}{"ok": true})
-	c.Assert(somewhatBrokenSrvCalls.Count(), Equals, 3)
+	c.Assert(somewhatBrokenSrvCalls, Equals, 3)
 }
 
-func (s *retrySuite) TestRetryDoesNotFailForPermanentDNSErrors(c *C) {
+func (s *retrySuite) TestRetryRequestFailOnDNS(c *C) {
+	// TODO: retry some types of DNS errors?
+
+	url := "http://nonexistingserver909123.com/"
+
+	cli := httputil.NewHTTPClient(nil)
+
 	n := 0
 	doRequest := func() (*http.Response, error) {
 		n++
-
-		// this is the error reported when executing the request with a working network & DNS, when
-		// a host is unknown.
-		return nil, &net.OpError{
-			Op:  "dial",
-			Net: "tcp",
-			Err: fmt.Errorf("no such host"),
-		}
+		return cli.Get(url)
 	}
 
+	var got interface{}
 	readResponseBody := func(resp *http.Response) error {
-		return nil
+		if resp.StatusCode >= 500 {
+			return fmt.Errorf("proxy error")
+		}
+		return json.NewDecoder(resp.Body).Decode(&got)
 	}
 
 	_, err := httputil.RetryRequest("endp", doRequest, readResponseBody, testRetryStrategy)
 	c.Assert(err, NotNil)
-	// we try exactly once, a non-existing server is a permanent error
-	c.Assert(n, Equals, 1)
-}
-
-func (s *retrySuite) TestRetryOnTemporaryDNSfailure(c *C) {
-	n := 0
-	doRequest := func() (*http.Response, error) {
-		n++
-		return nil, &net.OpError{
-			Op:  "dial",
-			Net: "tcp",
-			Err: &net.DNSError{IsTemporary: true},
-		}
-	}
-	readResponseBody := func(resp *http.Response) error {
-		return nil
-	}
-	_, err := httputil.RetryRequest("endp", doRequest, readResponseBody, testRetryStrategy)
-	c.Assert(err, NotNil)
-	c.Assert(n > 1, Equals, true, Commentf("%v not > 1", n))
-}
-
-func (s *retrySuite) TestRetryOnTemporaryDNSfailureNotGo19(c *C) {
-	n := 0
-	doRequest := func() (*http.Response, error) {
-		n++
-		return nil, &net.OpError{
-			Op:  "dial",
-			Net: "tcp",
-			Err: &net.DNSError{
-				Err: "[::1]:42463->[::1]:53: read: connection refused",
-			},
-		}
-	}
-	readResponseBody := func(resp *http.Response) error {
-		return nil
-	}
-	_, err := httputil.RetryRequest("endp", doRequest, readResponseBody, testRetryStrategy)
-	c.Assert(err, NotNil)
-	c.Assert(n > 1, Equals, true, Commentf("%v not > 1", n))
-}
-
-func (s *retrySuite) TestRetryOnHttp2ProtocolErrors(c *C) {
-	n := 0
-	doRequest := func() (*http.Response, error) {
-		n++
-		return nil, &url.Error{
-			Op:  "Get",
-			URL: "http://...",
-			Err: fmt.Errorf("http.http2StreamError{StreamID:0x1, Code:0x1, Cause:error(nil)}"),
-		}
-	}
-	readResponseBody := func(resp *http.Response) error {
-		return nil
-	}
-	_, err := httputil.RetryRequest("endp", doRequest, readResponseBody, testRetryStrategy)
-	c.Assert(err, NotNil)
-	c.Assert(n > 1, Equals, true, Commentf("%v not > 1", n))
 }

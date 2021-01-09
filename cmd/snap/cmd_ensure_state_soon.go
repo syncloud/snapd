@@ -23,17 +23,15 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-type cmdEnsureStateSoon struct {
-	clientMixin
-}
+type cmdEnsureStateSoon struct{}
 
 func init() {
 	cmd := addDebugCommand("ensure-state-soon",
-		"(internal) trigger an ensure run in the state engine",
-		"(internal) trigger an ensure run in the state engine",
+		"(internal) trigger an ensure runn in the state engine",
+		"(internal) trigger an ensure runn in the state engine",
 		func() flags.Commander {
 			return &cmdEnsureStateSoon{}
-		}, nil, nil)
+		})
 	cmd.hidden = true
 }
 
@@ -42,5 +40,5 @@ func (x *cmdEnsureStateSoon) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	return x.client.Debug("ensure-state-soon", nil, nil)
+	return Client().Debug("ensure-state-soon", nil, nil)
 }

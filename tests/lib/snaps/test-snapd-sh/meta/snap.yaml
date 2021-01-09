@@ -1,7 +1,9 @@
 name: test-snapd-sh
 summary: A no-strings-attached, no-fuss shell for writing tests
 version: 1.0
-
 apps:
-    sh:
-        command: bin/sh
+    test-snapd-sh:
+        command: ../../../bin/sh
+    with-home-plug:
+        command: ../../../bin/sh
+        plugs: [home]

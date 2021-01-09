@@ -21,18 +21,13 @@ package client_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
-	"os"
 	"time"
 
-	"golang.org/x/xerrors"
 	"gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/client"
-	"github.com/snapcore/snapd/snap"
 )
 
 func (cs *clientSuite) TestClientSnapsCallsEndpoint(c *check.C) {
@@ -49,7 +44,7 @@ func (cs *clientSuite) TestClientFindRefreshSetsQuery(c *check.C) {
 	c.Check(cs.req.Method, check.Equals, "GET")
 	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
 	c.Check(cs.req.URL.Query(), check.DeepEquals, url.Values{
-		"select": []string{"refresh"},
+		"q": []string{""}, "select": []string{"refresh"},
 	})
 }
 
@@ -61,7 +56,7 @@ func (cs *clientSuite) TestClientFindRefreshSetsQueryWithSec(c *check.C) {
 	c.Check(cs.req.Method, check.Equals, "GET")
 	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
 	c.Check(cs.req.URL.Query(), check.DeepEquals, url.Values{
-		"section": []string{"mysection"}, "select": []string{"refresh"},
+		"q": []string{""}, "section": []string{"mysection"}, "select": []string{"refresh"},
 	})
 }
 
@@ -72,7 +67,7 @@ func (cs *clientSuite) TestClientFindWithSectionSetsQuery(c *check.C) {
 	c.Check(cs.req.Method, check.Equals, "GET")
 	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
 	c.Check(cs.req.URL.Query(), check.DeepEquals, url.Values{
-		"section": []string{"mysection"},
+		"q": []string{""}, "section": []string{"mysection"},
 	})
 }
 
@@ -84,17 +79,6 @@ func (cs *clientSuite) TestClientFindPrivateSetsQuery(c *check.C) {
 	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
 
 	c.Check(cs.req.URL.Query().Get("select"), check.Equals, "private")
-}
-
-func (cs *clientSuite) TestClientFindWithScopeSetsQuery(c *check.C) {
-	_, _, _ = cs.cli.Find(&client.FindOptions{
-		Scope: "mouthwash",
-	})
-	c.Check(cs.req.Method, check.Equals, "GET")
-	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
-	c.Check(cs.req.URL.Query(), check.DeepEquals, url.Values{
-		"scope": []string{"mouthwash"},
-	})
 }
 
 func (cs *clientSuite) TestClientSnapsInvalidSnapsJSON(c *check.C) {
@@ -119,10 +103,6 @@ func (cs *clientSuite) TestClientNoSnaps(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientSnaps(c *check.C) {
-	healthTimestamp, err := time.Parse(time.RFC3339Nano, "2019-05-13T16:27:01.475851677+01:00")
-	c.Assert(err, check.IsNil)
-
-	// TODO: update this JSON as it's ancient
 	cs.rsp = `{
 		"type": "sync",
 		"result": [{
@@ -131,63 +111,39 @@ func (cs *clientSuite) TestClientSnaps(c *check.C) {
 			"summary": "salutation snap",
 			"description": "hello-world",
 			"download-size": 22212,
-                        "health": {
-				"revision": "29",
-				"timestamp": "2019-05-13T16:27:01.475851677+01:00",
-				"status": "okay"
-                        },
 			"icon": "https://myapps.developer.ubuntu.com/site_media/appmedia/2015/03/hello.svg_NZLfWbh.png",
 			"installed-size": -1,
 			"license": "GPL-3.0",
 			"name": "hello-world",
 			"developer": "canonical",
-			"publisher": {
-                            "id": "canonical",
-                            "username": "canonical",
-                            "display-name": "Canonical",
-                            "validation": "verified"
-                        },
 			"resource": "/v2/snaps/hello-world.canonical",
 			"status": "available",
 			"type": "app",
 			"version": "1.0.18",
 			"confinement": "strict",
-			"private": true,
-                        "common-ids": ["org.funky.snap"]
+			"private": true
 		}],
 		"suggested-currency": "GBP"
 	}`
 	applications, err := cs.cli.List(nil, nil)
 	c.Check(err, check.IsNil)
 	c.Check(applications, check.DeepEquals, []*client.Snap{{
-		ID:           "funky-snap-id",
-		Title:        "Title",
-		Summary:      "salutation snap",
-		Description:  "hello-world",
-		DownloadSize: 22212,
-		Icon:         "https://myapps.developer.ubuntu.com/site_media/appmedia/2015/03/hello.svg_NZLfWbh.png",
-		Health: &client.SnapHealth{
-			Revision:  snap.R(29),
-			Timestamp: healthTimestamp,
-			Status:    "okay",
-		},
+		ID:            "funky-snap-id",
+		Title:         "Title",
+		Summary:       "salutation snap",
+		Description:   "hello-world",
+		DownloadSize:  22212,
+		Icon:          "https://myapps.developer.ubuntu.com/site_media/appmedia/2015/03/hello.svg_NZLfWbh.png",
 		InstalledSize: -1,
 		License:       "GPL-3.0",
 		Name:          "hello-world",
 		Developer:     "canonical",
-		Publisher: &snap.StoreAccount{
-			ID:          "canonical",
-			Username:    "canonical",
-			DisplayName: "Canonical",
-			Validation:  "verified",
-		},
-		Status:      client.StatusAvailable,
-		Type:        client.TypeApp,
-		Version:     "1.0.18",
-		Confinement: client.StrictConfinement,
-		Private:     true,
-		DevMode:     false,
-		CommonIDs:   []string{"org.funky.snap"},
+		Status:        client.StatusAvailable,
+		Type:          client.TypeApp,
+		Version:       "1.0.18",
+		Confinement:   client.StrictConfinement,
+		Private:       true,
+		DevMode:       false,
 	}})
 }
 
@@ -203,12 +159,6 @@ func (cs *clientSuite) TestClientFindPrefix(c *check.C) {
 	c.Check(cs.req.URL.RawQuery, check.Equals, "name=foo%2A") // 2A is `*`
 }
 
-func (cs *clientSuite) TestClientFindCommonID(c *check.C) {
-	_, _, _ = cs.cli.Find(&client.FindOptions{CommonID: "org.kde.ktuberling.desktop"})
-	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
-	c.Check(cs.req.URL.RawQuery, check.Equals, "common-id=org.kde.ktuberling.desktop")
-}
-
 func (cs *clientSuite) TestClientFindOne(c *check.C) {
 	_, _, _ = cs.cli.FindOne("foo")
 	c.Check(cs.req.URL.Path, check.Equals, "/v2/find")
@@ -222,7 +172,6 @@ const (
 func (cs *clientSuite) TestClientSnap(c *check.C) {
 	// example data obtained via
 	// printf "GET /v2/find?name=test-snapd-tools HTTP/1.0\r\n\r\n" | nc -U -q 1 /run/snapd.socket|grep '{'|python3 -m json.tool
-	// XXX: update / sync with what daemon is actually putting out
 	cs.rsp = `{
 		"type": "sync",
 		"result": {
@@ -237,17 +186,10 @@ func (cs *clientSuite) TestClientSnap(c *check.C) {
 			"license": "GPL-3.0",
 			"name": "chatroom",
 			"developer": "ogra",
-			"publisher": {
-                            "id": "ogra-id",
-                            "username": "ogra",
-                            "display-name": "Ogra",
-                            "validation": "unproven"
-                        },
 			"resource": "/v2/snaps/chatroom.ogra",
 			"status": "active",
 			"type": "app",
 			"version": "0.1-8",
-                        "revision": 42,
 			"confinement": "strict",
 			"private": true,
 			"devmode": true,
@@ -255,16 +197,7 @@ func (cs *clientSuite) TestClientSnap(c *check.C) {
                         "screenshots": [
                             {"url":"http://example.com/shot1.png", "width":640, "height":480},
                             {"url":"http://example.com/shot2.png"}
-                        ],
-                        "media": [
-                            {"type": "icon", "url":"http://example.com/icon.png"},
-                            {"type": "screenshot", "url":"http://example.com/shot1.png", "width":640, "height":480},
-                            {"type": "screenshot", "url":"http://example.com/shot2.png"}
-                        ],
-                        "cohort-key": "some-long-cohort-key",
-                        "website": "http://example.com/funky",
-                        "common-ids": ["org.funky.snap"],
-                        "store-url": "https://snapcraft.io/chatroom"
+                        ]
 		}
 	}`
 	pkg, _, err := cs.cli.Snap(pkgName)
@@ -283,33 +216,17 @@ func (cs *clientSuite) TestClientSnap(c *check.C) {
 		License:       "GPL-3.0",
 		Name:          "chatroom",
 		Developer:     "ogra",
-		Publisher: &snap.StoreAccount{
-			ID:          "ogra-id",
-			Username:    "ogra",
-			DisplayName: "Ogra",
-			Validation:  "unproven",
-		},
-		Status:      client.StatusActive,
-		Type:        client.TypeApp,
-		Version:     "0.1-8",
-		Revision:    snap.R(42),
-		Confinement: client.StrictConfinement,
-		Private:     true,
-		DevMode:     true,
-		TryMode:     true,
-		Screenshots: []snap.ScreenshotInfo{
+		Status:        client.StatusActive,
+		Type:          client.TypeApp,
+		Version:       "0.1-8",
+		Confinement:   client.StrictConfinement,
+		Private:       true,
+		DevMode:       true,
+		TryMode:       true,
+		Screenshots: []client.Screenshot{
 			{URL: "http://example.com/shot1.png", Width: 640, Height: 480},
 			{URL: "http://example.com/shot2.png"},
 		},
-		Media: []snap.MediaInfo{
-			{Type: "icon", URL: "http://example.com/icon.png"},
-			{Type: "screenshot", URL: "http://example.com/shot1.png", Width: 640, Height: 480},
-			{Type: "screenshot", URL: "http://example.com/shot2.png"},
-		},
-		CommonIDs: []string{"org.funky.snap"},
-		CohortKey: "some-long-cohort-key",
-		Website:   "http://example.com/funky",
-		StoreURL:  "https://snapcraft.io/chatroom",
 	})
 }
 
@@ -363,45 +280,4 @@ func (cs *clientSuite) TestAppInfoDaemonIsService(c *check.C) {
 	c.Assert(json.Unmarshal([]byte(`{"name": "hello", "daemon": "x"}`), &app), check.IsNil)
 	c.Check(app.Name, check.Equals, "hello")
 	c.Check(app.IsService(), check.Equals, true)
-}
-
-func (cs *clientSuite) TestClientSectionsErrIsWrapped(c *check.C) {
-	cs.err = errors.New("boom")
-	_, err := cs.cli.Sections()
-	var e xerrors.Wrapper
-	c.Assert(err, check.Implements, &e)
-}
-
-func (cs *clientSuite) TestClientFindOneErrIsWrapped(c *check.C) {
-	cs.err = errors.New("boom")
-	_, _, err := cs.cli.FindOne("snap")
-	var e xerrors.Wrapper
-	c.Assert(err, check.Implements, &e)
-}
-
-func (cs *clientSuite) TestClientSnapErrIsWrapped(c *check.C) {
-	// setting cs.err will trigger a "client.ClientError"
-	cs.err = errors.New("boom")
-	_, _, err := cs.cli.Snap("snap")
-	var e xerrors.Wrapper
-	c.Assert(err, check.Implements, &e)
-}
-
-func (cs *clientSuite) TestClientFindFromPathErrIsWrapped(c *check.C) {
-	var e client.AuthorizationError
-
-	// this will trigger a "client.AuthorizationError"
-	err := ioutil.WriteFile(client.TestStoreAuthFilename(os.Getenv("HOME")), []byte("rubbish"), 0644)
-	c.Assert(err, check.IsNil)
-
-	// check that all the functions that use snapsFromPath() get a
-	// wrapped error
-	_, _, err = cs.cli.FindOne("snap")
-	c.Assert(xerrors.As(err, &e), check.Equals, true)
-
-	_, _, err = cs.cli.Find(nil)
-	c.Assert(xerrors.As(err, &e), check.Equals, true)
-
-	_, err = cs.cli.List([]string{"snap"}, nil)
-	c.Assert(xerrors.As(err, &e), check.Equals, true)
 }

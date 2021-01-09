@@ -1,5 +1,8 @@
 summary: Check that the refresh command uses deltas
 
+# delta downloads are currently disabled by default on core
+systems: [-ubuntu-core-*]
+
 environment:
     SNAP_NAME: test-snapd-delta-refresh
     SNAP_VERSION_PATTERN: \d+\.\d+\+fake1
@@ -13,14 +16,11 @@ prepare: |
     # r3 -> r5b
     #
     echo "Given a snap is installed"
-    snap install --edge "$SNAP_NAME"
+    snap install --edge $SNAP_NAME
 
 execute: |
-    # shellcheck source=tests/lib/journalctl.sh
-    . "$TESTSLIB/journalctl.sh"
-
     echo "When the snap is refreshed"
-    snap refresh --beta "$SNAP_NAME"
+    snap refresh --beta $SNAP_NAME
 
     echo "Then deltas are successfully applied"
-    check_journalctl_log "Successfully applied delta"
+    journalctl -u snapd | MATCH "Successfully applied delta"

@@ -19,21 +19,13 @@
 
 package advisor
 
-import (
-	"os"
-)
-
 type Package struct {
-	Snap    string `json:"snap"`
-	Version string `json:"version"`
-	Summary string `json:"summary,omitempty"`
+	Snap    string
+	Summary string
 }
 
 func FindPackage(pkgName string) (*Package, error) {
 	finder, err := newFinder()
-	if err != nil && os.IsNotExist(err) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

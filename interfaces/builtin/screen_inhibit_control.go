@@ -67,8 +67,8 @@ dbus (send)
 # API rule
 dbus (send)
     bus=session
-    path=/{,org/freedesktop/,org/gnome/}ScreenSaver
-    interface=org.{freedesktop,gnome}.ScreenSaver
+    path=/{,org/freedesktop/,org.gnome/}ScreenSaver
+    interface=org.freedesktop.ScreenSaver
     member={Inhibit,UnInhibit,SimulateUserActivity}
     peer=(label=unconfined),
 
@@ -88,5 +88,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  screenInhibitBaseDeclarationSlots,
 		connectedPlugAppArmor: screenInhibitControlConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

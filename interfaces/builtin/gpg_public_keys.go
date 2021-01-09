@@ -57,5 +57,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  gpgPublicKeysBaseDeclarationSlots,
 		connectedPlugAppArmor: gpgPublicKeysConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

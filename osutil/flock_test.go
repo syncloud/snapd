@@ -118,31 +118,27 @@ func (s *flockSuite) TestUsingClosedLock(c *C) {
 	c.Assert(lock.Unlock(), ErrorMatches, "bad file descriptor")
 }
 
-// Test that non-blocking locking reports error on pre-acquired lock.
+// Test that non-blocking
 func (s *flockSuite) TestLockUnlockNonblockingWorks(c *C) {
 	if os.Getenv("TRAVIS_BUILD_NUMBER") != "" {
 		c.Skip("Cannot use this under travis")
 		return
 	}
 
-	// Use the "flock" command to grab a lock for 9999 seconds in another process.
 	lockPath := filepath.Join(c.MkDir(), "lock")
 	cmd := exec.Command("flock", "--exclusive", lockPath, "sleep", "9999")
 	c.Assert(cmd.Start(), IsNil)
 	defer cmd.Process.Kill()
 
-	// Give flock some chance to create the lock file.
 	for i := 0; i < 10; i++ {
 		if osutil.FileExists(lockPath) {
 			break
 		}
-		time.Sleep(time.Millisecond * 300)
+		time.Sleep(1 * time.Second)
 	}
 
-	// Try to acquire the same lock file and see that it is busy.
 	lock, err := osutil.NewFileLock(lockPath)
 	c.Assert(err, IsNil)
-	c.Assert(lock, NotNil)
 	defer lock.Close()
 
 	c.Assert(lock.TryLock(), Equals, osutil.ErrAlreadyLocked)

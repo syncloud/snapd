@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2014-2019 Canonical Ltd
+ * Copyright (C) 2014-2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,18 +24,18 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/snapcore/snapd/asserts"
+	"github.com/snapcore/snapd/asserts/snapasserts"
 	"github.com/snapcore/snapd/asserts/sysdb"
 	"github.com/snapcore/snapd/boot"
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/osutil"
+	"github.com/snapcore/snapd/partition"
 	"github.com/snapcore/snapd/release"
-	"github.com/snapcore/snapd/seed/seedwriter"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/snap/squashfs"
 	"github.com/snapcore/snapd/strutil"
@@ -47,25 +47,78 @@ var (
 )
 
 type Options struct {
-	ModelFile string
-	Classic   bool
-
-	Channel string
-
-	// TODO: use OptionsSnap directly here?
-	Snaps        []string
-	SnapChannels map[string]string
-
-	PrepareDir string
-
-	// Architecture to use if none is specified by the model,
-	// useful only for classic mode. If set must match the model otherwise.
-	Architecture string
+	Snaps           []string
+	RootDir         string
+	Channel         string
+	ModelFile       string
+	GadgetUnpackDir string
 }
 
-// classicHasSnaps returns whether the model or options specify any snaps for the classic case
-func classicHasSnaps(model *asserts.Model, opts *Options) bool {
-	return model.Gadget() != "" || len(model.RequiredNoEssentialSnaps()) != 0 || len(opts.Snaps) != 0
+type localInfos struct {
+	// path to info for local snaps
+	pathToInfo map[string]*snap.Info
+	// name to path
+	nameToPath map[string]string
+}
+
+func (li *localInfos) Name(pathOrName string) string {
+	if info := li.pathToInfo[pathOrName]; info != nil {
+		return info.Name()
+	}
+	return pathOrName
+}
+
+func (li *localInfos) PreferLocal(name string) string {
+	if path := li.Path(name); path != "" {
+		return path
+	}
+	return name
+}
+
+func (li *localInfos) Path(name string) string {
+	return li.nameToPath[name]
+}
+
+func (li *localInfos) Info(name string) *snap.Info {
+	if p := li.nameToPath[name]; p != "" {
+		return li.pathToInfo[p]
+	}
+	return nil
+}
+
+func localSnaps(tsto *ToolingStore, opts *Options) (*localInfos, error) {
+	local := make(map[string]*snap.Info)
+	nameToPath := make(map[string]string)
+	for _, snapName := range opts.Snaps {
+		if strings.HasSuffix(snapName, ".snap") && osutil.FileExists(snapName) {
+			snapFile, err := snap.Open(snapName)
+			if err != nil {
+				return nil, err
+			}
+			info, err := snap.ReadInfoFromSnapFile(snapFile, nil)
+			if err != nil {
+				return nil, err
+			}
+			// local snap gets local revision
+			info.Revision = snap.R(-1)
+			nameToPath[info.Name()] = snapName
+			local[snapName] = info
+
+			si, err := snapasserts.DeriveSideInfo(snapName, tsto)
+			if err != nil && !asserts.IsNotFound(err) {
+				return nil, err
+			}
+			if err == nil {
+				info.SnapID = si.SnapID
+				info.Revision = si.Revision
+				info.Channel = opts.Channel
+			}
+		}
+	}
+	return &localInfos{
+		pathToInfo: local,
+		nameToPath: nameToPath,
+	}, nil
 }
 
 func Prepare(opts *Options) error {
@@ -74,24 +127,17 @@ func Prepare(opts *Options) error {
 		return err
 	}
 
-	if model.Architecture() != "" && opts.Architecture != "" && model.Architecture() != opts.Architecture {
-		return fmt.Errorf("cannot override model architecture: %s", model.Architecture())
+	// TODO: might make sense to support this later
+	if model.Classic() {
+		return fmt.Errorf("cannot prepare image of a classic model")
 	}
 
-	if !opts.Classic {
-		if model.Classic() {
-			return fmt.Errorf("--classic mode is required to prepare the image for a classic model")
-		}
-	} else {
-		if !model.Classic() {
-			return fmt.Errorf("cannot prepare the image for a core model with --classic mode specified")
-		}
-		if model.Architecture() == "" && classicHasSnaps(model, opts) && opts.Architecture == "" {
-			return fmt.Errorf("cannot have snaps for a classic image without an architecture in the model or from --arch")
-		}
+	tsto, err := NewToolingStoreFromModel(model)
+	if err != nil {
+		return err
 	}
 
-	tsto, err := NewToolingStoreFromModel(model, opts.Architecture)
+	local, err := localSnaps(tsto, opts)
 	if err != nil {
 		return err
 	}
@@ -101,7 +147,11 @@ func Prepare(opts *Options) error {
 		return fmt.Errorf("model with series %q != %q unsupported", model.Series(), release.Series)
 	}
 
-	return setupSeed(tsto, model, opts)
+	if err := downloadUnpackGadget(tsto, model, opts, local); err != nil {
+		return err
+	}
+
+	return bootstrapToRootDir(tsto, model, opts, local)
 }
 
 // these are postponed, not implemented or abandoned, not finalized,
@@ -134,26 +184,71 @@ func decodeModelAssertion(opts *Options) (*asserts.Model, error) {
 	return modela, nil
 }
 
-func unpackGadget(gadgetFname, gadgetUnpackDir string) error {
-	// FIXME: jumping through layers here, we need to make
-	//        unpack part of the container interface (again)
-	snap := squashfs.New(gadgetFname)
-	return snap.Unpack("*", gadgetUnpackDir)
-}
-
-func installCloudConfig(rootDir, gadgetDir string) error {
-	cloudConfig := filepath.Join(gadgetDir, "cloud.conf")
-	if !osutil.FileExists(cloudConfig) {
-		return nil
+func downloadUnpackGadget(tsto *ToolingStore, model *asserts.Model, opts *Options, local *localInfos) error {
+	if err := os.MkdirAll(opts.GadgetUnpackDir, 0755); err != nil {
+		return fmt.Errorf("cannot create gadget unpack dir %q: %s", opts.GadgetUnpackDir, err)
 	}
 
-	cloudDir := filepath.Join(rootDir, "/etc/cloud")
+	dlOpts := &DownloadOptions{
+		TargetDir: opts.GadgetUnpackDir,
+		Channel:   opts.Channel,
+	}
+	snapFn, _, err := acquireSnap(tsto, model.Gadget(), dlOpts, local)
+	if err != nil {
+		return err
+	}
+	// FIXME: jumping through layers here, we need to make
+	//        unpack part of the container interface (again)
+	snap := squashfs.New(snapFn)
+	return snap.Unpack("*", opts.GadgetUnpackDir)
+}
+
+func acquireSnap(tsto *ToolingStore, name string, dlOpts *DownloadOptions, local *localInfos) (downloadedSnap string, info *snap.Info, err error) {
+	if info := local.Info(name); info != nil {
+		// local snap to install (unasserted only for now)
+		p := local.Path(name)
+		dst, err := copyLocalSnapFile(p, dlOpts.TargetDir, info)
+		if err != nil {
+			return "", nil, err
+		}
+		return dst, info, nil
+	}
+	return tsto.DownloadSnap(name, snap.R(0), dlOpts)
+}
+
+type addingFetcher struct {
+	asserts.Fetcher
+	addedRefs []*asserts.Ref
+}
+
+func makeFetcher(tsto *ToolingStore, dlOpts *DownloadOptions, db *asserts.Database) *addingFetcher {
+	var f addingFetcher
+	save := func(a asserts.Assertion) error {
+		f.addedRefs = append(f.addedRefs, a.Ref())
+		return nil
+	}
+	f.Fetcher = tsto.AssertionFetcher(db, save)
+	return &f
+
+}
+
+func installCloudConfig(gadgetDir string) error {
+	var err error
+
+	cloudDir := filepath.Join(dirs.GlobalRootDir, "/etc/cloud")
 	if err := os.MkdirAll(cloudDir, 0755); err != nil {
 		return err
 	}
-	dst := filepath.Join(cloudDir, "cloud.cfg")
-	return osutil.CopyFile(cloudConfig, dst, osutil.CopyFlagOverwrite)
+
+	cloudConfig := filepath.Join(gadgetDir, "cloud.conf")
+	if osutil.FileExists(cloudConfig) {
+		dst := filepath.Join(cloudDir, "cloud.cfg")
+		err = osutil.CopyFile(cloudConfig, dst, osutil.CopyFlagOverwrite)
+	}
+	return err
 }
+
+const defaultCore = "core"
 
 var trusted = sysdb.Trusted()
 
@@ -165,49 +260,16 @@ func MockTrusted(mockTrusted []asserts.Assertion) (restore func()) {
 	}
 }
 
-func makeLabel(now time.Time) string {
-	return now.UTC().Format("20060102")
-}
-
-func setupSeed(tsto *ToolingStore, model *asserts.Model, opts *Options) error {
-	if model.Classic() != opts.Classic {
-		return fmt.Errorf("internal error: classic model but classic mode not set")
+func bootstrapToRootDir(tsto *ToolingStore, model *asserts.Model, opts *Options, local *localInfos) error {
+	// FIXME: try to avoid doing this
+	if opts.RootDir != "" {
+		dirs.SetRootDir(opts.RootDir)
+		defer dirs.SetRootDir("/")
 	}
 
-	core20 := model.Grade() != asserts.ModelGradeUnset
-	var rootDir string
-	var bootRootDir string
-	var seedDir string
-	var label string
-	if !core20 {
-		if opts.Classic {
-			// Classic, PrepareDir is the root dir itself
-			rootDir = opts.PrepareDir
-		} else {
-			// Core 16/18,  writing for the writeable partion
-			rootDir = filepath.Join(opts.PrepareDir, "image")
-			bootRootDir = rootDir
-		}
-		seedDir = dirs.SnapSeedDirUnder(rootDir)
-
-		// sanity check target
-		if osutil.FileExists(dirs.SnapStateFileUnder(rootDir)) {
-			return fmt.Errorf("cannot prepare seed over existing system or an already booted image, detected state file %s", dirs.SnapStateFileUnder(rootDir))
-		}
-		if snaps, _ := filepath.Glob(filepath.Join(dirs.SnapBlobDirUnder(rootDir), "*.snap")); len(snaps) > 0 {
-			return fmt.Errorf("expected empty snap dir in rootdir, got: %v", snaps)
-		}
-
-	} else {
-		// Core 20, writing for the system-seed partition
-		seedDir = filepath.Join(opts.PrepareDir, "system-seed")
-		label = makeLabel(time.Now())
-		bootRootDir = seedDir
-
-		// sanity check target
-		if systems, _ := filepath.Glob(filepath.Join(seedDir, "systems", "*")); len(systems) > 0 {
-			return fmt.Errorf("expected empty systems dir in system-seed, got: %v", systems)
-		}
+	// sanity check target
+	if osutil.FileExists(dirs.SnapStateFile) {
+		return fmt.Errorf("cannot bootstrap over existing system")
 	}
 
 	// TODO: developer database in home or use snapd (but need
@@ -219,219 +281,230 @@ func setupSeed(tsto *ToolingStore, model *asserts.Model, opts *Options) error {
 	if err != nil {
 		return err
 	}
+	f := makeFetcher(tsto, &DownloadOptions{}, db)
 
-	wOpts := &seedwriter.Options{
-		SeedDir:        seedDir,
-		Label:          label,
-		DefaultChannel: opts.Channel,
-
-		TestSkipCopyUnverifiedModel: osutil.GetenvBool("UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL"),
-	}
-
-	w, err := seedwriter.New(model, wOpts)
-	if err != nil {
-		return err
-	}
-
-	optSnaps := make([]*seedwriter.OptionsSnap, 0, len(opts.Snaps))
-	for _, snapName := range opts.Snaps {
-		var optSnap seedwriter.OptionsSnap
-		if strings.HasSuffix(snapName, ".snap") {
-			// local
-			optSnap.Path = snapName
+	if err := f.Save(model); err != nil {
+		if !osutil.GetenvBool("UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL") {
+			return fmt.Errorf("cannot fetch and check prerequisites for the model assertion: %v", err)
 		} else {
-			optSnap.Name = snapName
+			fmt.Fprintf(Stderr, "WARNING: Cannot fetch and check prerequisites for the model assertion, it will not be copied into the image making it unusable (unless this is a test): %v\n", err)
+			f.addedRefs = nil
 		}
-		optSnap.Channel = opts.SnapChannels[snapName]
-		optSnaps = append(optSnaps, &optSnap)
 	}
 
-	if err := w.SetOptionsSnaps(optSnaps); err != nil {
+	// put snaps in place
+	if err := os.MkdirAll(dirs.SnapBlobDir, 0755); err != nil {
 		return err
 	}
 
-	var gadgetUnpackDir string
-	// create directory for later unpacking the gadget in
-	if !opts.Classic {
-		gadgetUnpackDir = filepath.Join(opts.PrepareDir, "gadget")
-		if err := os.MkdirAll(gadgetUnpackDir, 0755); err != nil {
-			return fmt.Errorf("cannot create gadget unpack dir %q: %s", gadgetUnpackDir, err)
-		}
+	snapSeedDir := filepath.Join(dirs.SnapSeedDir, "snaps")
+	assertSeedDir := filepath.Join(dirs.SnapSeedDir, "assertions")
+	dlOpts := &DownloadOptions{
+		TargetDir: snapSeedDir,
+		Channel:   opts.Channel,
 	}
 
-	newFetcher := func(save func(asserts.Assertion) error) asserts.Fetcher {
-		return tsto.AssertionFetcher(db, save)
-	}
-	f, err := w.Start(db, newFetcher)
-	if err != nil {
-		return err
-	}
-
-	localSnaps, err := w.LocalSnaps()
-	if err != nil {
-		return err
-	}
-
-	for _, sn := range localSnaps {
-		si, aRefs, err := seedwriter.DeriveSideInfo(sn.Path, f, db)
-		if err != nil && !asserts.IsNotFound(err) {
+	for _, d := range []string{snapSeedDir, assertSeedDir} {
+		if err := os.MkdirAll(d, 0755); err != nil {
 			return err
 		}
-
-		snapFile, err := snap.Open(sn.Path)
-		if err != nil {
-			return err
-		}
-		info, err := snap.ReadInfoFromSnapFile(snapFile, si)
-		if err != nil {
-			return err
-		}
-
-		if err := w.SetInfo(sn, info); err != nil {
-			return err
-		}
-		sn.ARefs = aRefs
 	}
 
-	if err := w.InfoDerived(); err != nil {
-		return err
+	snaps := []string{}
+	// core,kernel,gadget first
+	snaps = append(snaps, local.PreferLocal(defaultCore))
+	snaps = append(snaps, local.PreferLocal(model.Kernel()))
+	snaps = append(snaps, local.PreferLocal(model.Gadget()))
+	// then required and the user requested stuff
+	for _, snapName := range model.RequiredSnaps() {
+		snaps = append(snaps, local.PreferLocal(snapName))
 	}
+	snaps = append(snaps, opts.Snaps...)
 
-	for {
-		toDownload, err := w.SnapsToDownload()
+	seen := make(map[string]bool)
+	var locals []string
+	downloadedSnapsInfo := map[string]*snap.Info{}
+	var seedYaml snap.Seed
+	for _, snapName := range snaps {
+		name := local.Name(snapName)
+		if seen[name] {
+			fmt.Fprintf(Stdout, "%s already prepared, skipping\n", name)
+			continue
+		}
+
+		if name != snapName {
+			fmt.Fprintf(Stdout, "Copying %q (%s)\n", snapName, name)
+		} else {
+			fmt.Fprintf(Stdout, "Fetching %s\n", snapName)
+		}
+
+		fn, info, err := acquireSnap(tsto, name, dlOpts, local)
 		if err != nil {
 			return err
 		}
 
-		for _, sn := range toDownload {
-			fmt.Fprintf(Stdout, "Fetching %s\n", sn.SnapName())
+		seen[name] = true
+		typ := info.Type
 
-			targetPathFunc := func(info *snap.Info) (string, error) {
-				if err := w.SetInfo(sn, info); err != nil {
-					return "", err
-				}
-				return sn.Path, nil
-			}
-
-			dlOpts := DownloadOptions{
-				TargetPathFunc: targetPathFunc,
-				Channel:        sn.Channel,
-			}
-			fn, info, err := tsto.DownloadSnap(sn.SnapName(), dlOpts) // TODO|XXX make this take the SnapRef really
+		// if it comes from the store fetch the snap assertions too
+		if info.SnapID != "" {
+			snapDecl, err := FetchAndCheckSnapAssertions(fn, info, f, db)
 			if err != nil {
 				return err
 			}
+			var kind string
+			switch typ {
+			case snap.TypeKernel:
+				kind = "kernel"
+			case snap.TypeGadget:
+				kind = "gadget"
+			}
+			if kind != "" { // kernel or gadget
+				// TODO: share helpers with devicestate if the policy becomes much more complicated
+				publisher := snapDecl.PublisherID()
+				if publisher != model.BrandID() && publisher != "canonical" {
+					return fmt.Errorf("cannot use %s %q published by %q for model by %q", kind, name, publisher, model.BrandID())
+				}
+			}
+		} else {
+			locals = append(locals, name)
+		}
 
-			// fetch snap assertions
-			prev := len(f.Refs())
-			if _, err = FetchAndCheckSnapAssertions(fn, info, f, db); err != nil {
+		// kernel/os are required for booting
+		if typ == snap.TypeKernel || typ == snap.TypeOS {
+			dst := filepath.Join(dirs.SnapBlobDir, filepath.Base(fn))
+			if err := osutil.CopyFile(fn, dst, 0); err != nil {
 				return err
 			}
-			aRefs := f.Refs()[prev:]
-			sn.ARefs = aRefs
+			// store the snap.Info for kernel/os so
+			// that the bootload can DTRT
+			downloadedSnapsInfo[dst] = info
 		}
 
-		complete, err := w.Downloaded()
+		// set seed.yaml
+		seedYaml.Snaps = append(seedYaml.Snaps, &snap.SeedSnap{
+			Name:    info.Name(),
+			SnapID:  info.SnapID, // cross-ref
+			Channel: info.Channel,
+			File:    filepath.Base(fn),
+			DevMode: info.NeedsDevMode(),
+			Contact: info.Contact,
+			// no assertions for this snap were put in the seed
+			Unasserted: info.SnapID == "",
+		})
+	}
+	if len(locals) > 0 {
+		fmt.Fprintf(Stderr, "WARNING: %s were installed from local snaps disconnected from a store and cannot be refreshed subsequently!\n", strutil.Quoted(locals))
+	}
+
+	for _, aRef := range f.addedRefs {
+		var afn string
+		// the names don't matter in practice as long as they don't conflict
+		if aRef.Type == asserts.ModelType {
+			afn = "model"
+		} else {
+			afn = fmt.Sprintf("%s.%s", strings.Join(aRef.PrimaryKey, ","), aRef.Type.Name)
+		}
+		a, err := aRef.Resolve(db.Find)
+		if err != nil {
+			return fmt.Errorf("internal error: lost saved assertion")
+		}
+		err = ioutil.WriteFile(filepath.Join(assertSeedDir, afn), asserts.Encode(a), 0644)
 		if err != nil {
 			return err
 		}
-		if complete {
-			break
-		}
 	}
 
-	for _, warn := range w.Warnings() {
-		fmt.Fprintf(Stderr, "WARNING: %s\n", warn)
+	// TODO: add the refs as an assertions list of maps section to seed.yaml
+
+	seedFn := filepath.Join(dirs.SnapSeedDir, "seed.yaml")
+	if err := seedYaml.Write(seedFn); err != nil {
+		return fmt.Errorf("cannot write seed.yaml: %s", err)
 	}
 
-	unassertedSnaps, err := w.UnassertedSnaps()
-	if err != nil {
-		return err
-	}
-	if len(unassertedSnaps) > 0 {
-		locals := make([]string, len(unassertedSnaps))
-		for i, sn := range unassertedSnaps {
-			locals[i] = sn.SnapName()
-		}
-		fmt.Fprintf(Stderr, "WARNING: %s installed from local snaps disconnected from a store cannot be refreshed subsequently!\n", strutil.Quoted(locals))
-	}
-
-	copySnap := func(name, src, dst string) error {
-		fmt.Fprintf(Stdout, "Copying %q (%s)\n", src, name)
-		return osutil.CopyFile(src, dst, 0)
-	}
-	if err := w.SeedSnaps(copySnap); err != nil {
+	// now do the bootloader stuff
+	if err := partition.InstallBootConfig(opts.GadgetUnpackDir); err != nil {
 		return err
 	}
 
-	if err := w.WriteMeta(); err != nil {
+	if err := setBootvars(downloadedSnapsInfo); err != nil {
 		return err
 	}
 
-	if opts.Classic {
-		// TODO: consider Core 20 extended models vs classic
-		seedFn := filepath.Join(seedDir, "seed.yaml")
-		// warn about ownership if not root:root
-		fi, err := os.Stat(seedFn)
-		if err != nil {
-			return fmt.Errorf("cannot stat seed.yaml: %s", err)
-		}
-		if st, ok := fi.Sys().(*syscall.Stat_t); ok {
-			if st.Uid != 0 || st.Gid != 0 {
-				fmt.Fprintf(Stderr, "WARNING: ensure that the contents under %s are owned by root:root in the (final) image", seedDir)
-			}
-		}
-		// done already
-		return nil
-	}
-
-	bootSnaps, err := w.BootSnaps()
-	if err != nil {
+	// and the cloud-init things
+	if err := installCloudConfig(opts.GadgetUnpackDir); err != nil {
 		return err
-	}
-
-	bootWith := &boot.BootableSet{
-		UnpackedGadgetDir: gadgetUnpackDir,
-	}
-	if label != "" {
-		bootWith.RecoverySystemDir = filepath.Join("/systems/", label)
-	}
-
-	// find the gadget file
-	// find the snap.Info/path for kernel/os/base so
-	// that boot.MakeBootable can DTRT
-	gadgetFname := ""
-	for _, sn := range bootSnaps {
-		switch sn.Info.GetType() {
-		case snap.TypeGadget:
-			gadgetFname = sn.Path
-		case snap.TypeOS, snap.TypeBase:
-			bootWith.Base = sn.Info
-			bootWith.BasePath = sn.Path
-		case snap.TypeKernel:
-			bootWith.Kernel = sn.Info
-			bootWith.KernelPath = sn.Path
-		}
-	}
-
-	// unpacking the gadget for core models
-	if err := unpackGadget(gadgetFname, gadgetUnpackDir); err != nil {
-		return err
-	}
-
-	// TODO|XXX: change MakeBootable/pass right info Core 20 case
-	// (setting up recovery, not run bootenv)
-	if err := boot.MakeBootable(model, bootRootDir, bootWith); err != nil {
-		return err
-	}
-
-	// cloud-init config (done at install for Core 20)
-	if !core20 {
-		// and the cloud-init things
-		if err := installCloudConfig(rootDir, gadgetUnpackDir); err != nil {
-			return err
-		}
 	}
 
 	return nil
+}
+
+func setBootvars(downloadedSnapsInfo map[string]*snap.Info) error {
+	// Set bootvars for kernel/core snaps so the system boots and
+	// does the first-time initialization. There is also no
+	// mounted kernel/core snap, but just the blobs.
+	bootloader, err := partition.FindBootloader()
+	if err != nil {
+		return fmt.Errorf("cannot set kernel/core boot variables: %s", err)
+	}
+
+	snaps, err := filepath.Glob(filepath.Join(dirs.SnapBlobDir, "*.snap"))
+	if len(snaps) == 0 || err != nil {
+		return fmt.Errorf("internal error: cannot find core/kernel snap")
+	}
+
+	m := map[string]string{
+		"snap_mode":       "",
+		"snap_try_core":   "",
+		"snap_try_kernel": "",
+	}
+	for _, fn := range snaps {
+		bootvar := ""
+
+		info := downloadedSnapsInfo[fn]
+		switch info.Type {
+		case snap.TypeOS:
+			bootvar = "snap_core"
+		case snap.TypeKernel:
+			bootvar = "snap_kernel"
+			if err := extractKernelAssets(fn, info); err != nil {
+				return err
+			}
+		}
+
+		if bootvar != "" {
+			name := filepath.Base(fn)
+			m[bootvar] = name
+		}
+	}
+	if err := bootloader.SetBootVars(m); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runCommand(cmdStr ...string) error {
+	cmd := exec.Command(cmdStr[0], cmdStr[1:]...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("cannot run %v: %s", cmdStr, osutil.OutputErr(output, err))
+	}
+	return nil
+}
+
+func extractKernelAssets(snapPath string, info *snap.Info) error {
+	snapf, err := snap.Open(snapPath)
+	if err != nil {
+		return err
+	}
+
+	if err := boot.ExtractKernelAssets(info, snapf); err != nil {
+		return err
+	}
+	return nil
+}
+
+func copyLocalSnapFile(snapPath, targetDir string, info *snap.Info) (dstPath string, err error) {
+	dst := filepath.Join(targetDir, filepath.Base(info.MountFile()))
+	return dst, osutil.CopyFile(snapPath, dst, 0)
 }

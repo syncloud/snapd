@@ -5,6 +5,6 @@ Exec=basic-desktop.echo
 Icon=${SNAP}/meta/gui/icon.png
 Terminal=true
 Type=Application
-Categories=Utilities;Useful;
+Categories=Utilities;Useless;
 Keywords=echo;echo;
 StartupNotify=false

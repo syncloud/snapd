@@ -53,14 +53,14 @@ var _ = Suite(&NetworkInterfaceSuite{
 
 func (s *NetworkInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "network",
 		Interface: "network",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, netMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["network"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *NetworkInterfaceSuite) TestName(c *C) {
@@ -69,6 +69,13 @@ func (s *NetworkInterfaceSuite) TestName(c *C) {
 
 func (s *NetworkInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "network",
+		Interface: "network",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"network slots are reserved for the core snap")
 }
 
 func (s *NetworkInterfaceSuite) TestSanitizePlug(c *C) {

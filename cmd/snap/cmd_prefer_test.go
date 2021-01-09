@@ -30,17 +30,21 @@ import (
 
 func (s *SnapSuite) TestPreferHelp(c *C) {
 	msg := `Usage:
-  snap.test prefer [prefer-OPTIONS] [<snap>]
+  snap.test [OPTIONS] prefer [<snap>]
 
 The prefer command enables all aliases of the given snap in preference
 to conflicting aliases of other snaps whose aliases will be disabled
-(or removed, for manual ones).
+(removed for manual ones).
 
-[prefer command options]
-      --no-wait    Do not wait for the operation to finish but just print the
-                   change id.
+Application Options:
+      --version     Print the version and exit
+
+Help Options:
+  -h, --help        Show this help message
 `
-	s.testSubCommandHelp(c, "prefer", msg)
+	rest, err := Parser().ParseArgs([]string{"prefer", "--help"})
+	c.Assert(err.Error(), Equals, msg)
+	c.Assert(rest, DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestPrefer(c *C) {
@@ -52,7 +56,6 @@ func (s *SnapSuite) TestPrefer(c *C) {
 				"action": "prefer",
 				"snap":   "some-snap",
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -61,7 +64,7 @@ func (s *SnapSuite) TestPrefer(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"prefer", "some-snap"})
+	rest, err := Parser().ParseArgs([]string{"prefer", "some-snap"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	c.Assert(s.Stdout(), Equals, ""+

@@ -22,36 +22,12 @@ package apparmor
 import (
 	"os"
 
-	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/testutil"
 )
 
 var (
-	NsProfile                  = nsProfile
-	ProfileGlobs               = profileGlobs
-	SnapConfineFromSnapProfile = snapConfineFromSnapProfile
-	DowngradeConfinement       = downgradeConfinement
-	LoadProfiles               = loadProfiles
-	UnloadProfiles             = unloadProfiles
-	MaybeSetNumberOfJobs       = maybeSetNumberOfJobs
+	SnapConfineFromCoreProfile = snapConfineFromCoreProfile
 )
-
-func MockRuntimeNumCPU(new func() int) (restore func()) {
-	old := runtimeNumCPU
-	runtimeNumCPU = new
-	return func() {
-		runtimeNumCPU = old
-	}
-}
-
-// MockIsRootWritableOverlay mocks the real implementation of osutil.IsRootWritableOverlay
-func MockIsRootWritableOverlay(new func() (string, error)) (restore func()) {
-	old := isRootWritableOverlay
-	isRootWritableOverlay = new
-	return func() {
-		isRootWritableOverlay = old
-	}
-}
 
 // MockProcSelfExe mocks the location of /proc/self/exe read by setupSnapConfineGeneratedPolicy.
 func MockProcSelfExe(symlink string) (restore func()) {
@@ -89,26 +65,6 @@ func MockClassicTemplate(fakeTemplate string) (restore func()) {
 }
 
 // SetSpecScope sets the scope of a given specification
-func SetSpecScope(spec *Specification, securityTags []string) (restore func()) {
-	return spec.setScope(securityTags)
-}
-
-func MockKernelFeatures(f func() ([]string, error)) (resture func()) {
-	old := kernelFeatures
-	kernelFeatures = f
-	return func() {
-		kernelFeatures = old
-	}
-}
-
-func MockParserFeatures(f func() ([]string, error)) (resture func()) {
-	old := parserFeatures
-	parserFeatures = f
-	return func() {
-		parserFeatures = old
-	}
-}
-
-func (b *Backend) SetupSnapConfineReexec(info *snap.Info) error {
-	return b.setupSnapConfineReexec(info)
+func SetSpecScope(spec *Specification, securityTags []string, snapName string) (restore func()) {
+	return spec.setScope(securityTags, snapName)
 }

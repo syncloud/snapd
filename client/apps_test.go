@@ -87,31 +87,10 @@ func (cs *clientSuite) TestClientServiceGetSad(c *check.C) {
 	}
 }
 
-func (cs *clientSuite) TestClientAppCommonID(c *check.C) {
-	expected := []*client.AppInfo{{
-		Snap:     "foo",
-		Name:     "foo",
-		CommonID: "org.foo",
-	}}
-	buf, err := json.Marshal(expected)
-	c.Assert(err, check.IsNil)
-	cs.rsp = fmt.Sprintf(`{"type": "sync", "result": %s}`, buf)
-	for _, chkr := range appcheckers {
-		actual, err := chkr(cs, c)
-		c.Assert(err, check.IsNil)
-		c.Check(actual, check.DeepEquals, expected)
-	}
-}
-
 func testClientLogs(cs *clientSuite, c *check.C) ([]client.Log, error) {
 	ch, err := cs.cli.Logs([]string{"foo", "bar"}, client.LogOptions{N: -1, Follow: false})
 	c.Check(cs.req.URL.Path, check.Equals, "/v2/logs")
 	c.Check(cs.req.Method, check.Equals, "GET")
-
-	// logs cannot have a deadline because of "-f"
-	_, ok := cs.req.Context().Deadline()
-	c.Check(ok, check.Equals, false)
-
 	query := cs.req.URL.Query()
 	c.Check(query, check.HasLen, 2)
 	c.Check(query.Get("names"), check.Equals, "foo,bar")
@@ -209,16 +188,7 @@ func (cs *clientSuite) TestClientLogsOpts(c *check.C) {
 	}
 }
 
-func (cs *clientSuite) TestClientLogsNotFound(c *check.C) {
-	cs.rsp = `{"type":"error","status-code":404,"status":"Not Found","result":{"message":"snap \"foo\" not found","kind":"snap-not-found","value":"foo"}}`
-	cs.status = 404
-	actual, err := testClientLogs(cs, c)
-	c.Assert(err, check.ErrorMatches, `snap "foo" not found`)
-	c.Check(actual, check.HasLen, 0)
-}
-
 func (cs *clientSuite) TestClientServiceStart(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{"type": "async", "status-code": 202, "change": "24"}`
 
 	type scenario struct {
@@ -280,7 +250,6 @@ func (cs *clientSuite) TestClientServiceStart(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientServiceStop(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{"type": "async", "status-code": 202, "change": "24"}`
 
 	type tT struct {
@@ -342,7 +311,6 @@ func (cs *clientSuite) TestClientServiceStop(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientServiceRestart(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{"type": "async", "status-code": 202, "change": "24"}`
 
 	type tT struct {

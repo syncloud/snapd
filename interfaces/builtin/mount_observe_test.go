@@ -51,14 +51,14 @@ apps:
   plugs: [mount-observe]
 `
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "mount-observe",
 		Interface: "mount-observe",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	snapInfo := snaptest.MockInfo(c, mockPlugSnapInfoYaml, nil)
 	s.plugInfo = snapInfo.Plugs["mount-observe"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *MountObserveInterfaceSuite) TestName(c *C) {
@@ -67,6 +67,12 @@ func (s *MountObserveInterfaceSuite) TestName(c *C) {
 
 func (s *MountObserveInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "mount-observe",
+		Interface: "mount-observe",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches, "mount-observe slots are reserved for the core snap")
 }
 
 func (s *MountObserveInterfaceSuite) TestSanitizePlug(c *C) {

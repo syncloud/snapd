@@ -46,6 +46,8 @@ type GpioInterfaceSuite struct {
 	gadgetBadInterfacePlug      *interfaces.ConnectedPlug
 	osGpioSlotInfo              *snap.SlotInfo
 	osGpioSlot                  *interfaces.ConnectedSlot
+	appGpioSlotInfo             *snap.SlotInfo
+	appGpioSlot                 *interfaces.ConnectedSlot
 }
 
 var _ = Suite(&GpioInterfaceSuite{
@@ -72,17 +74,17 @@ plugs:
     bad-interface-plug: other-interface
 `, nil)
 	s.gadgetGpioSlotInfo = gadgetInfo.Slots["my-pin"]
-	s.gadgetGpioSlot = interfaces.NewConnectedSlot(s.gadgetGpioSlotInfo, nil, nil)
+	s.gadgetGpioSlot = interfaces.NewConnectedSlot(s.gadgetGpioSlotInfo, nil)
 	s.gadgetMissingNumberSlotInfo = gadgetInfo.Slots["missing-number"]
-	s.gadgetMissingNumberSlot = interfaces.NewConnectedSlot(s.gadgetMissingNumberSlotInfo, nil, nil)
+	s.gadgetMissingNumberSlot = interfaces.NewConnectedSlot(s.gadgetMissingNumberSlotInfo, nil)
 	s.gadgetBadNumberSlotInfo = gadgetInfo.Slots["bad-number"]
-	s.gadgetBadNumberSlot = interfaces.NewConnectedSlot(s.gadgetBadNumberSlotInfo, nil, nil)
+	s.gadgetBadNumberSlot = interfaces.NewConnectedSlot(s.gadgetBadNumberSlotInfo, nil)
 	s.gadgetBadInterfaceSlotInfo = gadgetInfo.Slots["bad-interface-slot"]
-	s.gadgetBadInterfaceSlot = interfaces.NewConnectedSlot(s.gadgetBadInterfaceSlotInfo, nil, nil)
+	s.gadgetBadInterfaceSlot = interfaces.NewConnectedSlot(s.gadgetBadInterfaceSlotInfo, nil)
 	s.gadgetPlugInfo = gadgetInfo.Plugs["plug"]
-	s.gadgetPlug = interfaces.NewConnectedPlug(s.gadgetPlugInfo, nil, nil)
+	s.gadgetPlug = interfaces.NewConnectedPlug(s.gadgetPlugInfo, nil)
 	s.gadgetBadInterfacePlugInfo = gadgetInfo.Plugs["bad-interface-plug"]
-	s.gadgetBadInterfacePlug = interfaces.NewConnectedPlug(s.gadgetBadInterfacePlugInfo, nil, nil)
+	s.gadgetBadInterfacePlug = interfaces.NewConnectedPlug(s.gadgetBadInterfacePlugInfo, nil)
 
 	osInfo := snaptest.MockInfo(c, `
 name: my-core
@@ -95,7 +97,19 @@ slots:
         direction: out
 `, nil)
 	s.osGpioSlotInfo = osInfo.Slots["my-pin"]
-	s.osGpioSlot = interfaces.NewConnectedSlot(s.osGpioSlotInfo, nil, nil)
+	s.osGpioSlot = interfaces.NewConnectedSlot(s.osGpioSlotInfo, nil)
+
+	appInfo := snaptest.MockInfo(c, `
+name: my-app
+version: 0
+slots:
+    my-pin:
+        interface: gpio
+        number: 154
+        direction: out
+`, nil)
+	s.appGpioSlotInfo = appInfo.Slots["my-pin"]
+	s.appGpioSlot = interfaces.NewConnectedSlot(s.appGpioSlotInfo, nil)
 }
 
 func (s *GpioInterfaceSuite) TestName(c *C) {
@@ -118,6 +132,12 @@ func (s *GpioInterfaceSuite) TestSanitizeSlotGadgetSnap(c *C) {
 func (s *GpioInterfaceSuite) TestSanitizeSlotOsSnap(c *C) {
 	// gpio slot on OS accepeted
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.osGpioSlotInfo), IsNil)
+}
+
+func (s *GpioInterfaceSuite) TestSanitizeSlotAppSnap(c *C) {
+	// gpio slot not accepted on app snap
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.appGpioSlotInfo), ErrorMatches,
+		"gpio slots are reserved for the core and gadget snaps")
 }
 
 func (s *GpioInterfaceSuite) TestSanitizePlug(c *C) {

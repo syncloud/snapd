@@ -26,20 +26,16 @@ import (
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/strutil"
 )
 
 // check helpers
 
-func checkSnapType(snapInfo *snap.Info, types []string) error {
+func checkSnapType(snapType snap.Type, types []string) error {
 	if len(types) == 0 {
 		return nil
 	}
-	snapType := snapInfo.GetType()
 	s := string(snapType)
-	if snapType == snap.TypeOS || snapType == snap.TypeSnapd {
-		// we use "core" in the assertions and we need also to
-		// allow for the "snapd" snap
+	if s == "os" { // we use "core" in the assertions
 		s = "core"
 	}
 	for _, t := range types {
@@ -84,184 +80,76 @@ func checkOnClassic(c *asserts.OnClassicConstraint) error {
 	return nil
 }
 
-func checkDeviceScope(c *asserts.DeviceScopeConstraint, model *asserts.Model, store *asserts.Store) error {
-	if c == nil {
-		return nil
-	}
-	if model == nil {
-		return fmt.Errorf("cannot match on-store/on-brand/on-model without model")
-	}
-	if store != nil && store.Store() != model.Store() {
-		return fmt.Errorf("store assertion and model store must match")
-	}
-	if len(c.Store) != 0 {
-		if !strutil.ListContains(c.Store, model.Store()) {
-			mismatch := true
-			if store != nil {
-				for _, sto := range c.Store {
-					if strutil.ListContains(store.FriendlyStores(), sto) {
-						mismatch = false
-						break
-					}
-				}
-			}
-			if mismatch {
-				return fmt.Errorf("on-store mismatch")
-			}
-		}
-	}
-	if len(c.Brand) != 0 {
-		if !strutil.ListContains(c.Brand, model.BrandID()) {
-			return fmt.Errorf("on-brand mismatch")
-		}
-	}
-	if len(c.Model) != 0 {
-		brandModel := fmt.Sprintf("%s/%s", model.BrandID(), model.Model())
-		if !strutil.ListContains(c.Model, brandModel) {
-			return fmt.Errorf("on-model mismatch")
-		}
-	}
-	return nil
-}
-
-func checkPlugConnectionConstraints1(connc *ConnectCandidate, constraints *asserts.PlugConnectionConstraints) error {
-	if err := constraints.PlugAttributes.Check(connc.Plug, connc); err != nil {
+func checkPlugConnectionConstraints1(connc *ConnectCandidate, cstrs *asserts.PlugConnectionConstraints) error {
+	if err := cstrs.PlugAttributes.Check(connc.plugAttrs(), connc); err != nil {
 		return err
 	}
-	if err := constraints.SlotAttributes.Check(connc.Slot, connc); err != nil {
+	if err := cstrs.SlotAttributes.Check(connc.slotAttrs(), connc); err != nil {
 		return err
 	}
-	if err := checkSnapType(connc.Slot.Snap(), constraints.SlotSnapTypes); err != nil {
+	if err := checkSnapType(connc.slotSnapType(), cstrs.SlotSnapTypes); err != nil {
 		return err
 	}
-	if err := checkID("snap id", connc.slotSnapID(), constraints.SlotSnapIDs, nil); err != nil {
+	if err := checkID("snap id", connc.slotSnapID(), cstrs.SlotSnapIDs, nil); err != nil {
 		return err
 	}
-	err := checkID("publisher id", connc.slotPublisherID(), constraints.SlotPublisherIDs, map[string]string{
+	err := checkID("publisher id", connc.slotPublisherID(), cstrs.SlotPublisherIDs, map[string]string{
 		"$PLUG_PUBLISHER_ID": connc.plugPublisherID(),
 	})
 	if err != nil {
 		return err
 	}
-	if err := checkOnClassic(constraints.OnClassic); err != nil {
-		return err
-	}
-	if err := checkDeviceScope(constraints.DeviceScope, connc.Model, connc.Store); err != nil {
+	if err := checkOnClassic(cstrs.OnClassic); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkPlugConnectionAltConstraints(connc *ConnectCandidate, altConstraints []*asserts.PlugConnectionConstraints) (*asserts.PlugConnectionConstraints, error) {
+func checkPlugConnectionConstraints(connc *ConnectCandidate, cstrs []*asserts.PlugConnectionConstraints) error {
 	var firstErr error
 	// OR of constraints
-	for _, constraints := range altConstraints {
-		err := checkPlugConnectionConstraints1(connc, constraints)
+	for _, cstrs1 := range cstrs {
+		err := checkPlugConnectionConstraints1(connc, cstrs1)
 		if err == nil {
-			return constraints, nil
+			return nil
 		}
 		if firstErr == nil {
 			firstErr = err
 		}
 	}
-	return nil, firstErr
+	return firstErr
 }
 
-func checkSlotConnectionConstraints1(connc *ConnectCandidate, constraints *asserts.SlotConnectionConstraints) error {
-	if err := constraints.PlugAttributes.Check(connc.Plug, connc); err != nil {
+func checkSlotConnectionConstraints1(connc *ConnectCandidate, cstrs *asserts.SlotConnectionConstraints) error {
+	if err := cstrs.PlugAttributes.Check(connc.plugAttrs(), connc); err != nil {
 		return err
 	}
-	if err := constraints.SlotAttributes.Check(connc.Slot, connc); err != nil {
+	if err := cstrs.SlotAttributes.Check(connc.slotAttrs(), connc); err != nil {
 		return err
 	}
-	if err := checkSnapType(connc.Plug.Snap(), constraints.PlugSnapTypes); err != nil {
+	if err := checkSnapType(connc.plugSnapType(), cstrs.PlugSnapTypes); err != nil {
 		return err
 	}
-	if err := checkID("snap id", connc.plugSnapID(), constraints.PlugSnapIDs, nil); err != nil {
+	if err := checkID("snap id", connc.plugSnapID(), cstrs.PlugSnapIDs, nil); err != nil {
 		return err
 	}
-	err := checkID("publisher id", connc.plugPublisherID(), constraints.PlugPublisherIDs, map[string]string{
+	err := checkID("publisher id", connc.plugPublisherID(), cstrs.PlugPublisherIDs, map[string]string{
 		"$SLOT_PUBLISHER_ID": connc.slotPublisherID(),
 	})
 	if err != nil {
 		return err
 	}
-	if err := checkOnClassic(constraints.OnClassic); err != nil {
-		return err
-	}
-	if err := checkDeviceScope(constraints.DeviceScope, connc.Model, connc.Store); err != nil {
+	if err := checkOnClassic(cstrs.OnClassic); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkSlotConnectionAltConstraints(connc *ConnectCandidate, altConstraints []*asserts.SlotConnectionConstraints) (*asserts.SlotConnectionConstraints, error) {
+func checkSlotConnectionConstraints(connc *ConnectCandidate, cstrs []*asserts.SlotConnectionConstraints) error {
 	var firstErr error
 	// OR of constraints
-	for _, constraints := range altConstraints {
-		err := checkSlotConnectionConstraints1(connc, constraints)
-		if err == nil {
-			return constraints, nil
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	return nil, firstErr
-}
-
-func checkSnapTypeSlotInstallationConstraints1(ic *InstallCandidateMinimalCheck, slot *snap.SlotInfo, constraints *asserts.SlotInstallationConstraints) error {
-	if err := checkSnapType(slot.Snap, constraints.SlotSnapTypes); err != nil {
-		return err
-	}
-	if err := checkOnClassic(constraints.OnClassic); err != nil {
-		return err
-	}
-	return nil
-}
-
-func checkMinimalSlotInstallationAltConstraints(ic *InstallCandidateMinimalCheck, slot *snap.SlotInfo, altConstraints []*asserts.SlotInstallationConstraints) (bool, error) {
-	var firstErr error
-	var hasSnapTypeConstraints bool
-	// OR of constraints
-	for _, constraints := range altConstraints {
-		if constraints.OnClassic == nil && len(constraints.SlotSnapTypes) == 0 {
-			continue
-		}
-		hasSnapTypeConstraints = true
-		err := checkSnapTypeSlotInstallationConstraints1(ic, slot, constraints)
-		if err == nil {
-			return true, nil
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	return hasSnapTypeConstraints, firstErr
-}
-
-func checkSlotInstallationConstraints1(ic *InstallCandidate, slot *snap.SlotInfo, constraints *asserts.SlotInstallationConstraints) error {
-	// TODO: allow evaluated attr constraints here too?
-	if err := constraints.SlotAttributes.Check(slot, nil); err != nil {
-		return err
-	}
-	if err := checkSnapType(slot.Snap, constraints.SlotSnapTypes); err != nil {
-		return err
-	}
-	if err := checkOnClassic(constraints.OnClassic); err != nil {
-		return err
-	}
-	if err := checkDeviceScope(constraints.DeviceScope, ic.Model, ic.Store); err != nil {
-		return err
-	}
-	return nil
-}
-
-func checkSlotInstallationAltConstraints(ic *InstallCandidate, slot *snap.SlotInfo, altConstraints []*asserts.SlotInstallationConstraints) error {
-	var firstErr error
-	// OR of constraints
-	for _, constraints := range altConstraints {
-		err := checkSlotInstallationConstraints1(ic, slot, constraints)
+	for _, cstrs1 := range cstrs {
+		err := checkSlotConnectionConstraints1(connc, cstrs1)
 		if err == nil {
 			return nil
 		}
@@ -272,28 +160,25 @@ func checkSlotInstallationAltConstraints(ic *InstallCandidate, slot *snap.SlotIn
 	return firstErr
 }
 
-func checkPlugInstallationConstraints1(ic *InstallCandidate, plug *snap.PlugInfo, constraints *asserts.PlugInstallationConstraints) error {
+func checkSlotInstallationConstraints1(slot *snap.SlotInfo, cstrs *asserts.SlotInstallationConstraints) error {
 	// TODO: allow evaluated attr constraints here too?
-	if err := constraints.PlugAttributes.Check(plug, nil); err != nil {
+	if err := cstrs.SlotAttributes.Check(slot.Attrs, nil); err != nil {
 		return err
 	}
-	if err := checkSnapType(plug.Snap, constraints.PlugSnapTypes); err != nil {
+	if err := checkSnapType(slot.Snap.Type, cstrs.SlotSnapTypes); err != nil {
 		return err
 	}
-	if err := checkOnClassic(constraints.OnClassic); err != nil {
-		return err
-	}
-	if err := checkDeviceScope(constraints.DeviceScope, ic.Model, ic.Store); err != nil {
+	if err := checkOnClassic(cstrs.OnClassic); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkPlugInstallationAltConstraints(ic *InstallCandidate, plug *snap.PlugInfo, altConstraints []*asserts.PlugInstallationConstraints) error {
+func checkSlotInstallationConstraints(slot *snap.SlotInfo, cstrs []*asserts.SlotInstallationConstraints) error {
 	var firstErr error
 	// OR of constraints
-	for _, constraints := range altConstraints {
-		err := checkPlugInstallationConstraints1(ic, plug, constraints)
+	for _, cstrs1 := range cstrs {
+		err := checkSlotInstallationConstraints1(slot, cstrs1)
 		if err == nil {
 			return nil
 		}
@@ -304,19 +189,31 @@ func checkPlugInstallationAltConstraints(ic *InstallCandidate, plug *snap.PlugIn
 	return firstErr
 }
 
-// sideArity carries relevant arity constraints for successful
-// allow-auto-connection rules. It implements policy.SideArity.
-// ATM only slots-per-plug might have an interesting non-default
-// value.
-// See: https://forum.snapcraft.io/t/plug-slot-declaration-rules-greedy-plugs/12438
-type sideArity struct {
-	slotsPerPlug asserts.SideArityConstraint
+func checkPlugInstallationConstraints1(plug *snap.PlugInfo, cstrs *asserts.PlugInstallationConstraints) error {
+	// TODO: allow evaluated attr constraints here too?
+	if err := cstrs.PlugAttributes.Check(plug.Attrs, nil); err != nil {
+		return err
+	}
+	if err := checkSnapType(plug.Snap.Type, cstrs.PlugSnapTypes); err != nil {
+		return err
+	}
+	if err := checkOnClassic(cstrs.OnClassic); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (a sideArity) SlotsPerPlugOne() bool {
-	return a.slotsPerPlug.N == 1
-}
-
-func (a sideArity) SlotsPerPlugAny() bool {
-	return a.slotsPerPlug.Any()
+func checkPlugInstallationConstraints(plug *snap.PlugInfo, cstrs []*asserts.PlugInstallationConstraints) error {
+	var firstErr error
+	// OR of constraints
+	for _, cstrs1 := range cstrs {
+		err := checkPlugInstallationConstraints1(plug, cstrs1)
+		if err == nil {
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }

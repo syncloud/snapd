@@ -19,83 +19,20 @@
 
 package seccomp
 
-import (
-	seccomp_compiler "github.com/snapcore/snapd/sandbox/seccomp"
-)
-
 // MockTemplate replaces seccomp template.
 //
 // NOTE: The real seccomp template is long. For testing it is convenient for
 // replace it with a shorter snippet.
 func MockTemplate(fakeTemplate []byte) (restore func()) {
 	orig := defaultTemplate
-	origBarePrivDropSyscalls := barePrivDropSyscalls
 	defaultTemplate = fakeTemplate
-	barePrivDropSyscalls = ""
+	return func() { defaultTemplate = orig }
+}
+
+func MockOsReadlink(f func(string) (string, error)) (restore func()) {
+	realOsReadlink := osReadlink
+	osReadlink = f
 	return func() {
-		defaultTemplate = orig
-		barePrivDropSyscalls = origBarePrivDropSyscalls
+		osReadlink = realOsReadlink
 	}
 }
-
-func MockKernelFeatures(f func() []string) (resture func()) {
-	old := kernelFeatures
-	kernelFeatures = f
-	return func() {
-		kernelFeatures = old
-	}
-}
-
-func MockRequiresSocketcall(f func(string) bool) (restore func()) {
-	old := requiresSocketcall
-	requiresSocketcall = f
-	return func() {
-		requiresSocketcall = old
-	}
-}
-
-func MockDpkgKernelArchitecture(f func() string) (restore func()) {
-	old := dpkgKernelArchitecture
-	dpkgKernelArchitecture = f
-	return func() {
-		dpkgKernelArchitecture = old
-	}
-}
-
-func MockReleaseInfoId(s string) (restore func()) {
-	old := releaseInfoId
-	releaseInfoId = s
-	return func() {
-		releaseInfoId = old
-	}
-}
-
-func MockReleaseInfoVersionId(s string) (restore func()) {
-	old := releaseInfoVersionId
-	releaseInfoVersionId = s
-	return func() {
-		releaseInfoVersionId = old
-	}
-}
-
-func MockSeccompCompilerLookup(f func(string) (string, error)) (restore func()) {
-	old := seccompCompilerLookup
-	seccompCompilerLookup = f
-	return func() {
-		seccompCompilerLookup = old
-	}
-}
-
-func (b *Backend) VersionInfo() seccomp_compiler.VersionInfo {
-	return b.versionInfo
-}
-
-var (
-	RequiresSocketcall = requiresSocketcall
-
-	GlobalProfileLE = globalProfileLE
-	GlobalProfileBE = globalProfileBE
-	IsBigEndian     = isBigEndian
-
-	ParallelCompile = parallelCompile
-)

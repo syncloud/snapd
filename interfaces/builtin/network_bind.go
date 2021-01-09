@@ -103,5 +103,6 @@ func init() {
 		baseDeclarationSlots:  networkBindBaseDeclarationSlots,
 		connectedPlugAppArmor: networkBindConnectedPlugAppArmor,
 		connectedPlugSecComp:  networkBindConnectedPlugSecComp,
+		reservedForOS:         true,
 	})
 }

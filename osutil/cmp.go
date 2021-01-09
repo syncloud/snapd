@@ -25,9 +25,13 @@ import (
 	"os"
 )
 
-const defaultChunkSize = 16 * 1024
+const defaultBufsz = 16 * 1024
 
-func filesAreEqualChunked(a, b string, chunkSize int) bool {
+var bufsz = defaultBufsz
+
+// FilesAreEqual compares the two files' contents and returns whether
+// they are the same.
+func FilesAreEqual(a, b string) bool {
 	fa, err := os.Open(a)
 	if err != nil {
 		return false
@@ -54,27 +58,17 @@ func filesAreEqualChunked(a, b string, chunkSize int) bool {
 		return false
 	}
 
-	return streamsEqualChunked(fa, fb, chunkSize)
+	return StreamsEqual(fa, fb)
 }
 
-// FilesAreEqual compares the two files' contents and returns whether
-// they are the same.
-func FilesAreEqual(a, b string) bool {
-	return filesAreEqualChunked(a, b, 0)
-}
-
-func streamsEqualChunked(a, b io.Reader, chunkSize int) bool {
-	if a == b {
-		return true
-	}
-	if chunkSize <= 0 {
-		chunkSize = defaultChunkSize
-	}
-	bufa := make([]byte, chunkSize)
-	bufb := make([]byte, chunkSize)
+// StreamsEqual compares two streams and returns true if both
+// have the same content.
+func StreamsEqual(a, b io.Reader) bool {
+	bufa := make([]byte, bufsz)
+	bufb := make([]byte, bufsz)
 	for {
-		ra, erra := io.ReadAtLeast(a, bufa, chunkSize)
-		rb, errb := io.ReadAtLeast(b, bufb, chunkSize)
+		ra, erra := io.ReadAtLeast(a, bufa, bufsz)
+		rb, errb := io.ReadAtLeast(b, bufb, bufsz)
 		if erra == io.EOF && errb == io.EOF {
 			return true
 		}
@@ -94,10 +88,4 @@ func streamsEqualChunked(a, b io.Reader, chunkSize int) bool {
 			return false
 		}
 	}
-}
-
-// StreamsEqual compares two streams and returns true if both
-// have the same content.
-func StreamsEqual(a, b io.Reader) bool {
-	return streamsEqualChunked(a, b, 0)
 }

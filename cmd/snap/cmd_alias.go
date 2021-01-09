@@ -32,7 +32,6 @@ import (
 )
 
 type cmdAlias struct {
-	waitMixin
 	Positionals struct {
 		SnapApp appName `required:"yes"`
 		Alias   string  `required:"yes"`
@@ -41,20 +40,19 @@ type cmdAlias struct {
 
 // TODO: implement a completer for snapApp
 
-var shortAliasHelp = i18n.G("Set up a manual alias")
+var shortAliasHelp = i18n.G("Sets up a manual alias")
 var longAliasHelp = i18n.G(`
 The alias command aliases the given snap application to the given alias.
 
-Once this manual alias is setup the respective application command can be
-invoked just using the alias.
+Once this manual alias is setup the respective application command can be invoked just using the alias.
 `)
 
 func init() {
 	addCommand("alias", shortAliasHelp, longAliasHelp, func() flags.Commander {
 		return &cmdAlias{}
-	}, waitDescs, []argDesc{
+	}, nil, []argDesc{
 		{name: "<snap.app>"},
-		// TRANSLATORS: This needs to begin with < and end with >
+		// TRANSLATORS: This needs to be wrapped in <>s.
 		{name: i18n.G("<alias>")},
 	})
 }
@@ -67,19 +65,21 @@ func (x *cmdAlias) Execute(args []string) error {
 	snapName, appName := snap.SplitSnapApp(string(x.Positionals.SnapApp))
 	alias := x.Positionals.Alias
 
-	id, err := x.client.Alias(snapName, appName, alias)
+	cli := Client()
+	id, err := cli.Alias(snapName, appName, alias)
 	if err != nil {
-		return err
-	}
-	chg, err := x.wait(id)
-	if err != nil {
-		if err == noWait {
-			return nil
-		}
 		return err
 	}
 
-	return showAliasChanges(chg)
+	chg, err := wait(cli, id)
+	if err != nil {
+		return err
+	}
+	if err := showAliasChanges(chg); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type changedAlias struct {
@@ -98,11 +98,9 @@ func showAliasChanges(chg *client.Change) error {
 	}
 	w := tabwriter.NewWriter(Stdout, 2, 2, 1, ' ', 0)
 	if len(added) != 0 {
-		// TRANSLATORS: this is used to introduce a list of aliases that were added
 		printChangedAliases(w, i18n.G("Added"), added)
 	}
 	if len(removed) != 0 {
-		// TRANSLATORS: this is used to introduce a list of aliases that were removed
 		printChangedAliases(w, i18n.G("Removed"), removed)
 	}
 	w.Flush()
@@ -112,7 +110,6 @@ func showAliasChanges(chg *client.Change) error {
 func printChangedAliases(w io.Writer, label string, changed []*changedAlias) {
 	fmt.Fprintf(w, "%s:\n", label)
 	for _, a := range changed {
-		// TRANSLATORS: the first %s is a snap command (e.g. "hello-world.echo"), the second is the alias
-		fmt.Fprintf(w, i18n.G("\t- %s as %s\n"), snap.JoinSnapApp(a.Snap, a.App), a.Alias)
+		fmt.Fprintf(w, "\t- %s as %s\n", snap.JoinSnapApp(a.Snap, a.App), a.Alias)
 	}
 }

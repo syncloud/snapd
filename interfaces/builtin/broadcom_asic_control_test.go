@@ -53,7 +53,7 @@ slots:
 `
 	info := snaptest.MockInfo(c, producerYaml, nil)
 	s.slotInfo = info.Slots["broadcom-asic-control"]
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 
 	const consumerYaml = `name: consumer
 version: 0
@@ -63,7 +63,7 @@ apps:
 `
 	info = snaptest.MockInfo(c, consumerYaml, nil)
 	s.plugInfo = info.Plugs["broadcom-asic-control"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *BroadcomAsicControlSuite) TestName(c *C) {
@@ -72,6 +72,13 @@ func (s *BroadcomAsicControlSuite) TestName(c *C) {
 
 func (s *BroadcomAsicControlSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "broadcom-asic-control",
+		Interface: "broadcom-asic-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"broadcom-asic-control slots are reserved for the core snap")
 }
 
 func (s *BroadcomAsicControlSuite) TestSanitizePlug(c *C) {
@@ -113,7 +120,8 @@ func (s *BroadcomAsicControlSuite) TestStaticInfo(c *C) {
 }
 
 func (s *BroadcomAsicControlSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *BroadcomAsicControlSuite) TestInterfaces(c *C) {

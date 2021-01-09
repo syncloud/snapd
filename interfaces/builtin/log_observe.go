@@ -69,5 +69,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  logObserveBaseDeclarationSlots,
 		connectedPlugAppArmor: logObserveConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

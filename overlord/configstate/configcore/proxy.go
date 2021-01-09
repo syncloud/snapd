@@ -29,7 +29,6 @@ import (
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/overlord/assertstate"
-	"github.com/snapcore/snapd/overlord/configstate/config"
 )
 
 var proxyConfigKeys = map[string]bool{
@@ -39,23 +38,14 @@ var proxyConfigKeys = map[string]bool{
 	"no_proxy":    true,
 }
 
-func init() {
-	// add supported configuration of this module
-	supportedConfigurations["core.proxy.http"] = true
-	supportedConfigurations["core.proxy.https"] = true
-	supportedConfigurations["core.proxy.ftp"] = true
-	supportedConfigurations["core.proxy.no-proxy"] = true
-	supportedConfigurations["core.proxy.store"] = true
-}
-
 func etcEnvironment() string {
 	return filepath.Join(dirs.GlobalRootDir, "/etc/environment")
 }
 
 func updateEtcEnvironmentConfig(path string, config map[string]string) error {
-	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return err
+		return nil
 	}
 	defer f.Close()
 
@@ -64,15 +54,13 @@ func updateEtcEnvironmentConfig(path string, config map[string]string) error {
 		return err
 	}
 	if toWrite != nil {
-		// XXX: would be great to atomically write but /etc/environment
-		//      is a single bind mount :/
 		return ioutil.WriteFile(path, []byte(strings.Join(toWrite, "\n")), 0644)
 	}
 
 	return nil
 }
 
-func handleProxyConfiguration(tr config.Conf) error {
+func handleProxyConfiguration(tr Conf) error {
 	config := map[string]string{}
 	// normal proxy settings
 	for _, key := range []string{"http", "https", "ftp"} {
@@ -96,7 +84,7 @@ func handleProxyConfiguration(tr config.Conf) error {
 	return nil
 }
 
-func validateProxyStore(tr config.Conf) error {
+func validateProxyStore(tr Conf) error {
 	proxyStore, err := coreCfg(tr, "proxy.store")
 	if err != nil {
 		return err
@@ -109,13 +97,9 @@ func validateProxyStore(tr config.Conf) error {
 	st := tr.State()
 	st.Lock()
 	defer st.Unlock()
-
-	store, err := assertstate.Store(st, proxyStore)
+	_, err = assertstate.Store(st, proxyStore)
 	if asserts.IsNotFound(err) {
 		return fmt.Errorf("cannot set proxy.store to %q without a matching store assertion", proxyStore)
-	}
-	if err == nil && store.URL() == nil {
-		return fmt.Errorf("cannot set proxy.store to %q with a matching store assertion with url unset", proxyStore)
 	}
 	return err
 }

@@ -51,11 +51,6 @@ func ContextTransaction(context *hookstate.Context) *config.Transaction {
 
 	context.OnDone(func() error {
 		tr.Commit()
-		if context.InstanceName() == "core" {
-			// make sure the Ensure logic can process
-			// system configuration changes as soon as possible
-			context.State().EnsureBefore(0)
-		}
 		return nil
 	})
 
@@ -83,29 +78,22 @@ func (h *configureHandler) Before() error {
 		return err
 	}
 
-	instanceName := h.context.InstanceName()
+	snapName := h.context.SnapName()
 	st := h.context.State()
 	if useDefaults {
-		task, _ := h.context.Task()
-		deviceCtx, err := snapstate.DeviceCtx(st, task, nil)
-		if err != nil {
-			return err
-		}
-
-		patch, err = snapstate.ConfigDefaults(st, deviceCtx, instanceName)
+		var err error
+		patch, err = snapstate.ConfigDefaults(st, snapName)
 		if err != nil && err != state.ErrNoState {
 			return err
 		}
-		// core is handled internally and does not need a configure
-		// hook, for other snaps double check that the hook is present
-		if len(patch) != 0 && instanceName != "core" {
+		if len(patch) != 0 {
 			// TODO: helper on context?
-			info, err := snapstate.CurrentInfo(st, instanceName)
+			info, err := snapstate.CurrentInfo(st, snapName)
 			if err != nil {
 				return err
 			}
 			if info.Hooks["configure"] == nil {
-				return fmt.Errorf("cannot apply gadget config defaults for snap %q, no configure hook", instanceName)
+				return fmt.Errorf("cannot apply gadget config defaults for snap %q, no configure hook", snapName)
 			}
 		}
 	} else {
@@ -114,9 +102,8 @@ func (h *configureHandler) Before() error {
 		}
 	}
 
-	patchKeys := sortPatchKeysByDepth(patch)
-	for _, key := range patchKeys {
-		if err := tr.Set(instanceName, key, patch[key]); err != nil {
+	for key, value := range patch {
+		if err := tr.Set(snapName, key, value); err != nil {
 			return err
 		}
 	}

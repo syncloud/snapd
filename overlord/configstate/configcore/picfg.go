@@ -27,13 +27,11 @@ import (
 
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/overlord/configstate/config"
 )
 
 // valid pi config keys
 var piConfigKeys = map[string]bool{
 	"disable_overscan":         true,
-	"force_turbo":              true,
 	"framebuffer_width":        true,
 	"framebuffer_height":       true,
 	"framebuffer_depth":        true,
@@ -54,15 +52,6 @@ var piConfigKeys = map[string]bool{
 	"sdtv_aspect":              true,
 	"config_hdmi_boost":        true,
 	"hdmi_force_hotplug":       true,
-	"start_x":                  true,
-}
-
-func init() {
-	// add supported config keys
-	for k := range piConfigKeys {
-		s := fmt.Sprintf("core.pi-config.%s", strings.Replace(k, "_", "-", -1))
-		supportedConfigurations[s] = true
-	}
 }
 
 func updatePiConfig(path string, config map[string]string) error {
@@ -91,7 +80,7 @@ func piConfigFile() string {
 	return filepath.Join(dirs.GlobalRootDir, "/boot/uboot/config.txt")
 }
 
-func handlePiConfiguration(tr config.Conf) error {
+func handlePiConfiguration(tr Conf) error {
 	if osutil.FileExists(piConfigFile()) {
 		// snapctl can actually give us the whole dict in
 		// JSON, in a single call; use that instead of this.

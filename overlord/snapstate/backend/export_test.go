@@ -19,27 +19,7 @@
 
 package backend
 
-import (
-	"os/exec"
-)
-
 var (
 	AddMountUnit    = addMountUnit
 	RemoveMountUnit = removeMountUnit
 )
-
-func MockUpdateFontconfigCaches(f func() error) (restore func()) {
-	oldUpdateFontconfigCaches := updateFontconfigCaches
-	updateFontconfigCaches = f
-	return func() {
-		updateFontconfigCaches = oldUpdateFontconfigCaches
-	}
-}
-
-func MockCommandFromSystemSnap(f func(string, ...string) (*exec.Cmd, error)) (restore func()) {
-	old := commandFromSystemSnap
-	commandFromSystemSnap = f
-	return func() {
-		commandFromSystemSnap = old
-	}
-}

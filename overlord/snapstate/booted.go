@@ -20,14 +20,30 @@
 package snapstate
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/snapcore/snapd/boot"
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/overlord/state"
+	"github.com/snapcore/snapd/partition"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 )
+
+func nameAndRevnoFromSnap(sn string) (string, snap.Revision, error) {
+	l := strings.Split(sn, "_")
+	if len(l) < 2 {
+		return "", snap.Revision{}, fmt.Errorf("input %q has invalid format (not enough '_')", sn)
+	}
+	name := l[0]
+	revnoNSuffix := l[1]
+	rev, err := snap.ParseRevision(strings.Split(revnoNSuffix, ".snap")[0])
+	if err != nil {
+		return "", snap.Revision{}, err
+	}
+	return name, rev, nil
+}
 
 // UpdateBootRevisions synchronizes the active kernel and OS snap versions
 // with the versions that actually booted. This is needed because a
@@ -45,34 +61,40 @@ func UpdateBootRevisions(st *state.State) error {
 	}
 
 	// nothing to check if there's no kernel
-	ok, err := HasSnapOfType(st, snap.TypeKernel)
-	if err != nil {
-		return fmt.Errorf(errorPrefix+"%s", err)
-	}
-	if !ok {
+	_, err := KernelInfo(st)
+	if err == state.ErrNoState {
 		return nil
 	}
-
-	kernel, err := boot.GetCurrentBoot(snap.TypeKernel)
 	if err != nil {
 		return fmt.Errorf(errorPrefix+"%s", err)
 	}
-	base, err := boot.GetCurrentBoot(snap.TypeBase)
+
+	bootloader, err := partition.FindBootloader()
+	if err != nil {
+		return fmt.Errorf(errorPrefix+"%s", err)
+	}
+
+	m, err := bootloader.GetBootVars("snap_kernel", "snap_core")
 	if err != nil {
 		return fmt.Errorf(errorPrefix+"%s", err)
 	}
 
 	var tsAll []*state.TaskSet
-	for _, actual := range []*boot.NameAndRevision{kernel, base} {
-		info, err := CurrentInfo(st, actual.Name)
+	for _, snapNameAndRevno := range []string{m["snap_kernel"], m["snap_core"]} {
+		name, rev, err := nameAndRevnoFromSnap(snapNameAndRevno)
 		if err != nil {
-			logger.Noticef("cannot get info for %q: %s", actual.Name, err)
+			logger.Noticef("cannot parse %q: %s", snapNameAndRevno, err)
 			continue
 		}
-		if actual.Revision != info.SideInfo.Revision {
+		info, err := CurrentInfo(st, name)
+		if err != nil {
+			logger.Noticef("cannot get info for %q: %s", name, err)
+			continue
+		}
+		if rev != info.SideInfo.Revision {
 			// FIXME: check that there is no task
 			//        for this already in progress
-			ts, err := RevertToRevision(st, actual.Name, actual.Revision, Flags{})
+			ts, err := RevertToRevision(st, name, rev, Flags{})
 			if err != nil {
 				return err
 			}
@@ -92,4 +114,56 @@ func UpdateBootRevisions(st *state.State) error {
 	st.EnsureBefore(0)
 
 	return nil
+}
+
+var ErrBootNameAndRevisionAgain = errors.New("boot revision not yet established")
+
+// CurrentBootNameAndRevision returns the currently set name and
+// revision for boot for the given type of snap, which can be core or
+// kernel. Returns ErrBootNameAndRevisionAgain if the values are
+// temporarily not established.
+func CurrentBootNameAndRevision(typ snap.Type) (name string, revision snap.Revision, err error) {
+	var kind string
+	var bootVar string
+
+	switch typ {
+	case snap.TypeKernel:
+		kind = "kernel"
+		bootVar = "snap_kernel"
+	case snap.TypeOS:
+		kind = "core"
+		bootVar = "snap_core"
+	default:
+		return "", snap.Revision{}, fmt.Errorf("cannot find boot revision for anything but core and kernel")
+	}
+
+	errorPrefix := fmt.Sprintf("cannot retrieve boot revision for %s: ", kind)
+	if release.OnClassic {
+		return "", snap.Revision{}, fmt.Errorf(errorPrefix + "classic system")
+	}
+
+	bootloader, err := partition.FindBootloader()
+	if err != nil {
+		return "", snap.Revision{}, fmt.Errorf(errorPrefix+"%s", err)
+	}
+
+	m, err := bootloader.GetBootVars(bootVar, "snap_mode")
+	if err != nil {
+		return "", snap.Revision{}, fmt.Errorf(errorPrefix+"%s", err)
+	}
+
+	if m["snap_mode"] == "trying" {
+		return "", snap.Revision{}, ErrBootNameAndRevisionAgain
+	}
+
+	snapNameAndRevno := m[bootVar]
+	if snapNameAndRevno == "" {
+		return "", snap.Revision{}, fmt.Errorf(errorPrefix + "unset")
+	}
+	name, rev, err := nameAndRevnoFromSnap(snapNameAndRevno)
+	if err != nil {
+		return "", snap.Revision{}, fmt.Errorf(errorPrefix+"%s", err)
+	}
+
+	return name, rev, nil
 }

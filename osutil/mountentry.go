@@ -24,7 +24,9 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 )
 
 // MountEntry describes an /etc/fstab-like mount entry.
@@ -117,6 +119,114 @@ func (e MountEntry) String() string {
 	}
 	return fmt.Sprintf("%s %s %s %s %d %d",
 		name, dir, fsType, options, e.DumpFrequency, e.CheckPassNumber)
+}
+
+// ParseMountEntry parses a fstab-like entry.
+func ParseMountEntry(s string) (MountEntry, error) {
+	var e MountEntry
+	var err error
+	var df, cpn int
+	fields := strings.FieldsFunc(s, func(r rune) bool { return r == ' ' || r == '\t' })
+	// do all error checks before any assignments to `e'
+	if len(fields) < 3 || len(fields) > 6 {
+		return e, fmt.Errorf("expected between 3 and 6 fields, found %d", len(fields))
+	}
+	e.Name = unescape(fields[0])
+	e.Dir = unescape(fields[1])
+	e.Type = unescape(fields[2])
+	// Parse Options if we have at least 4 fields
+	if len(fields) > 3 {
+		e.Options = strings.Split(unescape(fields[3]), ",")
+	}
+	// Parse DumpFrequency if we have at least 5 fields
+	if len(fields) > 4 {
+		df, err = strconv.Atoi(fields[4])
+		if err != nil {
+			return e, fmt.Errorf("cannot parse dump frequency: %q", fields[4])
+		}
+	}
+	e.DumpFrequency = df
+	// Parse CheckPassNumber if we have at least 6 fields
+	if len(fields) > 5 {
+		cpn, err = strconv.Atoi(fields[5])
+		if err != nil {
+			return e, fmt.Errorf("cannot parse check pass number: %q", fields[5])
+		}
+	}
+	e.CheckPassNumber = cpn
+	return e, nil
+}
+
+// MountOptsToCommonFlags converts mount options strings to a mount flag,
+// returning unparsed flags. The unparsed flags will not contain any snapd-
+// specific mount option, those starting with the string "x-snapd."
+func MountOptsToCommonFlags(opts []string) (flags int, unparsed []string) {
+	for _, opt := range opts {
+		switch opt {
+		case "ro":
+			flags |= syscall.MS_RDONLY
+		case "nosuid":
+			flags |= syscall.MS_NOSUID
+		case "nodev":
+			flags |= syscall.MS_NODEV
+		case "noexec":
+			flags |= syscall.MS_NOEXEC
+		case "sync":
+			flags |= syscall.MS_SYNCHRONOUS
+		case "remount":
+			flags |= syscall.MS_REMOUNT
+		case "mand":
+			flags |= syscall.MS_MANDLOCK
+		case "dirsync":
+			flags |= syscall.MS_DIRSYNC
+		case "noatime":
+			flags |= syscall.MS_NOATIME
+		case "nodiratime":
+			flags |= syscall.MS_NODIRATIME
+		case "bind":
+			flags |= syscall.MS_BIND
+		case "rbind":
+			flags |= syscall.MS_BIND | syscall.MS_REC
+		case "move":
+			flags |= syscall.MS_MOVE
+		case "silent":
+			flags |= syscall.MS_SILENT
+		case "acl":
+			flags |= syscall.MS_POSIXACL
+		case "private":
+			flags |= syscall.MS_PRIVATE
+		case "rprivate":
+			flags |= syscall.MS_PRIVATE | syscall.MS_REC
+		case "slave":
+			flags |= syscall.MS_SLAVE
+		case "rslave":
+			flags |= syscall.MS_SLAVE | syscall.MS_REC
+		case "shared":
+			flags |= syscall.MS_SHARED
+		case "rshared":
+			flags |= syscall.MS_SHARED | syscall.MS_REC
+		case "relatime":
+			flags |= syscall.MS_RELATIME
+		case "strictatime":
+			flags |= syscall.MS_STRICTATIME
+		default:
+			if !strings.HasPrefix(opt, "x-snapd.") {
+				unparsed = append(unparsed, opt)
+			}
+		}
+	}
+	return flags, unparsed
+}
+
+// MountOptsToFlags converts mount options strings to a mount flag.
+func MountOptsToFlags(opts []string) (flags int, err error) {
+	flags, unparsed := MountOptsToCommonFlags(opts)
+	for _, opt := range unparsed {
+		if !strings.HasPrefix(opt, "x-snapd.") {
+			return 0, fmt.Errorf("unsupported mount option: %q", opt)
+		}
+	}
+	return flags, nil
 }
 
 // OptStr returns the value part of a key=value mount option.
@@ -239,62 +349,6 @@ func (e *MountEntry) XSnapdSynthetic() bool {
 	return e.OptBool("x-snapd.synthetic")
 }
 
-// XSnapdKind returns the kind of a given mount entry.
-//
-// There are three kinds of mount entries today: one for directories, one for
-// files and one for symlinks. The values are "", "file" and "symlink" respectively.
-//
-// Directories use the empty string (in fact they don't need the option at
-// all) as this was the default and is retained for backwards compatibility.
-func (e *MountEntry) XSnapdKind() string {
-	val, _ := e.OptStr("x-snapd.kind")
-	return val
-}
-
-// XSnapdDetach returns true if a mount entry should be detached rather than unmounted.
-//
-// Whenever we create a recursive bind mount we don't want to just unmount it
-// as it may have replicated additional mount entries. For simplicity and
-// race-free behavior we just detach such mount entries and let the kernel do
-// the rest.
-func (e *MountEntry) XSnapdDetach() bool {
-	return e.OptBool("x-snapd.detach")
-}
-
-// XSnapdSymlink returns the target for a symlink mount entry.
-//
-// For non-symlinks an empty string is returned.
-func (e *MountEntry) XSnapdSymlink() string {
-	val, _ := e.OptStr("x-snapd.symlink")
-	return val
-}
-
-// XSnapdIgnoreMissing returns true if a mount entry should be ignored
-// if the source or target are missing.
-//
-// By default, snap-update-ns will try to create missing source and
-// target paths when processing a mount entry.  In some cases, this
-// behaviour is not desired and it would be better to ignore the mount
-// entry when the source or target are missing.
-func (e *MountEntry) XSnapdIgnoreMissing() bool {
-	return e.OptBool("x-snapd.ignore-missing")
-}
-
-// XSnapdNeededBy returns the string "x-snapd.needed-by=..." with the given path appended.
-func XSnapdNeededBy(path string) string {
-	return fmt.Sprintf("x-snapd.needed-by=%s", path)
-}
-
-// XSnapdSynthetic returns the string "x-snapd.synthetic".
-func XSnapdSynthetic() string {
-	return "x-snapd.synthetic"
-}
-
-// XSnapdDetach returns the string "x-snapd.detach".
-func XSnapdDetach() string {
-	return "x-snapd.detach"
-}
-
 // XSnapdKindSymlink returns the string "x-snapd.kind=symlink".
 func XSnapdKindSymlink() string {
 	return "x-snapd.kind=symlink"
@@ -310,18 +364,13 @@ func XSnapdOriginLayout() string {
 	return "x-snapd.origin=layout"
 }
 
-// XSnapdOriginOvername returns the string "x-snapd.origin=overname"
-func XSnapdOriginOvername() string {
-	return "x-snapd.origin=overname"
-}
-
 // XSnapdUser returns the string "x-snapd.user=%d".
-func XSnapdUser(uid uint32) string {
+func XSnapdUser(uid int) string {
 	return fmt.Sprintf("x-snapd.user=%d", uid)
 }
 
 // XSnapdGroup returns the string "x-snapd.group=%d".
-func XSnapdGroup(gid uint32) string {
+func XSnapdGroup(gid int) string {
 	return fmt.Sprintf("x-snapd.group=%d", gid)
 }
 
@@ -333,9 +382,4 @@ func XSnapdMode(mode uint32) string {
 // XSnapdSymlink returns the string "x-snapd.symlink=%s".
 func XSnapdSymlink(oldname string) string {
 	return fmt.Sprintf("x-snapd.symlink=%s", oldname)
-}
-
-// XSnapdIgnoreMissing returns the string "x-snapd.ignore-missing".
-func XSnapdIgnoreMissing() string {
-	return "x-snapd.ignore-missing"
 }

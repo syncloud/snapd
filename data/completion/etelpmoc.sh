@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+#!/bin/bash
 #
 #  Copyright (C) 2017 Canonical Ltd
 #
@@ -91,10 +91,6 @@ compgen() {
             o)
                 _compopts["$OPTARG"]=1
                 ;;
-            *)
-                # Do nothing, explicitly. This silences shellcheck's detector
-                # of unhandled command line options.
-                ;;
         esac
     done
     builtin compgen "$@"
@@ -180,7 +176,7 @@ if [[ "${_comp[*]}" ]]; then
                 _compfunc="$OPTARG"
                 ;;
             W)
-                readarray -t COMPREPLY < <( builtin compgen -W "$OPTARG" -- "${COMP_WORDS[COMP_CWORD]}" )
+                readarray -t COMPREPLY < <( builtin compgen -W "$OPTARG" -- "${COMP_WORDS[$COMP_CWORD]}" )
                 _compfunc=""
                 ;;
             *)
@@ -202,19 +198,10 @@ esac
 
 if [ ! "$_bounce" ]; then
     if [ "$_compact" ]; then
-        readarray -t COMPREPLY < <( builtin compgen -A "$_compact" -- "${COMP_WORDS[COMP_CWORD]}" )
+        readarray -t COMPREPLY < <( builtin compgen -A "$_compact" -- "${COMP_WORDS[$COMP_CWORD]}" )
     elif [ "$_compfunc" ]; then
         # execute completion function (or the command if -C)
-
-        # from https://www.gnu.org/software/bash/manual/html_node/Programmable-Completion.html:
-        #   When the function or command is invoked, the first argument ($1) is
-        #   the name of the command whose arguments are being completed, the
-        #   second argument ($2) is the word being completed, and the third
-        #   argument ($3) is the word preceding the word being completed on the
-        #   current command line.
-        # that's "$1" "${COMP_WORDS[COMP_CWORD]}" and "${COMP_WORDS[COMP_CWORD-1]}"
-        # (probably)
-        $_compfunc "$1" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+        $_compfunc
     fi
 fi
 
@@ -222,4 +209,4 @@ fi
 echo "${!_compopts[@]}"
 echo "$_bounce"
 echo ""
-printf "%s\\n" "${COMPREPLY[@]}"
+printf "%s\n" "${COMPREPLY[@]}"

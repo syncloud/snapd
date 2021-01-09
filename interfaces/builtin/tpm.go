@@ -30,17 +30,12 @@ const tpmBaseDeclarationSlots = `
 `
 
 const tpmConnectedPlugAppArmor = `
-# Description: for those who need to talk to the system TPM chip over
-# /dev/tpm[0-9]* and kernel TPM resource manager /dev/tpmrm[0-0]* (4.12+)
+# Description: for those who need to talk to the system TPM chip over /dev/tpm0
 
-/dev/tpm[0-9]* rw,
-/dev/tpmrm[0-9]* rw,
+/dev/tpm0 rw,
 `
 
-var tpmConnectedPlugUDev = []string{
-	`KERNEL=="tpm[0-9]*"`,
-	`KERNEL=="tpmrm[0-9]*"`,
-}
+var tpmConnectedPlugUDev = []string{`KERNEL=="tpm[0-9]*"`}
 
 func init() {
 	registerIface(&commonInterface{
@@ -51,5 +46,6 @@ func init() {
 		baseDeclarationSlots:  tpmBaseDeclarationSlots,
 		connectedPlugAppArmor: tpmConnectedPlugAppArmor,
 		connectedPlugUDev:     tpmConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

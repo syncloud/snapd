@@ -3,53 +3,50 @@ summary: Ensure that the kvm interface works.
 details: |
     The kvm interface allows read/write access to kvm.
 
+environment:
+    CONNECTED_PATTERN: ':kvm +test-snapd-kvm'
+    DISCONNECTED_PATTERN: '\- +test-snapd-kvm:kvm'
+
 prepare: |
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB"/snaps.sh
-    install_local test-snapd-sh
+    . $TESTSLIB/snaps.sh
+    install_local test-snapd-kvm
 
     if [ -e /dev/kvm ]; then
         mv /dev/kvm /dev/kvm.bak
     fi
     touch /dev/kvm
 
-    if [[ "$SPREAD_SYSTEM" == fedora-* ]]; then
-        ausearch --checkpoint stamp -m AVC || true
-    fi
-
 restore: |
+    rm -f call.error
     rm -f /dev/kvm
 
-    if [ -e /dev/kvm.bak ]; then
+    if [ -e /dev/kvm.bak]; then
         mv /dev/kvm.bak /dev/kvm
     fi
 
 execute: |
     echo "The interface is not connected by default"
-    snap interfaces -i kvm | MATCH '^- +test-snapd-sh:kvm'
+    snap interfaces | MATCH "$DISCONNECTED_PATTERN"
 
     echo "When the interface is connected"
-    snap connect test-snapd-sh:kvm
+    snap connect test-snapd-kvm:kvm
+    snap interfaces | MATCH "$CONNECTED_PATTERN"
 
     echo "Then the snap is able to read/write on /dev/kvm"
-    test-snapd-sh.with-kvm-plug -c "cat /dev/kvm"
-    test-snapd-sh.with-kvm-plug -c "echo 'test' >> /dev/kvm"
+    test-snapd-kvm.sh -c "cat /dev/kvm"
+    test-snapd-kvm.sh -c "echo 'test' >> /dev/kvm"
 
     if [ "$(snap debug confinement)" = partial ] ; then
         exit 0
     fi
 
     echo "When the plug is disconnected"
-    snap disconnect test-snapd-sh:kvm
+    snap disconnect test-snapd-kvm:kvm
+    snap interfaces | MATCH "$DISCONNECTED_PATTERN"
 
     echo "Then the snap is not able to read the kvm device"
-    if test-snapd-sh.with-kvm-plug -c "cat /dev/kvm" 2> call.error; then
+    if test-snapd-kvm.sh -c "cat /dev/kvm" 2>${PWD}/call.error; then
         echo "Expected permission error accessing to kvm device"
         exit 1
     fi
     MATCH "Permission denied" < call.error
-
-    if [[ "$SPREAD_SYSTEM" == fedora-* ]]; then
-        # make sure there are no selinux denials on fedora
-        ausearch -i --checkpoint stamp --start checkpoint -m AVC 2>&1 | MATCH 'no matches'
-    fi

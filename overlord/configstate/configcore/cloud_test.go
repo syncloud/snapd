@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2018 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,7 +27,6 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/overlord/configstate/configcore"
 )
 
@@ -104,68 +103,12 @@ func (s *cloudSuite) TestHandleCloud(c *C) {
    "cloud-name": "none"
  }
 }`, "", "", ""},
-		// both _ and - are supported
-		{`{
- "v1": {
-  "availability_zone": "nova",
-  "cloud_name": "openstack",
-  "instance-id": "b5",
-  "local-hostname": "b5",
-  "region": null
- }
-}`, "openstack", "", "nova"},
-		{`{
- "v1": {
-  "availability_zone": "nova",
-  "availability-zone": "nova",
-  "cloud_name": "openstack",
-  "cloud-name": "openstack",
-  "instance-id": "b5",
-  "local-hostname": "b5",
-  "region": null
- }
-}`, "openstack", "", "nova"},
-		// cloud_name takes precedence, if set, and other fields follow
-		{`{
- "v1": {
-  "availability_zone": "us-east-2b",
-  "availability-zone": "none",
-  "cloud_name": "aws",
-  "cloud_name": "aws",
-  "instance-id": "b5",
-  "local-hostname": "b5",
-  "region": null
- }
-}`, "aws", "", "us-east-2b"},
-		{`{
- "v1": {
-  "availability_zone": "nova",
-  "availability-zone": "gibberish",
-  "cloud_name": "openstack",
-  "cloud-name": "aws",
-  "instance-id": "b5",
-  "local-hostname": "b5",
-  "region": null
- }
-}`, "openstack", "", "nova"},
-		{`{
- "v1": {
-  "availability_zone": "gibberish",
-  "availability-zone": "nova",
-  "cloud_name": null,
-  "cloud-name": "openstack",
-  "instance-id": "b5",
-  "local-hostname": "b5",
-  "region": null
- }
-}`, "openstack", "", "nova"},
 	}
 
 	err := os.MkdirAll(filepath.Dir(dirs.CloudInstanceDataFile), 0755)
 	c.Assert(err, IsNil)
 
-	for i, t := range tests {
-		c.Logf("tc: %v", i)
+	for _, t := range tests {
 		os.Remove(dirs.CloudInstanceDataFile)
 		if t.instData != "" {
 			err = ioutil.WriteFile(dirs.CloudInstanceDataFile, []byte(t.instData), 0600)
@@ -178,7 +121,7 @@ func (s *cloudSuite) TestHandleCloud(c *C) {
 		err := configcore.Run(tr)
 		c.Assert(err, IsNil)
 
-		var cloudInfo auth.CloudInfo
+		var cloudInfo configcore.CloudInfo
 		tr.Get("core", "cloud", &cloudInfo)
 
 		c.Check(cloudInfo.Name, Equals, t.name)
@@ -212,7 +155,7 @@ func (s *cloudSuite) TestHandleCloudAlreadySeeded(c *C) {
 	err = configcore.Run(tr)
 	c.Assert(err, IsNil)
 
-	var cloudInfo auth.CloudInfo
+	var cloudInfo configcore.CloudInfo
 	tr.Get("core", "cloud", &cloudInfo)
 
 	c.Check(cloudInfo.Name, Equals, "")

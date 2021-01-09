@@ -22,12 +22,6 @@
 // Location of the host filesystem directory in the core snap.
 #define SC_HOSTFS_DIR "/var/lib/snapd/hostfs"
 
-typedef enum sc_distro {
-	SC_DISTRO_CORE16,	// As present in both "core" and later on in "core16"
-	SC_DISTRO_CORE_OTHER,	// Any core distribution.
-	SC_DISTRO_CLASSIC,	// Any classic distribution.
-} sc_distro;
-
-sc_distro sc_classify_distro(void);
+bool is_running_on_classic_distribution(void);
 
 #endif

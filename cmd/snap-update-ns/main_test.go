@@ -20,7 +20,6 @@
 package main_test
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -31,35 +30,21 @@ import (
 
 	update "github.com/snapcore/snapd/cmd/snap-update-ns"
 	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/features"
-	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/testutil"
 )
 
 func Test(t *testing.T) { TestingT(t) }
 
-type mainSuite struct {
-	testutil.BaseTest
-	as  *update.Assumptions
-	log *bytes.Buffer
-}
+type mainSuite struct{}
 
 var _ = Suite(&mainSuite{})
 
-func (s *mainSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-	s.as = &update.Assumptions{}
-	buf, restore := logger.MockLogger()
-	s.BaseTest.AddCleanup(restore)
-	s.log = buf
-}
-
-func (s *mainSuite) TestExecuteMountProfileUpdate(c *C) {
+func (s *mainSuite) TestComputeAndSaveChanges(c *C) {
 	dirs.SetRootDir(c.MkDir())
 	defer dirs.SetRootDir("/")
 
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
+	restore := update.MockChangePerform(func(chg *update.Change) ([]*update.Change, error) {
 		return nil, nil
 	})
 	defer restore()
@@ -80,8 +65,7 @@ func (s *mainSuite) TestExecuteMountProfileUpdate(c *C) {
 	err = ioutil.WriteFile(currentProfilePath, nil, 0644)
 	c.Assert(err, IsNil)
 
-	upCtx := update.NewSystemProfileUpdateContext(snapName, false)
-	err = update.ExecuteMountProfileUpdate(upCtx)
+	err = update.ComputeAndSaveChanges(snapName)
 	c.Assert(err, IsNil)
 
 	c.Check(currentProfilePath, testutil.FileEquals, `/var/lib/snapd/hostfs/usr/local/share/fonts /usr/local/share/fonts none bind,ro 0 0
@@ -116,7 +100,7 @@ func (s *mainSuite) TestAddingSyntheticChanges(c *C) {
 	// represented here. The changes have only one goal: tell
 	// snap-update-ns how the mimic can be undone in case it is no longer
 	// needed.
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
+	restore := update.MockChangePerform(func(chg *update.Change) ([]*update.Change, error) {
 		// The change that we were asked to perform is to create a bind mount
 		// from within the snap to /usr/share/mysnap.
 		c.Assert(chg, DeepEquals, &update.Change{
@@ -148,8 +132,7 @@ func (s *mainSuite) TestAddingSyntheticChanges(c *C) {
 	})
 	defer restore()
 
-	upCtx := update.NewSystemProfileUpdateContext(snapName, false)
-	c.Assert(update.ExecuteMountProfileUpdate(upCtx), IsNil)
+	c.Assert(update.ComputeAndSaveChanges(snapName), IsNil)
 
 	c.Check(currentProfilePath, testutil.FileEquals,
 		`tmpfs /usr/share tmpfs x-snapd.synthetic,x-snapd.needed-by=/usr/share/mysnap 0 0
@@ -162,9 +145,6 @@ func (s *mainSuite) TestAddingSyntheticChanges(c *C) {
 func (s *mainSuite) TestRemovingSyntheticChanges(c *C) {
 	dirs.SetRootDir(c.MkDir())
 	defer dirs.SetRootDir("/")
-
-	c.Assert(os.MkdirAll(dirs.FeaturesDir, 0755), IsNil)
-	c.Assert(ioutil.WriteFile(features.RobustMountNamespaceUpdates.ControlFile(), []byte(nil), 0644), IsNil)
 
 	// The snap `mysnap` no longer wishes to export it's usr/share/mysnap
 	// directory. All the synthetic changes that were associated with that mount
@@ -186,7 +166,7 @@ func (s *mainSuite) TestRemovingSyntheticChanges(c *C) {
 	c.Assert(ioutil.WriteFile(desiredProfilePath, []byte(desiredProfileContent), 0644), IsNil)
 
 	n := -1
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
+	restore := update.MockChangePerform(func(chg *update.Change) ([]*update.Change, error) {
 		n++
 		switch n {
 		case 0:
@@ -202,8 +182,24 @@ func (s *mainSuite) TestRemovingSyntheticChanges(c *C) {
 			c.Assert(chg, DeepEquals, &update.Change{
 				Action: update.Unmount,
 				Entry: osutil.MountEntry{
+					Name: "/usr/share/awk", Dir: "/usr/share/awk", Type: "none",
+					Options: []string{"bind", "ro", "x-snapd.synthetic", "x-snapd.needed-by=/usr/share/mysnap"},
+				},
+			})
+		case 2:
+			c.Assert(chg, DeepEquals, &update.Change{
+				Action: update.Unmount,
+				Entry: osutil.MountEntry{
+					Name: "/usr/share/adduser", Dir: "/usr/share/adduser", Type: "none",
+					Options: []string{"bind", "ro", "x-snapd.synthetic", "x-snapd.needed-by=/usr/share/mysnap"},
+				},
+			})
+		case 3:
+			c.Assert(chg, DeepEquals, &update.Change{
+				Action: update.Unmount,
+				Entry: osutil.MountEntry{
 					Name: "tmpfs", Dir: "/usr/share", Type: "tmpfs",
-					Options: []string{"x-snapd.synthetic", "x-snapd.needed-by=/usr/share/mysnap", "x-snapd.detach"},
+					Options: []string{"x-snapd.synthetic", "x-snapd.needed-by=/usr/share/mysnap"},
 				},
 			})
 		default:
@@ -213,8 +209,7 @@ func (s *mainSuite) TestRemovingSyntheticChanges(c *C) {
 	})
 	defer restore()
 
-	upCtx := update.NewSystemProfileUpdateContext(snapName, false)
-	c.Assert(update.ExecuteMountProfileUpdate(upCtx), IsNil)
+	c.Assert(update.ComputeAndSaveChanges(snapName), IsNil)
 
 	c.Check(currentProfilePath, testutil.FileEquals, "")
 }
@@ -236,7 +231,7 @@ func (s *mainSuite) TestApplyingLayoutChanges(c *C) {
 	c.Assert(ioutil.WriteFile(desiredProfilePath, []byte(desiredProfileContent), 0644), IsNil)
 
 	n := -1
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
+	restore := update.MockChangePerform(func(chg *update.Change) ([]*update.Change, error) {
 		n++
 		switch n {
 		case 0:
@@ -256,127 +251,7 @@ func (s *mainSuite) TestApplyingLayoutChanges(c *C) {
 	defer restore()
 
 	// The error was not ignored, we bailed out.
-	upCtx := update.NewSystemProfileUpdateContext(snapName, false)
-	c.Assert(update.ExecuteMountProfileUpdate(upCtx), ErrorMatches, "testing")
+	c.Assert(update.ComputeAndSaveChanges(snapName), ErrorMatches, "testing")
 
 	c.Check(currentProfilePath, testutil.FileEquals, "")
-}
-
-func (s *mainSuite) TestApplyingParallelInstanceChanges(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	defer dirs.SetRootDir("/")
-
-	const snapName = "mysnap"
-	const currentProfileContent = ""
-	const desiredProfileContent = "/snap/mysnap_foo /snap/mysnap none rbind,x-snapd.origin=overname 0 0"
-
-	currentProfilePath := fmt.Sprintf("%s/snap.%s.fstab", dirs.SnapRunNsDir, snapName)
-	desiredProfilePath := fmt.Sprintf("%s/snap.%s.fstab", dirs.SnapMountPolicyDir, snapName)
-
-	c.Assert(os.MkdirAll(filepath.Dir(currentProfilePath), 0755), IsNil)
-	c.Assert(os.MkdirAll(filepath.Dir(desiredProfilePath), 0755), IsNil)
-	c.Assert(ioutil.WriteFile(currentProfilePath, []byte(currentProfileContent), 0644), IsNil)
-	c.Assert(ioutil.WriteFile(desiredProfilePath, []byte(desiredProfileContent), 0644), IsNil)
-
-	n := -1
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
-		n++
-		switch n {
-		case 0:
-			c.Assert(chg, DeepEquals, &update.Change{
-				Action: update.Mount,
-				Entry: osutil.MountEntry{
-					Name: "/snap/mysnap_foo",
-					Dir:  "/snap/mysnap", Type: "none",
-					Options: []string{"rbind", "x-snapd.origin=overname"},
-				},
-			})
-			return nil, fmt.Errorf("testing")
-		default:
-			panic(fmt.Sprintf("unexpected call n=%d, chg: %v", n, *chg))
-		}
-	})
-	defer restore()
-
-	// The error was not ignored, we bailed out.
-	upCtx := update.NewSystemProfileUpdateContext(snapName, false)
-	c.Assert(update.ExecuteMountProfileUpdate(upCtx), ErrorMatches, "testing")
-
-	c.Check(currentProfilePath, testutil.FileEquals, "")
-}
-
-func (s *mainSuite) TestApplyIgnoredMissingMount(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	defer dirs.SetRootDir("/")
-
-	const snapName = "mysnap"
-	const currentProfileContent = ""
-	const desiredProfileContent = "/source /target none bind,x-snapd.ignore-missing 0 0"
-
-	currentProfilePath := fmt.Sprintf("%s/snap.%s.fstab", dirs.SnapRunNsDir, snapName)
-	desiredProfilePath := fmt.Sprintf("%s/snap.%s.fstab", dirs.SnapMountPolicyDir, snapName)
-
-	c.Assert(os.MkdirAll(filepath.Dir(currentProfilePath), 0755), IsNil)
-	c.Assert(os.MkdirAll(filepath.Dir(desiredProfilePath), 0755), IsNil)
-	c.Assert(ioutil.WriteFile(currentProfilePath, []byte(currentProfileContent), 0644), IsNil)
-	c.Assert(ioutil.WriteFile(desiredProfilePath, []byte(desiredProfileContent), 0644), IsNil)
-
-	n := -1
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
-		n++
-		switch n {
-		case 0:
-			c.Assert(chg, DeepEquals, &update.Change{
-				Action: update.Mount,
-				Entry: osutil.MountEntry{
-					Name:    "/source",
-					Dir:     "/target",
-					Type:    "none",
-					Options: []string{"bind", "x-snapd.ignore-missing"},
-				},
-			})
-			return nil, update.ErrIgnoredMissingMount
-		default:
-			panic(fmt.Sprintf("unexpected call n=%d, chg: %v", n, *chg))
-		}
-	})
-	defer restore()
-
-	// The error was ignored, and no mount was recorded in the profile
-	upCtx := update.NewSystemProfileUpdateContext(snapName, false)
-	c.Assert(update.ExecuteMountProfileUpdate(upCtx), IsNil)
-	c.Check(s.log.String(), Equals, "")
-	c.Check(currentProfilePath, testutil.FileEquals, "")
-}
-
-func (s *mainSuite) TestApplyUserFstab(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	defer dirs.SetRootDir("/")
-
-	var changes []update.Change
-	restore := update.MockChangePerform(func(chg *update.Change, as *update.Assumptions) ([]*update.Change, error) {
-		changes = append(changes, *chg)
-		return nil, nil
-	})
-	defer restore()
-
-	snapName := "foo"
-	desiredProfileContent := `$XDG_RUNTIME_DIR/doc/by-app/snap.foo $XDG_RUNTIME_DIR/doc none bind,rw 0 0`
-
-	desiredProfilePath := fmt.Sprintf("%s/snap.%s.user-fstab", dirs.SnapMountPolicyDir, snapName)
-	err := os.MkdirAll(filepath.Dir(desiredProfilePath), 0755)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(desiredProfilePath, []byte(desiredProfileContent), 0644)
-	c.Assert(err, IsNil)
-
-	upCtx := update.NewUserProfileUpdateContext(snapName, true, 1000)
-	err = update.ExecuteMountProfileUpdate(upCtx)
-	c.Assert(err, IsNil)
-
-	xdgRuntimeDir := fmt.Sprintf("%s/%d", dirs.XdgRuntimeDirBase, 1000)
-
-	c.Assert(changes, HasLen, 1)
-	c.Assert(changes[0].Action, Equals, update.Mount)
-	c.Assert(changes[0].Entry.Name, Equals, xdgRuntimeDir+"/doc/by-app/snap.foo")
-	c.Assert(changes[0].Entry.Dir, Matches, xdgRuntimeDir+"/doc")
 }

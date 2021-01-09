@@ -1,36 +1,46 @@
 summary: "Check that refresh-modes works"
 
-# takes >1.5min to run
-backends: [-autopkgtest]
-
-kill-timeout: 5m
+kill-timeout: 3m
 
 debug: |
-    grep -n '' ./*.pid || true
-    systemctl status snap.test-snapd-service.test-snapd-endure-service || true
+    journalctl -u snap.test-snapd-service.test-snapd-endure-service
 
 execute: |
-    # shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB/snaps.sh"
-    # shellcheck source=tests/lib/journalctl.sh
-    . "$TESTSLIB/journalctl.sh"
-
     echo "When the service snap is installed"
+    . $TESTSLIB/snaps.sh
     install_local test-snapd-service
 
     echo "We can see it running"
     systemctl status snap.test-snapd-service.test-snapd-endure-service|MATCH "running"
-    systemctl show -p MainPID snap.test-snapd-service.test-snapd-endure-service > old-main.pid
 
     echo "When it is re-installed"
     install_local test-snapd-service
 
-    echo "We can still see it running with the same PID"
-    systemctl show -p MainPID snap.test-snapd-service.test-snapd-endure-service > new-main.pid
+    # note that we do not spread test sigterm{,-all} because catching this
+    # signal in the service means the stop will timeout with a 90s delay
+    refresh_modes="endure sighup sighup-all sigusr1 sigusr1-all sigusr2 sigusr2-all"
+    for s in $refresh_modes; do
+        echo "We can still see it running"
+        systemctl status snap.test-snapd-service.test-snapd-${s}-service|MATCH "running"
 
-    test "$(cat new-endure.pid)" = "$(cat old-endure.pid)"
+        echo "And it is not re-started"
+        if journalctl -u snap.test-snapd-service.test-snapd-${s}-service | grep "stop ${s}"; then
+            echo "reinstall did stop a service that shouldn't"
+            exit 1
+        fi
+
+        if [[ "$s" == sig* ]]; then
+            echo "checking that the right signal was sent"
+            sleep 1
+            journalctl -u snap.test-snapd-service.test-snapd-${s}-service | MATCH "got ${s%%-all}"
+        fi
+    done
+
+    echo "But regular services are restarted"
+    journalctl -u snap.test-snapd-service.test-snapd-service | MATCH "stop service"
 
     echo "Once the snap is removed, the service is stopped"
     snap remove test-snapd-service
-    # shellcheck disable=SC2119
-    get_journalctl_log | MATCH "stop endure"
+    for s in $refresh_modes; do
+        journalctl | MATCH "stop ${s}"
+    done

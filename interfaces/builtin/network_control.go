@@ -101,15 +101,10 @@ network sna,
 /{,usr/}{,s}bin/arpd ixr,
 /{,usr/}{,s}bin/bridge ixr,
 /{,usr/}{,s}bin/dhclient Pxr,             # use ixr instead if want to limit to snap dirs
-/{,usr/}{,s}bin/dhclient-script ixr,
 /{,usr/}{,s}bin/ifconfig ixr,
-/{,usr/}{,s}bin/ifdown ixr,
-/{,usr/}{,s}bin/ifquery ixr,
-/{,usr/}{,s}bin/ifup ixr,
 /{,usr/}{,s}bin/ip ixr,
 /{,usr/}{,s}bin/ipmaddr ixr,
 /{,usr/}{,s}bin/iptunnel ixr,
-/{,usr/}{,s}bin/iw ixr,
 /{,usr/}{,s}bin/nameif ixr,
 /{,usr/}{,s}bin/netstat ixr,              # -p not supported
 /{,usr/}{,s}bin/nstat ixr,
@@ -124,7 +119,6 @@ network sna,
 /{,usr/}{,s}bin/routel ixr,
 /{,usr/}{,s}bin/rtacct ixr,
 /{,usr/}{,s}bin/rtmon ixr,
-/{,usr/}{,s}bin/ss ixr,
 /{,usr/}{,s}bin/sysctl ixr,
 /{,usr/}{,s}bin/tc ixr,
 /{,usr/}{,s}bin/wpa_action ixr,
@@ -141,9 +135,8 @@ network sna,
 network netlink dgram,
 
 # ip, et al
-/etc/iproute2/{,**} r,
+/etc/iproute2/{,*} r,
 /etc/iproute2/rt_{protos,realms,scopes,tables} w,
-/etc/iproute2/rt_{protos,tables}.d/* w,
 
 # ping - child profile would be nice but seccomp causes problems with that
 /{,usr/}{,s}bin/ping ixr,
@@ -156,33 +149,15 @@ capability setuid,
 @{PROC}/@{pid}/loginuid r,
 @{PROC}/@{pid}/mounts r,
 
-# static host tables
-/etc/hosts w,
-
 # resolvconf
 /sbin/resolvconf ixr,
-/run/resolvconf/{,**} rk,
+/run/resolvconf/{,**} r,
 /run/resolvconf/** w,
 /etc/resolvconf/{,**} r,
 /lib/resolvconf/* ix,
 # Required by resolvconf
 /bin/run-parts ixr,
 /etc/resolvconf/update.d/* ix,
-
-# wpa_suplicant
-/{,var/}run/wpa_supplicant/ w,
-/{,var/}run/wpa_supplicant/** rw,
-/etc/wpa_supplicant/{,**} ixr,
-
-#ifup,ifdown, dhclient
-/{,var/}run/dhclient.*.pid rw,
-/var/lib/dhcp/ r,
-/var/lib/dhcp/** rw,
-
-/run/network/ifstate* rw,
-/run/network/.ifstate* rw,
-/run/network/ifup-* rw,
-/run/network/ifdown-* rw,
 
 # route
 /etc/networks r,
@@ -218,9 +193,14 @@ mount options=(rw, bind) /run/netns/ -> /run/netns/,
 mount options=(rw, bind) / -> /run/netns/*,
 umount /,
 
-# 'ip netns identify <pid>' and 'ip netns pids foo'. Intenionally omit 'ptrace
-# (trace)' here since ip netns doesn't actually need to trace other processes.
+# 'ip netns identify <pid>' and 'ip netns pids foo'
 capability sys_ptrace,
+# FIXME: ptrace can be used to break out of the seccomp sandbox unless the
+# kernel has 93e35efb8de45393cf61ed07f7b407629bf698ea (in 4.8+). Until this is
+# the default in snappy kernels, deny but audit as a reminder to get the
+# kernels patched.
+audit deny ptrace (trace) peer=snap.@{SNAP_NAME}.*, # eventually by default
+audit deny ptrace (trace), # for all other peers (process-control or other)
 
 # 'ip netns exec foo /bin/sh'
 mount options=(rw, rslave) /,
@@ -290,7 +270,7 @@ func init() {
 		connectedPlugAppArmor: networkControlConnectedPlugAppArmor,
 		connectedPlugSecComp:  networkControlConnectedPlugSecComp,
 		connectedPlugUDev:     networkControlConnectedPlugUDev,
-		suppressPtraceTrace:   true,
+		reservedForOS:         true,
 	})
 
 }

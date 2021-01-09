@@ -22,9 +22,8 @@
 
 void sc_cleanup_string(char **ptr)
 {
-	if (ptr != NULL && *ptr != NULL) {
+	if (ptr != NULL) {
 		free(*ptr);
-		*ptr = NULL;
 	}
 }
 
@@ -32,7 +31,6 @@ void sc_cleanup_file(FILE ** ptr)
 {
 	if (ptr != NULL && *ptr != NULL) {
 		fclose(*ptr);
-		*ptr = NULL;
 	}
 }
 
@@ -40,7 +38,6 @@ void sc_cleanup_endmntent(FILE ** ptr)
 {
 	if (ptr != NULL && *ptr != NULL) {
 		endmntent(*ptr);
-		*ptr = NULL;
 	}
 }
 
@@ -48,7 +45,6 @@ void sc_cleanup_closedir(DIR ** ptr)
 {
 	if (ptr != NULL && *ptr != NULL) {
 		closedir(*ptr);
-		*ptr = NULL;
 	}
 }
 
@@ -56,6 +52,5 @@ void sc_cleanup_close(int *ptr)
 {
 	if (ptr != NULL && *ptr != -1) {
 		close(*ptr);
-		*ptr = -1;
 	}
 }

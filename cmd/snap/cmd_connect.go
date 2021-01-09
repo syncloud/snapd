@@ -26,14 +26,13 @@ import (
 )
 
 type cmdConnect struct {
-	waitMixin
 	Positionals struct {
 		PlugSpec connectPlugSpec `required:"yes"`
 		SlotSpec connectSlotSpec
 	} `positional-args:"true"`
 }
 
-var shortConnectHelp = i18n.G("Connect a plug to a slot")
+var shortConnectHelp = i18n.G("Connects a plug to a slot")
 var longConnectHelp = i18n.G(`
 The connect command connects a plug to a slot.
 It may be called in the following ways:
@@ -57,10 +56,10 @@ the plug name.
 func init() {
 	addCommand("connect", shortConnectHelp, longConnectHelp, func() flags.Commander {
 		return &cmdConnect{}
-	}, waitDescs, []argDesc{
-		// TRANSLATORS: This needs to begin with < and end with >
+	}, nil, []argDesc{
+		// TRANSLATORS: This needs to be wrapped in <>s.
 		{name: i18n.G("<snap>:<plug>")},
-		// TRANSLATORS: This needs to begin with < and end with >
+		// TRANSLATORS: This needs to be wrapped in <>s.
 		{name: i18n.G("<snap>:<slot>")},
 	})
 }
@@ -77,17 +76,12 @@ func (x *cmdConnect) Execute(args []string) error {
 		x.Positionals.PlugSpec.Snap = ""
 	}
 
-	id, err := x.client.Connect(x.Positionals.PlugSpec.Snap, x.Positionals.PlugSpec.Name, x.Positionals.SlotSpec.Snap, x.Positionals.SlotSpec.Name)
+	cli := Client()
+	id, err := cli.Connect(x.Positionals.PlugSpec.Snap, x.Positionals.PlugSpec.Name, x.Positionals.SlotSpec.Snap, x.Positionals.SlotSpec.Name)
 	if err != nil {
 		return err
 	}
 
-	if _, err := x.wait(id); err != nil {
-		if err == noWait {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	_, err = wait(cli, id)
+	return err
 }

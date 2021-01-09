@@ -20,12 +20,9 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"regexp"
-
-	"golang.org/x/xerrors"
 )
 
 // Icon represents the icon of an installed snap
@@ -34,18 +31,13 @@ type Icon struct {
 	Content  []byte
 }
 
-var contentDispositionMatcher = regexp.MustCompile(`attachment; filename=(.+)`).FindStringSubmatch
-
 // Icon returns the Icon belonging to an installed snap
 func (c *Client) Icon(pkgID string) (*Icon, error) {
 	const errPrefix = "cannot retrieve icon"
 
-	ctx, cancel := context.WithTimeout(context.Background(), doTimeout)
-	defer cancel()
-	response, err := c.raw(ctx, "GET", fmt.Sprintf("/v2/icons/%s/icon", pkgID), nil, nil, nil)
+	response, err := c.raw("GET", fmt.Sprintf("/v2/icons/%s/icon", pkgID), nil, nil, nil)
 	if err != nil {
-		fmt := "%s: failed to communicate with server: %w"
-		return nil, xerrors.Errorf(fmt, errPrefix, err)
+		return nil, fmt.Errorf("%s: failed to communicate with server: %s", errPrefix, err)
 	}
 	defer response.Body.Close()
 
@@ -53,7 +45,8 @@ func (c *Client) Icon(pkgID string) (*Icon, error) {
 		return nil, fmt.Errorf("%s: Not Found", errPrefix)
 	}
 
-	matches := contentDispositionMatcher(response.Header.Get("Content-Disposition"))
+	re := regexp.MustCompile(`attachment; filename=(.+)`)
+	matches := re.FindStringSubmatch(response.Header.Get("Content-Disposition"))
 
 	if matches == nil || matches[1] == "" {
 		return nil, fmt.Errorf("%s: cannot determine filename", errPrefix)

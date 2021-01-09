@@ -46,7 +46,6 @@ import (
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/timings"
 )
 
 // Backend is responsible for maintaining kernel modules
@@ -67,8 +66,8 @@ func (b *Backend) Name() interfaces.SecuritySystem {
 // using /sbin/modprobe. The devMode is ignored.
 //
 // If the method fails it should be re-tried (with a sensible strategy) by the caller.
-func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementOptions, repo *interfaces.Repository, tm timings.Measurer) error {
-	snapName := snapInfo.InstanceName()
+func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementOptions, repo *interfaces.Repository) error {
+	snapName := snapInfo.Name()
 	// Get the snippets that apply to this snap
 	spec, err := repo.SnapSpecification(b.Name(), snapName)
 	if err != nil {
@@ -105,11 +104,11 @@ func (b *Backend) Remove(snapName string) error {
 	return err
 }
 
-func deriveContent(spec *Specification, snapInfo *snap.Info) (map[string]osutil.FileState, []string) {
+func deriveContent(spec *Specification, snapInfo *snap.Info) (map[string]*osutil.FileState, []string) {
 	if len(spec.modules) == 0 {
 		return nil, nil
 	}
-	content := make(map[string]osutil.FileState)
+	content := make(map[string]*osutil.FileState)
 	var modules []string
 	for k := range spec.modules {
 		modules = append(modules, k)
@@ -122,7 +121,7 @@ func deriveContent(spec *Specification, snapInfo *snap.Info) (map[string]osutil.
 		buffer.WriteString(module)
 		buffer.WriteRune('\n')
 	}
-	content[fmt.Sprintf("%s.conf", snap.SecurityTag(snapInfo.InstanceName()))] = &osutil.MemoryFileState{
+	content[fmt.Sprintf("%s.conf", snap.SecurityTag(snapInfo.Name()))] = &osutil.FileState{
 		Content: buffer.Bytes(),
 		Mode:    0644,
 	}
@@ -131,9 +130,4 @@ func deriveContent(spec *Specification, snapInfo *snap.Info) (map[string]osutil.
 
 func (b *Backend) NewSpecification() interfaces.Specification {
 	return &Specification{}
-}
-
-// SandboxFeatures returns the list of features supported by snapd for loading kernel modules.
-func (b *Backend) SandboxFeatures() []string {
-	return []string{"mediated-modprobe"}
 }

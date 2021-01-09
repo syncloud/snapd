@@ -27,8 +27,6 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/release"
-	"github.com/snapcore/snapd/sandbox/apparmor"
-	"github.com/snapcore/snapd/sandbox/cgroup"
 )
 
 // Hook up check.v1 into the "go test" runner
@@ -151,53 +149,8 @@ func (s *ReleaseTestSuite) TestReleaseInfo(c *C) {
 }
 
 func (s *ReleaseTestSuite) TestForceDevMode(c *C) {
-
-	runTest := func(apparmorLevel apparmor.LevelType, cgroupVersion int, expect bool) {
-		restore := apparmor.MockLevel(apparmorLevel)
-		defer restore()
-		restore = cgroup.MockVersion(cgroupVersion, nil)
-		defer restore()
-		devMode := release.ReleaseInfo.ForceDevMode()
-		c.Check(devMode, Equals, expect, Commentf("unexpected force-dev-mode for AppArmor level %v cgroup v%v", apparmorLevel, cgroupVersion))
-	}
-
-	for _, tc := range []struct {
-		apparmorLevel apparmor.LevelType
-		cgroupVersion int
-		exp           bool
-	}{
-		{apparmor.Full, cgroup.V1, false},
-		{apparmor.Partial, cgroup.V1, true},
-		// unified mode
-		{apparmor.Full, cgroup.V2, true},
-		{apparmor.Partial, cgroup.V2, true},
-	} {
-		runTest(tc.apparmorLevel, tc.cgroupVersion, tc.exp)
-	}
-}
-
-func (s *ReleaseTestSuite) TestMockForceDevMode(c *C) {
 	for _, devmode := range []bool{true, false} {
-		restore := release.MockForcedDevmode(devmode)
-		defer restore()
+		release.MockForcedDevmode(devmode)
 		c.Assert(release.ReleaseInfo.ForceDevMode(), Equals, devmode, Commentf("wrong result for %#v", devmode))
 	}
-}
-
-func (s *ReleaseTestSuite) TestNonWSL(c *C) {
-	defer release.MockIoutilReadfile(func(s string) ([]byte, error) {
-		c.Check(s, Equals, "/proc/version")
-		return []byte("Linux version 2.2.19 (herbert@gondolin) (gcc version 2.7.2.3) #1 Wed Mar 20 19:41:41 EST 2002"), nil
-	})()
-
-	c.Check(release.IsWSL(), Equals, false)
-}
-
-func (s *ReleaseTestSuite) TestWSL(c *C) {
-	defer release.MockIoutilReadfile(func(s string) ([]byte, error) {
-		c.Check(s, Equals, "/proc/version")
-		return []byte("Linux version 3.4.0-Microsoft (Microsoft@Microsoft.com) (gcc version 4.7 (GCC) ) #1 SMP PREEMPT Wed Dec 31 14:42:53 PST 2014"), nil
-	})()
-
-	c.Check(release.IsWSL(), Equals, true)
 }

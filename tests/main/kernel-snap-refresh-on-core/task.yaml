@@ -13,13 +13,23 @@ environment:
     KERNEL_CHANNEL: stable
     NEW_KERNEL_CHANNEL: edge
 
+restore: |
+    rm -f prevBoot nextBoot prevKernelSignature nextKernelSiganture
+        
 prepare: |
-    snap install test-snapd-sh
+    snap install test-snapd-tools
 
 debug: |
     grub-editenv list
 
 execute: |
+    wait_core_post_boot() {
+        # booted
+        while [ "$(bootenv snap_mode)" != "" ]; do
+            sleep 1
+        done
+    }
+
     same=$(snap info pc-kernel | awk "
         /^  ${KERNEL_CHANNEL}:/ {ch1=\$2}
         /^  ${NEW_KERNEL_CHANNEL}:/ {ch2=\$2}
@@ -29,16 +39,15 @@ execute: |
         exit 0
     fi
 
-    #shellcheck source=tests/lib/boot.sh
-    . "$TESTSLIB"/boot.sh
+    . $TESTSLIB/boot.sh
     if [ "$SPREAD_REBOOT" = 0 ]; then
         # ensure we have a good starting place
     
         # sanity
-        test-snapd-sh.sh -c 'echo hello' | MATCH hello
+        test-snapd-tools.echo hello | MATCH hello
 
         # go to known good starting place
-        snap refresh pc-kernel "--${KERNEL_CHANNEL}"
+        snap refresh pc-kernel --${KERNEL_CHANNEL}
         REBOOT
     elif [ "$SPREAD_REBOOT" = 1 ]; then
         # from our good starting place we refresh
@@ -49,7 +58,7 @@ execute: |
         cat /proc/version_signature > prevKernelSignature
 
         # refresh
-        snap refresh pc-kernel "--${NEW_KERNEL_CHANNEL}"
+        snap refresh pc-kernel --${NEW_KERNEL_CHANNEL}
 
         # check boot env vars
         snap list | awk "/^pc-kernel / {print(\$3)}" > nextBoot
@@ -62,8 +71,8 @@ execute: |
             test "$(bootenv snap_try_kernel)" = "pc-kernel_$(cat nextBoot).snap"
         fi
 
-        # test-snapd-sh works
-        test-snapd-sh.sh -c 'echo hello' | MATCH hello
+        # test-snapd-tools works
+        test-snapd-tools.echo hello | MATCH hello
 
         REBOOT
     elif [  "$SPREAD_REBOOT" = 2 ]; then
@@ -81,8 +90,8 @@ execute: |
             exit 0
         fi
         
-        # test-snapd-sh works
-        test-snapd-sh.sh -c 'echo hello' | MATCH hello
+        # test-snapd-tools works
+        test-snapd-tools.echo hello | MATCH hello
 
         # revert kernel
         snap revert pc-kernel
@@ -102,6 +111,6 @@ execute: |
         echo we are back to the original kernel
         diff -u /proc/version_signature prevKernelSignature
         
-        # test-snapd-sh works
-        test-snapd-sh.sh -c 'echo hello' | MATCH hello
+        # test-snapd-tools works
+        test-snapd-tools.echo hello | MATCH hello
     fi

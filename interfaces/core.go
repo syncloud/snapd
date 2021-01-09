@@ -27,11 +27,22 @@ import (
 	"github.com/snapcore/snapd/snap"
 )
 
+// Plug represents the potential of a given snap to connect to a slot.
+type Plug struct {
+	*snap.PlugInfo
+	Connections []SlotRef `json:"connections,omitempty"`
+}
+
+// Ref returns reference to a plug
+func (plug *Plug) Ref() PlugRef {
+	return PlugRef{Snap: plug.Snap.Name(), Name: plug.Name}
+}
+
 // Sanitize plug with a given snapd interface.
 func BeforePreparePlug(iface Interface, plugInfo *snap.PlugInfo) error {
 	if iface.Name() != plugInfo.Interface {
 		return fmt.Errorf("cannot sanitize plug %q (interface %q) using interface %q",
-			PlugRef{Snap: plugInfo.Snap.InstanceName(), Name: plugInfo.Name}, plugInfo.Interface, iface.Name())
+			PlugRef{Snap: plugInfo.Snap.Name(), Name: plugInfo.Name}, plugInfo.Interface, iface.Name())
 	}
 	var err error
 	if iface, ok := iface.(PlugSanitizer); ok {
@@ -51,19 +62,22 @@ func (ref PlugRef) String() string {
 	return fmt.Sprintf("%s:%s", ref.Snap, ref.Name)
 }
 
-// SortsBefore returns true when plug should be sorted before the other
-func (ref PlugRef) SortsBefore(other PlugRef) bool {
-	if ref.Snap != other.Snap {
-		return ref.Snap < other.Snap
-	}
-	return ref.Name < other.Name
+// Slot represents a capacity offered by a snap.
+type Slot struct {
+	*snap.SlotInfo
+	Connections []PlugRef `json:"connections,omitempty"`
+}
+
+// Ref returns reference to a slot
+func (slot *Slot) Ref() SlotRef {
+	return SlotRef{Snap: slot.Snap.Name(), Name: slot.Name}
 }
 
 // Sanitize slot with a given snapd interface.
 func BeforePrepareSlot(iface Interface, slotInfo *snap.SlotInfo) error {
 	if iface.Name() != slotInfo.Interface {
 		return fmt.Errorf("cannot sanitize slot %q (interface %q) using interface %q",
-			SlotRef{Snap: slotInfo.Snap.InstanceName(), Name: slotInfo.Name}, slotInfo.Interface, iface.Name())
+			SlotRef{Snap: slotInfo.Snap.Name(), Name: slotInfo.Name}, slotInfo.Interface, iface.Name())
 	}
 	var err error
 	if iface, ok := iface.(SlotSanitizer); ok {
@@ -81,14 +95,6 @@ type SlotRef struct {
 // String returns the "snap:slot" representation of a slot reference.
 func (ref SlotRef) String() string {
 	return fmt.Sprintf("%s:%s", ref.Snap, ref.Name)
-}
-
-// SortsBefore returns true when slot should be sorted before the other
-func (ref SlotRef) SortsBefore(other SlotRef) bool {
-	if ref.Snap != other.Snap {
-		return ref.Snap < other.Snap
-	}
-	return ref.Name < other.Name
 }
 
 // Interfaces holds information about a list of plugs, slots and their connections.
@@ -116,8 +122,8 @@ type ConnRef struct {
 // NewConnRef creates a connection reference for given plug and slot
 func NewConnRef(plug *snap.PlugInfo, slot *snap.SlotInfo) *ConnRef {
 	return &ConnRef{
-		PlugRef: PlugRef{Snap: plug.Snap.InstanceName(), Name: plug.Name},
-		SlotRef: SlotRef{Snap: slot.Snap.InstanceName(), Name: slot.Name},
+		PlugRef: PlugRef{Snap: plug.Snap.Name(), Name: plug.Name},
+		SlotRef: SlotRef{Snap: slot.Snap.Name(), Name: slot.Name},
 	}
 }
 
@@ -126,31 +132,23 @@ func (conn *ConnRef) ID() string {
 	return fmt.Sprintf("%s:%s %s:%s", conn.PlugRef.Snap, conn.PlugRef.Name, conn.SlotRef.Snap, conn.SlotRef.Name)
 }
 
-// SortsBefore returns true when connection should be sorted before the other
-func (conn *ConnRef) SortsBefore(other *ConnRef) bool {
-	if conn.PlugRef != other.PlugRef {
-		return conn.PlugRef.SortsBefore(other.PlugRef)
-	}
-	return conn.SlotRef.SortsBefore(other.SlotRef)
-}
-
 // ParseConnRef parses an ID string
-func ParseConnRef(id string) (*ConnRef, error) {
+func ParseConnRef(id string) (ConnRef, error) {
 	var conn ConnRef
 	parts := strings.SplitN(id, " ", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("malformed connection identifier: %q", id)
+		return conn, fmt.Errorf("malformed connection identifier: %q", id)
 	}
 	plugParts := strings.Split(parts[0], ":")
 	slotParts := strings.Split(parts[1], ":")
 	if len(plugParts) != 2 || len(slotParts) != 2 {
-		return nil, fmt.Errorf("malformed connection identifier: %q", id)
+		return conn, fmt.Errorf("malformed connection identifier: %q", id)
 	}
 	conn.PlugRef.Snap = plugParts[0]
 	conn.PlugRef.Name = plugParts[1]
 	conn.SlotRef.Snap = slotParts[0]
 	conn.SlotRef.Name = slotParts[1]
-	return &conn, nil
+	return conn, nil
 }
 
 // Interface describes a group of interchangeable capabilities with common features.
@@ -164,7 +162,7 @@ type Interface interface {
 	// implicitly auto-connected assuming they will be an
 	// unambiguous connection candidate and declaration-based checks
 	// allow.
-	AutoConnect(plug *snap.PlugInfo, slot *snap.SlotInfo) bool
+	AutoConnect(plug *Plug, slot *Slot) bool
 }
 
 // PlugSanitizer can be implemented by Interfaces that have reasons to sanitize their plugs.
@@ -240,7 +238,17 @@ const (
 	SecuritySystemd SecuritySystem = "systemd"
 )
 
-var isValidBusName = regexp.MustCompile(`^[a-zA-Z_-][a-zA-Z0-9_-]*(\.[a-zA-Z_-][a-zA-Z0-9_-]*)+$`).MatchString
+// Regular expression describing correct identifiers.
+var validName = regexp.MustCompile("^[a-z](?:-?[a-z0-9])*$")
+
+// ValidateName checks if a string can be used as a plug or slot name.
+func ValidateName(name string) error {
+	valid := validName.MatchString(name)
+	if !valid {
+		return fmt.Errorf("invalid interface name: %q", name)
+	}
+	return nil
+}
 
 // ValidateDBusBusName checks if a string conforms to
 // https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names
@@ -251,18 +259,9 @@ func ValidateDBusBusName(busName string) error {
 		return fmt.Errorf("DBus bus name is too long (must be <= 255)")
 	}
 
-	if !isValidBusName(busName) {
+	validBusName := regexp.MustCompile("^[a-zA-Z_-][a-zA-Z0-9_-]*(\\.[a-zA-Z_-][a-zA-Z0-9_-]*)+$")
+	if !validBusName.MatchString(busName) {
 		return fmt.Errorf("invalid DBus bus name: %q", busName)
 	}
 	return nil
-}
-
-// UnknownPlugSlotError is an error reported when plug or slot cannot be found.
-type UnknownPlugSlotError struct {
-	Msg string
-}
-
-// Error returns the message associated with unknown plug or slot error.
-func (e *UnknownPlugSlotError) Error() string {
-	return e.Msg
 }

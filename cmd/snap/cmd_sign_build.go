@@ -43,11 +43,8 @@ type cmdSignBuild struct {
 	Grade       string  `long:"grade" choice:"devel" choice:"stable" default:"stable"`
 }
 
-var shortSignBuildHelp = i18n.G("Create a snap-build assertion")
-var longSignBuildHelp = i18n.G(`
-The sign-build command creates a snap-build assertion for the provided
-snap file.
-`)
+var shortSignBuildHelp = i18n.G("Create snap build assertion")
+var longSignBuildHelp = i18n.G("Create snap-build assertion for the provided snap file.")
 
 func init() {
 	cmd := addCommand("sign-build",
@@ -56,18 +53,14 @@ func init() {
 		func() flags.Commander {
 			return &cmdSignBuild{}
 		}, map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
 			"developer-id": i18n.G("Identifier of the signer"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"snap-id": i18n.G("Identifier of the snap package associated with the build"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"k": i18n.G("Name of the GnuPG key to use (defaults to 'default' as key name)"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"grade": i18n.G("Grade states the build quality of the snap (defaults to 'stable')"),
+			"snap-id":      i18n.G("Identifier of the snap package associated with the build"),
+			"k":            i18n.G("Name of the GnuPG key to use (defaults to 'default' as key name)"),
+			"grade":        i18n.G("Grade states the build quality of the snap (defaults to 'stable')"),
 		}, []argDesc{{
-			// TRANSLATORS: This needs to begin with < and end with >
+			// TRANSLATORS: This needs to be wrapped in <>s.
 			name: i18n.G("<filename>"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+			// TRANSLATORS: This should probably not start with a lowercase letter.
 			desc: i18n.G("Filename of the snap you want to assert a build for"),
 		}})
 	cmd.hidden = true

@@ -20,13 +20,12 @@
 package osutil_test
 
 import (
-	"context"
 	"io"
 	"os/exec"
 	"strings"
-	"testing"
 	"time"
 
+	"golang.org/x/net/context"
 	"gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/osutil"
@@ -43,8 +42,7 @@ func (dumbReader) Read([]byte) (int, error) {
 var _ = check.Suite(&ctxSuite{})
 
 func (ctxSuite) TestWriter(c *check.C) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second/100)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second/100)
 	n, err := io.Copy(osutil.ContextWriter(ctx), dumbReader{})
 	c.Assert(err, check.Equals, context.DeadlineExceeded)
 	// but we copied things until the deadline hit
@@ -61,8 +59,7 @@ func (ctxSuite) TestWriterDone(c *check.C) {
 }
 
 func (ctxSuite) TestWriterSuccess(c *check.C) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second/100)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second/100)
 	// check we can copy if we're quick
 	n, err := io.Copy(osutil.ContextWriter(ctx), strings.NewReader("hello"))
 	c.Check(err, check.IsNil)
@@ -70,18 +67,13 @@ func (ctxSuite) TestWriterSuccess(c *check.C) {
 }
 
 func (ctxSuite) TestRun(c *check.C) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second/100)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second/100)
 	cmd := exec.Command("/bin/sleep", "1")
 	err := osutil.RunWithContext(ctx, cmd)
 	c.Check(err, check.Equals, context.DeadlineExceeded)
 }
 
 func (ctxSuite) TestRunRace(c *check.C) {
-	if testing.Short() {
-		c.Skip("skippinng non-short test")
-	}
-
 	// first, time how long /bin/false takes
 	t0 := time.Now()
 	cmderr := exec.Command("/bin/false").Run()
@@ -97,9 +89,8 @@ func (ctxSuite) TestRunRace(c *check.C) {
 	nfailed := 0
 	for nfailed == 0 || nkilled == 0 {
 		cmd := exec.Command("/bin/false")
-		ctx, cancel := context.WithTimeout(context.Background(), dt)
+		ctx, _ := context.WithTimeout(context.Background(), dt)
 		err := osutil.RunWithContext(ctx, cmd)
-		cancel()
 		switch err.Error() {
 		case killedstr:
 			nkilled++
@@ -122,16 +113,14 @@ func (ctxSuite) TestRunDone(c *check.C) {
 }
 
 func (ctxSuite) TestRunSuccess(c *check.C) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
 	cmd := exec.Command("/bin/sleep", "0.01")
 	err := osutil.RunWithContext(ctx, cmd)
 	c.Check(err, check.IsNil)
 }
 
 func (ctxSuite) TestRunSuccessfulFailure(c *check.C) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
 	cmd := exec.Command("not/something/you/can/run")
 	err := osutil.RunWithContext(ctx, cmd)
 	c.Check(err, check.ErrorMatches, `fork/exec \S+: no such file or directory`)

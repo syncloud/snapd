@@ -25,9 +25,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-type cmdCanManageRefreshes struct {
-	clientMixin
-}
+type cmdCanManageRefreshes struct{}
 
 func init() {
 	cmd := addDebugCommand("can-manage-refreshes",
@@ -35,7 +33,7 @@ func init() {
 		"(internal) return if refresh.schedule=managed can be used",
 		func() flags.Commander {
 			return &cmdCanManageRefreshes{}
-		}, nil, nil)
+		})
 	cmd.hidden = true
 }
 
@@ -45,7 +43,7 @@ func (x *cmdCanManageRefreshes) Execute(args []string) error {
 	}
 
 	var resp bool
-	if err := x.client.Debug("can-manage-refreshes", nil, &resp); err != nil {
+	if err := Client().Debug("can-manage-refreshes", nil, &resp); err != nil {
 		return err
 	}
 	fmt.Fprintf(Stdout, "%v\n", resp)

@@ -60,5 +60,6 @@ func init() {
 		connectedPlugAppArmor: ioPortsControlConnectedPlugAppArmor,
 		connectedPlugSecComp:  ioPortsControlConnectedPlugSecComp,
 		connectedPlugUDev:     ioPortsControlConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

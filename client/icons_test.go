@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"golang.org/x/xerrors"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -64,11 +62,4 @@ func (cs *clientSuite) TestClientIcon(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(icon.Filename, Equals, "myicon.png")
 	c.Assert(icon.Content, DeepEquals, []byte("pixels"))
-}
-
-func (cs *clientSuite) TestClientIconErrIsWrapped(c *C) {
-	cs.err = errors.New("boom")
-	_, err := cs.cli.Icon("something")
-	var e xerrors.Wrapper
-	c.Assert(err, Implements, &e)
 }

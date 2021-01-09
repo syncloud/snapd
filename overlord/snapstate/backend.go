@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016-2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,68 +20,54 @@
 package snapstate
 
 import (
-	"context"
 	"io"
 
+	"golang.org/x/net/context"
+
 	"github.com/snapcore/snapd/asserts"
-	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/overlord/snapstate/backend"
 	"github.com/snapcore/snapd/progress"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
-	"github.com/snapcore/snapd/timings"
 )
 
 // A StoreService can find, list available updates and download snaps.
 type StoreService interface {
-	EnsureDeviceSession() (*auth.DeviceState, error)
-
-	SnapInfo(ctx context.Context, spec store.SnapSpec, user *auth.UserState) (*snap.Info, error)
-	Find(ctx context.Context, search *store.Search, user *auth.UserState) ([]*snap.Info, error)
-
-	SnapAction(ctx context.Context, currentSnaps []*store.CurrentSnap, actions []*store.SnapAction, user *auth.UserState, opts *store.RefreshOptions) ([]*snap.Info, error)
-
-	Sections(ctx context.Context, user *auth.UserState) ([]string, error)
-	WriteCatalogs(ctx context.Context, names io.Writer, adder store.SnapAdder) error
-
-	Download(context.Context, string, string, *snap.DownloadInfo, progress.Meter, *auth.UserState, *store.DownloadOptions) error
-	DownloadStream(context.Context, string, *snap.DownloadInfo, *auth.UserState) (io.ReadCloser, error)
+	SnapInfo(spec store.SnapSpec, user *auth.UserState) (*snap.Info, error)
+	Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error)
+	LookupRefresh(*store.RefreshCandidate, *auth.UserState) (*snap.Info, error)
+	ListRefresh([]*store.RefreshCandidate, *auth.UserState, *store.RefreshOptions) ([]*snap.Info, error)
+	Sections(user *auth.UserState) ([]string, error)
+	WriteCatalogs(names io.Writer, adder store.SnapAdder) error
+	Download(context.Context, string, string, *snap.DownloadInfo, progress.Meter, *auth.UserState) error
 
 	Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error)
 
 	SuggestedCurrency() string
-	Buy(options *client.BuyOptions, user *auth.UserState) (*client.BuyResult, error)
+	Buy(options *store.BuyOptions, user *auth.UserState) (*store.BuyResult, error)
 	ReadyToBuy(*auth.UserState) error
-	ConnectivityCheck() (map[string]bool, error)
-	CreateCohorts(context.Context, []string) (map[string]string, error)
-
-	LoginUser(username, password, otp string) (string, string, error)
-	UserInfo(email string) (userinfo *store.User, err error)
 }
 
 type managerBackend interface {
-	// install related
-	SetupSnap(snapFilePath, instanceName string, si *snap.SideInfo, meter progress.Meter) (snap.Type, *backend.InstallRecord, error)
+	// install releated
+	SetupSnap(snapFilePath string, si *snap.SideInfo, meter progress.Meter) error
 	CopySnapData(newSnap, oldSnap *snap.Info, meter progress.Meter) error
-	LinkSnap(info *snap.Info, model *asserts.Model, prevDisabledSvcs []string, tm timings.Measurer) error
-	StartServices(svcs []*snap.AppInfo, meter progress.Meter, tm timings.Measurer) error
-	StopServices(svcs []*snap.AppInfo, reason snap.ServiceStopReason, meter progress.Meter, tm timings.Measurer) error
-	ServicesEnableState(info *snap.Info, meter progress.Meter) (map[string]bool, error)
+	LinkSnap(info *snap.Info) error
+	StartServices(svcs []*snap.AppInfo, meter progress.Meter) error
+	StopServices(svcs []*snap.AppInfo, reason snap.ServiceStopReason, meter progress.Meter) error
 
 	// the undoers for install
-	UndoSetupSnap(s snap.PlaceInfo, typ snap.Type, installRecord *backend.InstallRecord, meter progress.Meter) error
+	UndoSetupSnap(s snap.PlaceInfo, typ snap.Type, meter progress.Meter) error
 	UndoCopySnapData(newSnap, oldSnap *snap.Info, meter progress.Meter) error
 	// cleanup
 	ClearTrashedData(oldSnap *snap.Info)
 
 	// remove related
 	UnlinkSnap(info *snap.Info, meter progress.Meter) error
-	RemoveSnapFiles(s snap.PlaceInfo, typ snap.Type, installRecord *backend.InstallRecord, meter progress.Meter) error
-	RemoveSnapDir(s snap.PlaceInfo, hasOtherInstances bool) error
+	RemoveSnapFiles(s snap.PlaceInfo, typ snap.Type, meter progress.Meter) error
 	RemoveSnapData(info *snap.Info) error
 	RemoveSnapCommonData(info *snap.Info) error
-	RemoveSnapDataDir(info *snap.Info, hasOtherInstances bool) error
 	DiscardSnapNamespace(snapName string) error
 
 	// alias related

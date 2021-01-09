@@ -57,8 +57,8 @@ owner @{PROC}/@{pid}/oom_score_adj rw,
 /var/tmp/ r,
 owner /var/tmp/etilqs_* rw,
 
-# Chrome/Chromium should be modified to use snap.$SNAP_INSTANCE_NAME.* or
-# the snap packaging adjusted to use LD_PRELOAD technique from LP: #1577514
+# Chrome/Chromium should be modified to use snap.$SNAP_NAME.* or the snap
+# packaging adjusted to use LD_PRELOAD technique from LP: #1577514
 owner /{dev,run}/shm/{,.}org.chromium.* mrw,
 owner /{dev,run}/shm/{,.}com.google.Chrome.* mrw,
 owner /{dev,run}/shm/.io.nwjs.* mrw,
@@ -66,19 +66,14 @@ owner /{dev,run}/shm/.io.nwjs.* mrw,
 # Chrome's Singleton API sometimes causes an ouid/fsuid mismatch denial, so
 # for now, allow non-owner read on the singleton socket (LP: #1731012). See
 # https://forum.snapcraft.io/t/electron-snap-killed-when-using-app-makesingleinstance-api/2667/20
-# parallel-installs: $XDG_RUNTIME_DIR is not remapped, need to use SNAP_INSTANCE_NAME
-/run/user/[0-9]*/snap.@{SNAP_INSTANCE_NAME}/{,.}org.chromium.*/SS r,
-/run/user/[0-9]*/snap.@{SNAP_INSTANCE_NAME}/{,.}com.google.Chrome.*/SS r,
+/run/user/[0-9]*/snap.@{SNAP_NAME}/{,.}org.chromium.*/SS r,
+/run/user/[0-9]*/snap.@{SNAP_NAME}/{,.}com.google.Chrome.*/SS r,
 
 # Allow reading platform files
 /run/udev/data/+platform:* r,
 
 # miscellaneous accesses
 @{PROC}/vmstat r,
-
-# Chromium content api sometimes queries about huge pages. Allow status of
-# hugepages and transparent_hugepage, but not the pages themselves.
-/sys/kernel/mm/{hugepages,transparent_hugepage}/{,**} r,
 
 # Chromium content api in gnome-shell reads this
 /etc/opt/chrome/{,**} r,
@@ -110,18 +105,23 @@ owner @{PROC}/@{pid}/mountinfo r,
 deny capability mknod,
 `
 
+const browserSupportConnectedPlugAppArmorWithoutSandbox = `
+# ptrace can be used to break out of the seccomp sandbox, but ps requests
+# 'ptrace (trace)' even though it isn't tracing other processes. Unfortunately,
+# this is due to the kernel overloading trace such that the LSMs are unable to
+# distinguish between tracing other processes and other accesses. We deny the
+# trace here to silence the log.
+# Note: for now, explicitly deny to avoid confusion and accidentally giving
+# away this dangerous access frivolously. We may conditionally deny this in the
+# future. If the kernel has https://lkml.org/lkml/2016/5/26/354 we could also
+# allow this.
+deny ptrace (trace) peer=snap.@{SNAP_NAME}.**,
+`
+
 const browserSupportConnectedPlugAppArmorWithSandbox = `
 # Leaks installed applications
 # TODO: should this be somewhere else?
 /etc/mailcap r,
-# Snaps should be using xdg-open from the runtime instead of reading these
-# files directly since the snap is unable to do anything with these files
-# but these accesses have been allowed for a long time and remain so as not
-# to break existing snaps. These could be changed to explicit deny rules,
-# but that provides a worse debugging experience. Combined, the risks
-# outweigh the benefits of closing this information leak for the small
-# number of snaps allowed to use allow-sandbox: true. Reference:
-# https://forum.snapcraft.io/t/cannot-open-pdf-attachment-with-thunderbird/11845
 /usr/share/applications/{,*} r,
 /var/lib/snapd/desktop/applications/{,*} r,
 owner @{PROC}/@{pid}/fd/[0-9]* w,
@@ -184,7 +184,6 @@ deny /sys/devices/virtual/block/dm-[0-9]*/dm/name r,
 /run/udev/data/b7:[0-9]* r,   # /dev/loop*
 /run/udev/data/b8:[0-9]* r,   # /dev/sd*
 /run/udev/data/b11:[0-9]* r,  # /dev/scd* and sr*
-/run/udev/data/b230:[0-9]* r, # /dev/zvol*
 /run/udev/data/c21:[0-9]* r,  # /dev/sg*
 /run/udev/data/+usb:[0-9]* r,
 
@@ -192,7 +191,7 @@ deny /sys/devices/virtual/block/dm-[0-9]*/dm/name r,
 /run/udev/data/b252:[0-9]* r,
 /run/udev/data/b253:[0-9]* r,
 /run/udev/data/b259:[0-9]* r,
-/run/udev/data/c24[0-9]:[0-9]* r,
+/run/udev/data/c24[2-9]:[0-9]* r,
 /run/udev/data/c25[0-4]:[0-9]* r,
 
 /sys/bus/**/devices/ r,
@@ -204,8 +203,8 @@ unix (bind)
 
 # Policy needed only when using the chrome/chromium setuid sandbox
 capability sys_ptrace,
-ptrace (trace) peer=snap.@{SNAP_INSTANCE_NAME}.**,
-unix (receive, send) peer=(label=snap.@{SNAP_INSTANCE_NAME}.**),
+ptrace (trace) peer=snap.@{SNAP_NAME}.**,
+unix (receive, send) peer=(label=snap.@{SNAP_NAME}.**),
 
 # If this were going to be allowed to all snaps, then for all the following
 # rules we would want to wrap in a 'browser_sandbox' profile, but a limitation
@@ -215,8 +214,7 @@ unix (receive, send) peer=(label=snap.@{SNAP_INSTANCE_NAME}.**),
 # profile browser_sandbox {
 #   ...
 #   # This rule needs to work but generates a parser error
-#   @{INSTALL_DIR}/@{SNAP_NAME}/@{SNAP_REVISION}/opt/google/chrome/chrome px -> snap.@{SNAP_INSTANCE_NAME}.@{SNAP_APP},
-#   @{INSTALL_DIR}/@{SNAP_INSTANCE_NAME}/@{SNAP_REVISION}/opt/google/chrome/chrome px -> snap.@{SNAP_INSTANCE_NAME}.@{SNAP_APP},
+#   @{INSTALL_DIR}/@{SNAP_NAME}/@{SNAP_REVISION}/opt/google/chrome/chrome px -> snap.@{SNAP_NAME}.@{SNAP_APP},
 #   ...
 # }
 
@@ -242,13 +240,6 @@ owner /{dev,run}/shm/WK2SharedMemory.* mrw,
 
 # Chromium content api on (at least) later versions of Ubuntu just use this
 owner /{dev,run}/shm/shmfd-* mrw,
-
-# Clearing the PG_Referenced and ACCESSED/YOUNG bits provides a method to
-# measure approximately how much memory a process is using via /proc/self/smaps
-# (man 5 proc). This access allows the snap to clear references for pids from
-# other snaps and the system, so it is limited to snaps that specify:
-# allow-sandbox: true.
-owner @{PROC}/@{pid}/clear_refs w,
 `
 
 const browserSupportConnectedPlugSecComp = `
@@ -292,23 +283,6 @@ setgid
 # Policy needed for Mozilla userns sandbox
 unshare
 quotactl
-
-# The Breakpad crash reporter uses ptrace to read register/memory state
-# from the crashed process, but it doesn't need to modify any state; see
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1461848.
-#
-# These rules allow that but don't allow ptrace operations that
-# write registers, which can be used to bypass security; see
-# https://lkml.org/lkml/2016/5/26/354.
-ptrace PTRACE_ATTACH
-ptrace PTRACE_DETACH
-ptrace PTRACE_GETREGS
-ptrace PTRACE_GETFPREGS
-ptrace PTRACE_GETFPXREGS
-ptrace PTRACE_GETREGSET
-ptrace PTRACE_PEEKDATA
-ptrace PTRACE_PEEKUSER
-ptrace PTRACE_CONT
 `
 
 type browserSupportInterface struct{}
@@ -345,7 +319,7 @@ func (iface *browserSupportInterface) AppArmorConnectedPlug(spec *apparmor.Speci
 	if allowSandbox {
 		spec.AddSnippet(browserSupportConnectedPlugAppArmorWithSandbox)
 	} else {
-		spec.SetSuppressPtraceTrace()
+		spec.AddSnippet(browserSupportConnectedPlugAppArmorWithoutSandbox)
 	}
 	return nil
 }
@@ -361,7 +335,7 @@ func (iface *browserSupportInterface) SecCompConnectedPlug(spec *seccomp.Specifi
 	return nil
 }
 
-func (iface *browserSupportInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *browserSupportInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	return true
 }
 

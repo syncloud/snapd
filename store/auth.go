@@ -100,14 +100,14 @@ func loginCaveatID(m *macaroon.Macaroon) (string, error) {
 }
 
 // retryPostRequestDecodeJSON calls retryPostRequest and decodes the response into either success or failure.
-func retryPostRequestDecodeJSON(httpClient *http.Client, endpoint string, headers map[string]string, data []byte, success interface{}, failure interface{}) (resp *http.Response, err error) {
-	return retryPostRequest(httpClient, endpoint, headers, data, func(resp *http.Response) error {
+func retryPostRequestDecodeJSON(endpoint string, headers map[string]string, data []byte, success interface{}, failure interface{}) (resp *http.Response, err error) {
+	return retryPostRequest(endpoint, headers, data, func(resp *http.Response) error {
 		return decodeJSONBody(resp, success, failure)
 	})
 }
 
 // retryPostRequest calls doRequest and decodes the response in a retry loop.
-func retryPostRequest(httpClient *http.Client, endpoint string, headers map[string]string, data []byte, readResponseBody func(resp *http.Response) error) (*http.Response, error) {
+func retryPostRequest(endpoint string, headers map[string]string, data []byte, readResponseBody func(resp *http.Response) error) (*http.Response, error) {
 	return httputil.RetryRequest(endpoint, func() (*http.Response, error) {
 		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(data))
 		if err != nil {
@@ -122,7 +122,7 @@ func retryPostRequest(httpClient *http.Client, endpoint string, headers map[stri
 }
 
 // requestStoreMacaroon requests a macaroon for accessing package data from the ubuntu store.
-func requestStoreMacaroon(httpClient *http.Client) (string, error) {
+func requestStoreMacaroon() (string, error) {
 	const errorPrefix = "cannot get snap access permission from store: "
 
 	data := map[string]interface{}{
@@ -144,7 +144,7 @@ func requestStoreMacaroon(httpClient *http.Client) (string, error) {
 		"Accept":       "application/json",
 		"Content-Type": "application/json",
 	}
-	resp, err := retryPostRequestDecodeJSON(httpClient, MacaroonACLAPI, headers, macaroonJSONData, &responseData, nil)
+	resp, err := retryPostRequestDecodeJSON(MacaroonACLAPI, headers, macaroonJSONData, &responseData, nil)
 	if err != nil {
 		return "", fmt.Errorf(errorPrefix+"%v", err)
 	}
@@ -160,7 +160,7 @@ func requestStoreMacaroon(httpClient *http.Client) (string, error) {
 	return responseData.Macaroon, nil
 }
 
-func requestDischargeMacaroon(httpClient *http.Client, endpoint string, data map[string]string) (string, error) {
+func requestDischargeMacaroon(endpoint string, data map[string]string) (string, error) {
 	const errorPrefix = "cannot authenticate to snap store: "
 
 	var err error
@@ -179,7 +179,7 @@ func requestDischargeMacaroon(httpClient *http.Client, endpoint string, data map
 		"Accept":       "application/json",
 		"Content-Type": "application/json",
 	}
-	resp, err := retryPostRequestDecodeJSON(httpClient, endpoint, headers, dischargeJSONData, &responseData, &msg)
+	resp, err := retryPostRequestDecodeJSON(endpoint, headers, dischargeJSONData, &responseData, &msg)
 	if err != nil {
 		return "", fmt.Errorf(errorPrefix+"%v", err)
 	}
@@ -216,7 +216,7 @@ func requestDischargeMacaroon(httpClient *http.Client, endpoint string, data map
 }
 
 // dischargeAuthCaveat returns a macaroon with the store auth caveat discharged.
-func dischargeAuthCaveat(httpClient *http.Client, caveat, username, password, otp string) (string, error) {
+func dischargeAuthCaveat(caveat, username, password, otp string) (string, error) {
 	data := map[string]string{
 		"email":     username,
 		"password":  password,
@@ -226,20 +226,20 @@ func dischargeAuthCaveat(httpClient *http.Client, caveat, username, password, ot
 		data["otp"] = otp
 	}
 
-	return requestDischargeMacaroon(httpClient, UbuntuoneDischargeAPI, data)
+	return requestDischargeMacaroon(UbuntuoneDischargeAPI, data)
 }
 
 // refreshDischargeMacaroon returns a soft-refreshed discharge macaroon.
-func refreshDischargeMacaroon(httpClient *http.Client, discharge string) (string, error) {
+func refreshDischargeMacaroon(discharge string) (string, error) {
 	data := map[string]string{
 		"discharge_macaroon": discharge,
 	}
 
-	return requestDischargeMacaroon(httpClient, UbuntuoneRefreshDischargeAPI, data)
+	return requestDischargeMacaroon(UbuntuoneRefreshDischargeAPI, data)
 }
 
 // requestStoreDeviceNonce requests a nonce for device authentication against the store.
-func requestStoreDeviceNonce(httpClient *http.Client, deviceNonceEndpoint string) (string, error) {
+func requestStoreDeviceNonce(deviceNonceEndpoint string) (string, error) {
 	const errorPrefix = "cannot get nonce from store: "
 
 	var responseData struct {
@@ -250,7 +250,7 @@ func requestStoreDeviceNonce(httpClient *http.Client, deviceNonceEndpoint string
 		"User-Agent": httputil.UserAgent(),
 		"Accept":     "application/json",
 	}
-	resp, err := retryPostRequestDecodeJSON(httpClient, deviceNonceEndpoint, headers, nil, &responseData, nil)
+	resp, err := retryPostRequestDecodeJSON(deviceNonceEndpoint, headers, nil, &responseData, nil)
 	if err != nil {
 		return "", fmt.Errorf(errorPrefix+"%v", err)
 	}
@@ -273,7 +273,7 @@ type deviceSessionRequestParamsEncoder interface {
 }
 
 // requestDeviceSession requests a device session macaroon from the store.
-func requestDeviceSession(httpClient *http.Client, deviceSessionEndpoint string, paramsEncoder deviceSessionRequestParamsEncoder, previousSession string) (string, error) {
+func requestDeviceSession(deviceSessionEndpoint string, paramsEncoder deviceSessionRequestParamsEncoder, previousSession string) (string, error) {
 	const errorPrefix = "cannot get device session from store: "
 
 	data := map[string]string{
@@ -300,7 +300,7 @@ func requestDeviceSession(httpClient *http.Client, deviceSessionEndpoint string,
 		headers["X-Device-Authorization"] = fmt.Sprintf(`Macaroon root="%s"`, previousSession)
 	}
 
-	_, err = retryPostRequest(httpClient, deviceSessionEndpoint, headers, deviceJSONData, func(resp *http.Response) error {
+	_, err = retryPostRequest(deviceSessionEndpoint, headers, deviceJSONData, func(resp *http.Response) error {
 		if resp.StatusCode == 200 || resp.StatusCode == 202 {
 			return json.NewDecoder(resp.Body).Decode(&responseData)
 		}
@@ -310,7 +310,6 @@ func requestDeviceSession(httpClient *http.Client, deviceSessionEndpoint string,
 	if err != nil {
 		return "", fmt.Errorf(errorPrefix+"%v", err)
 	}
-	// TODO: retry at least once on 400
 
 	if responseData.Macaroon == "" {
 		return "", fmt.Errorf(errorPrefix + "empty session returned")

@@ -68,6 +68,13 @@ func (s *FirewallControlInterfaceSuite) TestName(c *C) {
 
 func (s *FirewallControlInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "firewall-control",
+		Interface: "firewall-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"firewall-control slots are reserved for the core snap")
 }
 
 func (s *FirewallControlInterfaceSuite) TestSanitizePlug(c *C) {
@@ -108,7 +115,8 @@ func (s *FirewallControlInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *FirewallControlInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *FirewallControlInterfaceSuite) TestInterfaces(c *C) {

@@ -31,13 +31,12 @@ import (
 )
 
 type cmdAliases struct {
-	clientMixin
 	Positionals struct {
 		Snap installedSnapName `positional-arg-name:"<snap>"`
 	} `positional-args:"true"`
 }
 
-var shortAliasesHelp = i18n.G("List aliases in the system")
+var shortAliasesHelp = i18n.G("Lists aliases in the system")
 var longAliasesHelp = i18n.G(`
 The aliases command lists all aliases available in the system and their status.
 
@@ -46,8 +45,8 @@ $ snap aliases <snap>
 Lists only the aliases defined by the specified snap.
 
 An alias noted as undefined means it was explicitly enabled or disabled but is
-not defined in the current revision of the snap, possibly temporarily (e.g.
-because of a revert). This can cleared with 'snap alias --reset'.
+not defined in the current revision of the snap; possibly temporarely (e.g
+because of a revert), if not this can be cleared with snap alias --reset.
 `)
 
 func init() {
@@ -90,7 +89,7 @@ func (x *cmdAliases) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	allStatuses, err := x.client.Aliases()
+	allStatuses, err := Client().Aliases()
 	if err != nil {
 		return err
 	}
@@ -141,7 +140,7 @@ func (x *cmdAliases) Execute(args []string) error {
 		} else {
 			fmt.Fprintln(Stderr, i18n.G("No aliases are currently defined."))
 		}
-		fmt.Fprintln(Stderr, i18n.G("\nUse 'snap help alias' to learn how to create aliases manually."))
+		fmt.Fprintln(Stderr, i18n.G("\nUse snap alias --help to learn how to create aliases manually."))
 	}
 	return nil
 }

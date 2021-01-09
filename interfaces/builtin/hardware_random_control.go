@@ -56,5 +56,6 @@ func init() {
 		baseDeclarationSlots:  hardwareRandomControlBaseDeclarationSlots,
 		connectedPlugAppArmor: hardwareRandomControlConnectedPlugAppArmor,
 		connectedPlugUDev:     hardwareRandomControlConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

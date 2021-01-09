@@ -1,17 +1,21 @@
 summary: Check that `snap set` runs configure hook.
 
 prepare: |
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB"/snaps.sh
-
     echo "Build basic test package (without hooks)"
-    install_local basic
+    snap pack $TESTSLIB/snaps/basic
+    snap install --dangerous basic_1.0_all.snap
 
     echo "Build failing hooks package"
-    snap pack "$TESTSLIB"/snaps/failing-config-hooks
+    snap pack $TESTSLIB/snaps/failing-config-hooks
 
     echo "Build package with hook to run snapctl set"
-    install_local snapctl-hooks
+    snap pack $TESTSLIB/snaps/snapctl-hooks
+    snap install --dangerous snapctl-hooks_1.0_all.snap
+
+restore: |
+    rm -f basic_1.0_all.snap
+    rm -f failing-config-hooks_1.0_all.snap
+    rm -f snapctl-hooks_1.0_all.snap
 
 execute: |
     echo "Test that snap set fails without configure hook"
@@ -32,31 +36,13 @@ execute: |
         exit 1
     fi
 
-    echo "Sanity check before we unset the value with null"
-    if ! obtained=$(snap get snapctl-hooks foo); then
-        echo "Expected snap get to be able to retrieve set value"
-        exit 1
-    fi
-    [[ "$obtained" == "bar" ]]
-
-    echo "Test that the set value can be null and it removes the option"
-    if ! snap set snapctl-hooks command=test-snapctl-foo-null foo=null; then
+    echo "Test that the set value can be null and can be retrieved"
+    if ! snap set snapctl-hooks command=test-snapctl-get-foo-null foo=null; then
         echo "Expected hook to be able to retrieve set value"
         exit 1
     fi
-    snap get snapctl-hooks foo 2>&1 | MATCH 'snap "snapctl-hooks" has no "foo" configuration option'
-
-    echo "Set foo back"
-    snap set snapctl-hooks command=test-snapctl-get-foo foo=bar
-    if ! obtained=$(snap get snapctl-hooks foo); then
-        echo "Expected snap get to be able to retrieve set value"
-        exit 1
-    fi
-    test "$obtained" = "bar"
-
-    echo "Test that the foo value can be unset"
-    snap set snapctl-hooks command=test-snapctl-foo-null foo!
-    snap get snapctl-hooks foo 2>&1 | MATCH 'snap "snapctl-hooks" has no "foo" configuration option'
+    obtained=$(snap get snapctl-hooks foo)
+    [[ "$obtained" == "" ]]
 
     echo "Test that an invalid key results in an error"
     if obtained=$(snap set snapctl-hooks invalid_key=value 2>&1); then
@@ -71,11 +57,3 @@ execute: |
         exit 1
     fi
     [[ "$obtained" == *"error from within configure hook"* ]]
-
-    echo "Test that the 'snap set' order is deterministic"
-    for _ in $(seq 50); do
-        snap set snapctl-hooks command=noop one!
-        snap set snapctl-hooks one.two=2 one='{"three":3}'
-        snap get snapctl-hooks -l one.two | MATCH "one.two[ ]*2"
-        snap get snapctl-hooks -l one.three | MATCH "one.three[ ]*3"
-    done

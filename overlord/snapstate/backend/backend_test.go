@@ -29,13 +29,13 @@ import (
 	"github.com/snapcore/snapd/snap/squashfs"
 
 	"github.com/snapcore/snapd/overlord/snapstate/backend"
-	"github.com/snapcore/snapd/testutil"
 )
 
 func TestBackend(t *testing.T) { TestingT(t) }
 
 func makeTestSnap(c *C, snapYamlContent string) string {
-	info := snaptest.MockInfo(c, snapYamlContent, nil)
+	info, err := snap.InfoFromSnapYaml([]byte(snapYamlContent))
+	c.Assert(err, IsNil)
 	var files [][]string
 	for _, app := range info.Apps {
 		// files is a list of (filename, content)
@@ -44,20 +44,9 @@ func makeTestSnap(c *C, snapYamlContent string) string {
 	return snaptest.MakeTestSnapWithFiles(c, snapYamlContent, files)
 }
 
-type backendSuite struct {
-	testutil.BaseTest
-}
+type backendSuite struct{}
 
 var _ = Suite(&backendSuite{})
-
-func (s *backendSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-	s.BaseTest.AddCleanup(snap.MockSanitizePlugsSlots(func(snapInfo *snap.Info) {}))
-}
-
-func (s *backendSuite) TearDownTest(c *C) {
-	s.BaseTest.TearDownTest(c)
-}
 
 func (s *backendSuite) TestOpenSnapFile(c *C) {
 	const yaml = `name: hello
@@ -72,7 +61,7 @@ apps:
 	c.Assert(err, IsNil)
 
 	c.Assert(snapf, FitsTypeOf, &squashfs.Snap{})
-	c.Check(info.InstanceName(), Equals, "hello")
+	c.Check(info.Name(), Equals, "hello")
 }
 
 func (s *backendSuite) TestOpenSnapFilebSideInfo(c *C) {
@@ -93,7 +82,7 @@ slots:
 	c.Assert(err, IsNil)
 
 	// check side info
-	c.Check(info.InstanceName(), Equals, "blessed")
+	c.Check(info.Name(), Equals, "blessed")
 	c.Check(info.Revision, Equals, snap.R(42))
 
 	c.Check(info.SideInfo, DeepEquals, si)

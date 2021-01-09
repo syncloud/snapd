@@ -6,19 +6,12 @@ description: A basic snap declaring a plug on dbus
 apps:
     dbus-consumer:
         plugs: [dbus-test]
-        command: bin/consumer session
-    dbus-system-consumer:
-        plugs: [dbus-system-test]
-        command: bin/consumer system
+        command: bin/consumer
 
 plugs:
     dbus-test:
         interface: dbus
         bus: session
-        name: com.dbustest.HelloWorld
-    dbus-system-test:
-        interface: dbus
-        bus: system
         name: com.dbustest.HelloWorld
 
 parts:

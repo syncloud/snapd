@@ -49,10 +49,7 @@ func checkAuthorization(subject authSubject, actionId string, details map[string
 	err = authority.Call(
 		"org.freedesktop.PolicyKit1.Authority.CheckAuthorization", 0,
 		subject, actionId, details, flags, "").Store(&result)
-	if err != nil {
-		return false, err
-	}
-	if !result.IsAuthorized {
+	if err != nil && !result.IsAuthorized {
 		if result.IsChallenge {
 			err = ErrInteraction
 		} else if result.Details["polkit.dismissed"] != "" {
@@ -62,23 +59,19 @@ func checkAuthorization(subject authSubject, actionId string, details map[string
 	return result.IsAuthorized, err
 }
 
-// CheckAuthorization queries polkit to determine whether a process is
+// CheckAuthorizationForPid queries polkit to determine whether a process is
 // authorized to perform an action.
-func CheckAuthorization(pid int32, uid uint32, actionId string, details map[string]string, flags CheckFlags) (bool, error) {
+func CheckAuthorizationForPid(pid uint32, actionId string, details map[string]string, flags CheckFlags) (bool, error) {
 	subject := authSubject{
 		Kind:    "unix-process",
 		Details: make(map[string]dbus.Variant),
 	}
-	subject.Details["pid"] = dbus.MakeVariant(uint32(pid)) // polkit is *wrong*!
+	subject.Details["pid"] = dbus.MakeVariant(pid)
 	startTime, err := getStartTimeForPid(pid)
 	if err != nil {
 		return false, err
 	}
-	// While discovering the pid's start time is racy, it isn't security
-	// relevant since it only impacts expiring the permission after
-	// process exit.
 	subject.Details["start-time"] = dbus.MakeVariant(startTime)
-	subject.Details["uid"] = dbus.MakeVariant(uid)
 	return checkAuthorization(subject, actionId, details, flags)
 }
 

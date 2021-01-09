@@ -66,6 +66,13 @@ func (s *SshPublicKeysInterfaceSuite) TestName(c *C) {
 
 func (s *SshPublicKeysInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slotInfo := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "ssh-public-keys",
+		Interface: "ssh-public-keys",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slotInfo), ErrorMatches,
+		"ssh-public-keys slots are reserved for the core snap")
 }
 
 func (s *SshPublicKeysInterfaceSuite) TestSanitizePlug(c *C) {
@@ -88,7 +95,8 @@ func (s *SshPublicKeysInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *SshPublicKeysInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *SshPublicKeysInterfaceSuite) TestInterfaces(c *C) {

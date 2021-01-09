@@ -30,18 +30,22 @@ import (
 
 func (s *SnapSuite) TestAliasHelp(c *C) {
 	msg := `Usage:
-  snap.test alias [alias-OPTIONS] [<snap.app>] [<alias>]
+  snap.test [OPTIONS] alias [<snap.app>] [<alias>]
 
 The alias command aliases the given snap application to the given alias.
 
 Once this manual alias is setup the respective application command can be
 invoked just using the alias.
 
-[alias command options]
-      --no-wait       Do not wait for the operation to finish but just print
-                      the change id.
+Application Options:
+      --version         Print the version and exit
+
+Help Options:
+  -h, --help            Show this help message
 `
-	s.testSubCommandHelp(c, "alias", msg)
+	rest, err := Parser().ParseArgs([]string{"alias", "--help"})
+	c.Assert(err.Error(), Equals, msg)
+	c.Assert(rest, DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestAlias(c *C) {
@@ -55,7 +59,6 @@ func (s *SnapSuite) TestAlias(c *C) {
 				"app":    "cmd1",
 				"alias":  "alias1",
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -64,7 +67,7 @@ func (s *SnapSuite) TestAlias(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"alias", "alias-snap.cmd1", "alias1"})
+	rest, err := Parser().ParseArgs([]string{"alias", "alias-snap.cmd1", "alias1"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	c.Assert(s.Stdout(), Equals, ""+

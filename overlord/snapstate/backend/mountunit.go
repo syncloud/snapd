@@ -20,7 +20,13 @@
 package backend
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
+
 	"github.com/snapcore/snapd/dirs"
+	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/progress"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/systemd"
@@ -30,12 +36,58 @@ func addMountUnit(s *snap.Info, meter progress.Meter) error {
 	squashfsPath := dirs.StripRootDir(s.MountFile())
 	whereDir := dirs.StripRootDir(s.MountDir())
 
-	sysd := systemd.New(dirs.GlobalRootDir, systemd.SystemMode, meter)
-	_, err := sysd.AddMountUnitFile(s.InstanceName(), s.Revision.String(), squashfsPath, whereDir, "squashfs")
-	return err
+	sysd := systemd.New(dirs.GlobalRootDir, meter)
+	mountUnitName, err := sysd.WriteMountUnitFile(s.Name(), squashfsPath, whereDir, "squashfs")
+	if err != nil {
+		return err
+	}
+
+	// we need to do a daemon-reload here to ensure that systemd really
+	// knows about this new mount unit file
+	if err := sysd.DaemonReload(); err != nil {
+		return err
+	}
+
+	if err := sysd.Enable(mountUnitName); err != nil {
+		return err
+	}
+
+	return sysd.Start(mountUnitName)
 }
 
-func removeMountUnit(mountDir string, meter progress.Meter) error {
-	sysd := systemd.New(dirs.GlobalRootDir, systemd.SystemMode, meter)
-	return sysd.RemoveMountUnitFile(mountDir)
+func removeMountUnit(baseDir string, meter progress.Meter) error {
+	sysd := systemd.New(dirs.GlobalRootDir, meter)
+	unit := systemd.MountUnitPath(dirs.StripRootDir(baseDir))
+	if osutil.FileExists(unit) {
+		// use umount -d (cleanup loopback devices) -l (lazy) to ensure that even busy mount points
+		// can be unmounted.
+		// note that the long option --lazy is not supported on trusty.
+		// the explicit -d is only needed on trusty.
+		isMounted, err := osutil.IsMounted(baseDir)
+		if err != nil {
+			return err
+		}
+		if isMounted {
+			if output, err := exec.Command("umount", "-d", "-l", baseDir).CombinedOutput(); err != nil {
+				return osutil.OutputErr(output, err)
+			}
+
+			if err := sysd.Stop(filepath.Base(unit), time.Duration(1*time.Second)); err != nil {
+				return err
+			}
+		}
+		if err := sysd.Disable(filepath.Base(unit)); err != nil {
+			return err
+		}
+		if err := os.Remove(unit); err != nil {
+			return err
+		}
+		// daemon-reload to ensure that systemd actually really
+		// forgets about this mount unit
+		if err := sysd.DaemonReload(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

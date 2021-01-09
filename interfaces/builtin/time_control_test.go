@@ -68,6 +68,13 @@ func (s *TimeControlInterfaceSuite) TestName(c *C) {
 
 func (s *TimeControlInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "time-control",
+		Interface: "time-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"time-control slots are reserved for the core snap")
 }
 
 func (s *TimeControlInterfaceSuite) TestSanitizePlug(c *C) {
@@ -85,8 +92,6 @@ func (s *TimeControlInterfaceSuite) TestSecCompSpec(c *C) {
 	spec := &seccomp.Specification{}
 	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
 	c.Assert(spec.SecurityTags(), DeepEquals, []string{"snap.consumer.app"})
-	c.Check(spec.SnippetForTag("snap.consumer.app"), testutil.Contains, "settimeofday")
-	c.Check(spec.SnippetForTag("snap.consumer.app"), testutil.Contains, "adjtimex")
 	c.Check(spec.SnippetForTag("snap.consumer.app"), testutil.Contains, "socket AF_NETLINK - NETLINK_AUDIT")
 }
 
@@ -108,7 +113,8 @@ func (s *TimeControlInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *TimeControlInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *TimeControlInterfaceSuite) TestInterfaces(c *C) {

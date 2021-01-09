@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2017-2018 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -78,92 +78,4 @@ func (s *refreshSuite) TestConfigureLegacyRefreshScheduleRejected(c *C) {
 		},
 	})
 	c.Assert(err, ErrorMatches, `cannot parse "8:00~12:00": not a valid interval`)
-}
-
-func (s *refreshSuite) TestConfigureRefreshHoldHappy(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.hold": "2018-08-18T15:00:00Z",
-		},
-	})
-	c.Assert(err, IsNil)
-}
-
-func (s *refreshSuite) TestConfigureRefreshHoldInvalid(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.hold": "invalid",
-		},
-	})
-	c.Assert(err, ErrorMatches, `refresh\.hold cannot be parsed:.*`)
-}
-
-func (s *refreshSuite) TestConfigureRefreshHoldOnMeteredInvalid(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.metered": "invalid",
-		},
-	})
-	c.Assert(err, ErrorMatches, `refresh\.metered value "invalid" is invalid`)
-}
-
-func (s *refreshSuite) TestConfigureRefreshHoldOnMeteredHappy(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.metered": "hold",
-		},
-	})
-	c.Assert(err, IsNil)
-
-	err = configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.metered": "",
-		},
-	})
-	c.Assert(err, IsNil)
-}
-
-func (s *refreshSuite) TestConfigureRefreshRetainHappy(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.retain": "4",
-		},
-	})
-	c.Assert(err, IsNil)
-}
-
-func (s *refreshSuite) TestConfigureRefreshRetainUnderRange(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.retain": "1",
-		},
-	})
-	c.Assert(err, ErrorMatches, `retain must be a number between 2 and 20, not "1"`)
-}
-
-func (s *refreshSuite) TestConfigureRefreshRetainOverRange(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.retain": "100",
-		},
-	})
-	c.Assert(err, ErrorMatches, `retain must be a number between 2 and 20, not "100"`)
-}
-
-func (s *refreshSuite) TestConfigureRefreshRetainInvalid(c *C) {
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"refresh.retain": "invalid",
-		},
-	})
-	c.Assert(err, ErrorMatches, `retain must be a number between 2 and 20, not "invalid"`)
 }

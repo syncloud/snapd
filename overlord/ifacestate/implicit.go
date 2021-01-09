@@ -20,46 +20,23 @@
 package ifacestate
 
 import (
-	"fmt"
-
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/interfaces/builtin"
-	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 )
 
-func shouldSnapdHostImplicitSlots(mapper SnapMapper) bool {
-	_, ok := mapper.(*CoreSnapdSystemMapper)
-	return ok
-}
-
-// addImplicitSlots adds implicitly defined slots and hotplug slots to a given snap.
+// addImplicitSlots adds implicitly defined slots to a given snap.
 //
-// Only the OS snap has implicit and hotplug slots.
+// Only the OS snap has implicit slots.
 //
 // It is assumed that slots have names matching the interface name. Existing
 // slots are not changed, only missing slots are added.
-func addImplicitSlots(st *state.State, snapInfo *snap.Info) error {
-	// Implicit slots can be added to the special "snapd" snap or to snaps with
-	// type "os". Currently there are no other snaps that gain implicit
-	// interfaces.
-	if snapInfo.GetType() != snap.TypeOS && snapInfo.GetType() != snap.TypeSnapd {
-		return nil
+func addImplicitSlots(snapInfo *snap.Info) {
+	if snapInfo.Type != snap.TypeOS {
+		return
 	}
-
-	// If the manager has chosen to put implicit slots on the "snapd" snap
-	// then stop adding them to any other core snaps.
-	if shouldSnapdHostImplicitSlots(mapper) && snapInfo.GetType() != snap.TypeSnapd {
-		return nil
-	}
-
-	hotplugSlots, err := getHotplugSlots(st)
-	if err != nil {
-		return err
-	}
-
-	// Ask each interface if it wants to be implicitly added.
+	// Ask each interface if it wants to be implcitly added.
 	for _, iface := range builtin.Interfaces() {
 		si := interfaces.StaticInfoOf(iface)
 		if (release.OnClassic && si.ImplicitOnClassic) || (!release.OnClassic && si.ImplicitOnCore) {
@@ -69,25 +46,6 @@ func addImplicitSlots(st *state.State, snapInfo *snap.Info) error {
 			}
 		}
 	}
-
-	// Add hotplug slots
-	for _, hslotInfo := range hotplugSlots {
-		if _, ok := snapInfo.Slots[hslotInfo.Name]; ok {
-			return fmt.Errorf("cannot add hotplug slot %s: slot already exists", hslotInfo.Name)
-		}
-		if hslotInfo.HotplugGone {
-			continue
-		}
-		snapInfo.Slots[hslotInfo.Name] = &snap.SlotInfo{
-			Name:       hslotInfo.Name,
-			Snap:       snapInfo,
-			Interface:  hslotInfo.Interface,
-			Attrs:      hslotInfo.StaticAttrs,
-			HotplugKey: hslotInfo.HotplugKey,
-		}
-	}
-
-	return nil
 }
 
 func makeImplicitSlot(snapInfo *snap.Info, ifaceName string) *snap.SlotInfo {

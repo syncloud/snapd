@@ -26,7 +26,6 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/asserts"
-	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/interfaces/policy"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
@@ -46,14 +45,11 @@ type policySuite struct {
 
 	randomSnap *snap.Info
 	randomDecl *asserts.SnapDeclaration
-
-	restoreSanitize func()
 }
 
 var _ = Suite(&policySuite{})
 
 func (s *policySuite) SetUpSuite(c *C) {
-	s.restoreSanitize = snap.MockSanitizePlugsSlots(func(snapInfo *snap.Info) {})
 	a, err := asserts.Decode([]byte(`type: base-declaration
 authority-id: canonical
 series: 16
@@ -131,14 +127,6 @@ plugs:
           s: S2
         plug-attributes:
           p: P2
-  auto-plug-on-store1:
-    allow-auto-connection: false
-  auto-plug-on-my-brand:
-    allow-auto-connection: false
-  auto-plug-on-my-model2:
-    allow-auto-connection: false
-  auto-plug-on-multi:
-    allow-auto-connection: false
   install-plug-attr-ok:
     allow-installation:
       plug-attributes:
@@ -166,8 +154,6 @@ plugs:
       on-classic:
         - ubuntu
         - debian
-  install-plug-device-scope:
-    allow-installation: false
 slots:
   base-slot-allow: true
   base-slot-not-allow:
@@ -257,14 +243,6 @@ slots:
           s: S2
         plug-attributes:
           p: P2
-  auto-slot-on-store1:
-    allow-auto-connection: false
-  auto-slot-on-my-brand:
-    allow-auto-connection: false
-  auto-slot-on-my-model2:
-    allow-auto-connection: false
-  auto-slot-on-multi:
-    allow-auto-connection: false
   install-slot-coreonly:
     allow-installation:
       slot-snap-type:
@@ -296,22 +274,6 @@ slots:
       on-classic:
         - ubuntu
         - debian
-  install-slot-device-scope:
-    allow-installation: false
-  slots-arity-default:
-    allow-auto-connection: true
-  slots-arity-slot-any:
-    deny-auto-connection: true
-  slots-arity-plug-any:
-    deny-auto-connection: true
-  slots-arity-slot-any-plug-one:
-    deny-auto-connection: true
-  slots-arity-slot-any-plug-two:
-    deny-auto-connection: true
-  slots-arity-slot-any-plug-default:
-    deny-auto-connection: true
-  slots-arity-slot-one-plug-any:
-    deny-auto-connection: true
 timestamp: 2016-09-30T12:00:00Z
 sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
 
@@ -404,9 +366,6 @@ plugs:
      interface: slot-plug-attr
      c: "Z"
 
-   slot-plug-attr-dynamic:
-     interface: slot-plug-attr
-
    slot-plug-attr-match:
      interface: slot-plug-attr
      c: "C"
@@ -450,11 +409,6 @@ plugs:
      interface: auto-plug-or
      p: P2
 
-   auto-plug-on-store1:
-   auto-plug-on-my-brand:
-   auto-plug-on-my-model2:
-   auto-plug-on-multi:
-
    slot-or-p1-s1:
      interface: slot-or
      p: P1
@@ -479,11 +433,6 @@ plugs:
      interface: auto-slot-or
      p: P2
 
-   auto-slot-on-store1:
-   auto-slot-on-my-brand:
-   auto-slot-on-my-model2:
-   auto-slot-on-multi:
-
    slot-on-classic-true:
    slot-on-classic-distros:
    slot-on-classic-false:
@@ -491,14 +440,6 @@ plugs:
    plug-on-classic-true:
    plug-on-classic-distros:
    plug-on-classic-false:
-
-   slots-arity-default:
-   slots-arity-slot-any:
-   slots-arity-plug-any:
-   slots-arity-slot-any-plug-one:
-   slots-arity-slot-any-plug-two:
-   slots-arity-slot-any-plug-default:
-   slots-arity-slot-one-plug-any:
 `, nil)
 
 	s.slotSnap = snaptest.MockInfo(c, `
@@ -588,9 +529,6 @@ slots:
      interface: plug-plug-attr
      c: "C"
 
-   plug-plug-attr-dynamic:
-     interface: plug-plug-attr
-
    plug-slot-attr-mismatch:
      interface: plug-slot-attr
      c: "Z"
@@ -623,11 +561,6 @@ slots:
      interface: auto-plug-or
      s: S1
 
-   auto-plug-on-store1:
-   auto-plug-on-my-brand:
-   auto-plug-on-my-model2:
-   auto-plug-on-multi:
-
    slot-or-p1-s1:
      interface: slot-or
      s: S1
@@ -652,11 +585,6 @@ slots:
      interface: auto-slot-or
      s: S1
 
-   auto-slot-on-store1:
-   auto-slot-on-my-brand:
-   auto-slot-on-my-model2:
-   auto-slot-on-multi:
-
    slot-on-classic-true:
    slot-on-classic-distros:
    slot-on-classic-false:
@@ -664,14 +592,6 @@ slots:
    plug-on-classic-true:
    plug-on-classic-distros:
    plug-on-classic-false:
-
-   slots-arity-default:
-   slots-arity-slot-any:
-   slots-arity-plug-any:
-   slots-arity-slot-any-plug-one:
-   slots-arity-slot-any-plug-two:
-   slots-arity-slot-any-plug-default:
-   slots-arity-slot-one-plug-any:
 `, nil)
 
 	a, err = asserts.Decode([]byte(`type: snap-declaration
@@ -709,44 +629,6 @@ plugs:
   auto-snap-slot-deny-snap-plug-allow:
     deny-auto-connection: false
   auto-base-deny-snap-plug-allow: true
-  auto-plug-on-store1:
-    allow-auto-connection:
-      on-store:
-        - store1
-  auto-plug-on-my-brand:
-    allow-auto-connection:
-      on-brand:
-        - my-brand
-        - my-brand-subbrand
-  auto-plug-on-my-model2:
-    allow-auto-connection:
-      on-model:
-        - my-brand-subbrand/my-model2
-  auto-plug-on-multi:
-    allow-auto-connection:
-      on-brand:
-        - my-brand
-        - my-brand-subbrand
-      on-store:
-        - store1
-        - other-store
-      on-model:
-        - my-brand/my-model1
-        - my-brand-subbrand/my-model2
-  slots-arity-plug-any:
-    allow-auto-connection:
-      slots-per-plug: *
-  slots-arity-slot-any-plug-one:
-    allow-auto-connection:
-      slots-per-plug: 1
-  slots-arity-slot-any-plug-two:
-    allow-auto-connection:
-      slots-per-plug: 2
-  slots-arity-slot-any-plug-default:
-    allow-auto-connection: true
-  slots-arity-slot-one-plug-any:
-    allow-auto-connection:
-      slots-per-plug: *
 timestamp: 2016-09-30T12:00:00Z
 sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
 
@@ -787,45 +669,6 @@ slots:
     deny-auto-connection: true
   auto-base-allow-snap-slot-not-allow:
     allow-auto-connection: false
-  auto-slot-on-store1:
-    allow-auto-connection:
-      on-store:
-        - store1
-  auto-slot-on-my-brand:
-    allow-auto-connection:
-      on-brand:
-        - my-brand
-        - my-brand-subbrand
-  auto-slot-on-my-model2:
-    allow-auto-connection:
-      on-model:
-        - my-brand-subbrand/my-model2
-  auto-slot-on-multi:
-    allow-auto-connection:
-      on-brand:
-        - my-brand
-        - my-brand-subbrand
-      on-store:
-        - store1
-        - other-store
-      on-model:
-        - my-brand/my-model1
-        - my-brand-subbrand/my-model2
-  slots-arity-slot-any:
-    allow-auto-connection:
-      slots-per-plug: *
-  slots-arity-slot-any-plug-one:
-    allow-auto-connection:
-      slots-per-plug: *
-  slots-arity-slot-any-plug-two:
-    allow-auto-connection:
-      slots-per-plug: *
-  slots-arity-slot-any-plug-default:
-    allow-auto-connection:
-      slots-per-plug: *
-  slots-arity-slot-one-plug-any:
-    allow-auto-connection:
-      slots-per-plug: 1
 timestamp: 2016-09-30T12:00:00Z
 sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
 
@@ -861,27 +704,21 @@ AXNpZw==`))
 	s.randomDecl = a.(*asserts.SnapDeclaration)
 }
 
-func (s *policySuite) TearDownSuite(c *C) {
-	s.restoreSanitize()
-}
-
 func (s *policySuite) TestBaselineDefaultIsAllow(c *C) {
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["random"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["random"], nil, nil),
+		Plug:            s.plugSnap.Plugs["random"],
+		Slot:            s.slotSnap.Slots["random"],
 		BaseDeclaration: s.baseDecl,
 	}
 
 	c.Check(cand.Check(), IsNil)
-	arity, err := cand.CheckAutoConnect()
-	c.Check(err, IsNil)
-	c.Check(arity.SlotsPerPlugAny(), Equals, false)
+	c.Check(cand.CheckAutoConnect(), IsNil)
 }
 
 func (s *policySuite) TestInterfaceMismatch(c *C) {
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["mismatchy"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["mismatchy"], nil, nil),
+		Plug:            s.plugSnap.Plugs["mismatchy"],
+		Slot:            s.slotSnap.Slots["mismatchy"],
 		BaseDeclaration: s.baseDecl,
 	}
 
@@ -913,8 +750,8 @@ func (s *policySuite) TestBaseDeclAllowDenyConnection(c *C) {
 
 	for _, t := range tests {
 		cand := policy.ConnectCandidate{
-			Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
+			Plug:            s.plugSnap.Plugs[t.iface],
+			Slot:            s.slotSnap.Slots[t.iface],
 			BaseDeclaration: s.baseDecl,
 		}
 
@@ -952,15 +789,14 @@ func (s *policySuite) TestBaseDeclAllowDenyAutoConnection(c *C) {
 
 	for _, t := range tests {
 		cand := policy.ConnectCandidate{
-			Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
+			Plug:            s.plugSnap.Plugs[t.iface],
+			Slot:            s.slotSnap.Slots[t.iface],
 			BaseDeclaration: s.baseDecl,
 		}
 
-		arity, err := cand.CheckAutoConnect()
+		err := cand.CheckAutoConnect()
 		if t.expected == "" {
 			c.Check(err, IsNil)
-			c.Check(arity.SlotsPerPlugAny(), Equals, false)
 		} else {
 			c.Check(err, ErrorMatches, t.expected)
 		}
@@ -987,8 +823,8 @@ func (s *policySuite) TestSnapDeclAllowDenyConnection(c *C) {
 
 	for _, t := range tests {
 		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
+			Plug:                s.plugSnap.Plugs[t.iface],
+			Slot:                s.slotSnap.Slots[t.iface],
 			PlugSnapDeclaration: s.plugDecl,
 			SlotSnapDeclaration: s.slotDecl,
 			BaseDeclaration:     s.baseDecl,
@@ -1023,17 +859,16 @@ func (s *policySuite) TestSnapDeclAllowDenyAutoConnection(c *C) {
 
 	for _, t := range tests {
 		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
+			Plug:                s.plugSnap.Plugs[t.iface],
+			Slot:                s.slotSnap.Slots[t.iface],
 			PlugSnapDeclaration: s.plugDecl,
 			SlotSnapDeclaration: s.slotDecl,
 			BaseDeclaration:     s.baseDecl,
 		}
 
-		arity, err := cand.CheckAutoConnect()
+		err := cand.CheckAutoConnect()
 		if t.expected == "" {
 			c.Check(err, IsNil)
-			c.Check(arity.SlotsPerPlugAny(), Equals, false)
 		} else {
 			c.Check(err, ErrorMatches, t.expected)
 		}
@@ -1061,33 +896,33 @@ slots:
 `, nil)
 
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(gadgetSnap.Plugs["gadgethelp"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(coreSnap.Slots["gadgethelp"], nil, nil),
+		Plug:            gadgetSnap.Plugs["gadgethelp"],
+		Slot:            coreSnap.Slots["gadgethelp"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), IsNil)
 
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["gadgethelp"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(coreSnap.Slots["gadgethelp"], nil, nil),
+		Plug:            s.plugSnap.Plugs["gadgethelp"],
+		Slot:            coreSnap.Slots["gadgethelp"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	for _, trustedSide := range []*snap.Info{coreSnap, gadgetSnap} {
 		cand = policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["trustedhelp"], nil, nil),
+			Plug:                s.plugSnap.Plugs["trustedhelp"],
 			PlugSnapDeclaration: s.plugDecl,
-			Slot:                interfaces.NewConnectedSlot(trustedSide.Slots["trustedhelp"], nil, nil),
+			Slot:                trustedSide.Slots["trustedhelp"],
 			BaseDeclaration:     s.baseDecl,
 		}
 		c.Check(cand.Check(), IsNil)
 	}
 
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["trustedhelp"], nil, nil),
+		Plug:                s.plugSnap.Plugs["trustedhelp"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["trustedhelp"], nil, nil),
+		Slot:                s.slotSnap.Slots["trustedhelp"],
 		BaseDeclaration:     s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
@@ -1096,8 +931,8 @@ slots:
 func (s *policySuite) TestPlugSnapIDCheckConnection(c *C) {
 	// no plug-side declaration
 	cand := policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.randomSnap.Plugs["precise-plug-snap-id"], nil, nil),
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["precise-plug-snap-id"], nil, nil),
+		Plug:                s.randomSnap.Plugs["precise-plug-snap-id"],
+		Slot:                s.slotSnap.Slots["precise-plug-snap-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1105,9 +940,9 @@ func (s *policySuite) TestPlugSnapIDCheckConnection(c *C) {
 
 	// plug-side declaration, wrong snap-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.randomSnap.Plugs["precise-plug-snap-id"], nil, nil),
+		Plug:                s.randomSnap.Plugs["precise-plug-snap-id"],
 		PlugSnapDeclaration: s.randomDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["precise-plug-snap-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["precise-plug-snap-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1115,9 +950,9 @@ func (s *policySuite) TestPlugSnapIDCheckConnection(c *C) {
 
 	// right snap-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["precise-plug-snap-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["precise-plug-snap-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["precise-plug-snap-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["precise-plug-snap-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1127,18 +962,18 @@ func (s *policySuite) TestPlugSnapIDCheckConnection(c *C) {
 func (s *policySuite) TestSlotSnapIDCheckConnection(c *C) {
 	// no slot-side declaration
 	cand := policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["precise-slot-snap-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["precise-slot-snap-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.randomSnap.Slots["precise-slot-snap-id"], nil, nil),
+		Slot:                s.randomSnap.Slots["precise-slot-snap-id"],
 		BaseDeclaration:     s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// slot-side declaration, wrong snap-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["precise-slot-snap-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["precise-slot-snap-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.randomSnap.Slots["precise-slot-snap-id"], nil, nil),
+		Slot:                s.randomSnap.Slots["precise-slot-snap-id"],
 		SlotSnapDeclaration: s.randomDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1146,9 +981,9 @@ func (s *policySuite) TestSlotSnapIDCheckConnection(c *C) {
 
 	// right snap-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["precise-slot-snap-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["precise-slot-snap-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["precise-slot-snap-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["precise-slot-snap-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1158,8 +993,8 @@ func (s *policySuite) TestSlotSnapIDCheckConnection(c *C) {
 func (s *policySuite) TestPlugPublisherIDCheckConnection(c *C) {
 	// no plug-side declaration
 	cand := policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.randomSnap.Plugs["checked-plug-publisher-id"], nil, nil),
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["checked-plug-publisher-id"], nil, nil),
+		Plug:                s.randomSnap.Plugs["checked-plug-publisher-id"],
+		Slot:                s.slotSnap.Slots["checked-plug-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1167,9 +1002,9 @@ func (s *policySuite) TestPlugPublisherIDCheckConnection(c *C) {
 
 	// plug-side declaration, wrong publisher-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.randomSnap.Plugs["checked-plug-publisher-id"], nil, nil),
+		Plug:                s.randomSnap.Plugs["checked-plug-publisher-id"],
 		PlugSnapDeclaration: s.randomDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["checked-plug-publisher-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["checked-plug-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1177,9 +1012,9 @@ func (s *policySuite) TestPlugPublisherIDCheckConnection(c *C) {
 
 	// right publisher-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["checked-plug-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["checked-plug-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["checked-plug-publisher-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["checked-plug-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1189,18 +1024,18 @@ func (s *policySuite) TestPlugPublisherIDCheckConnection(c *C) {
 func (s *policySuite) TestSlotPublisherIDCheckConnection(c *C) {
 	// no slot-side declaration
 	cand := policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["checked-slot-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["checked-slot-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.randomSnap.Slots["checked-slot-publisher-id"], nil, nil),
+		Slot:                s.randomSnap.Slots["checked-slot-publisher-id"],
 		BaseDeclaration:     s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// slot-side declaration, wrong publisher-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["checked-slot-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["checked-slot-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.randomSnap.Slots["checked-slot-publisher-id"], nil, nil),
+		Slot:                s.randomSnap.Slots["checked-slot-publisher-id"],
 		SlotSnapDeclaration: s.randomDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1208,9 +1043,9 @@ func (s *policySuite) TestSlotPublisherIDCheckConnection(c *C) {
 
 	// right publisher-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["checked-slot-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["checked-slot-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["checked-slot-publisher-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["checked-slot-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1220,26 +1055,26 @@ func (s *policySuite) TestSlotPublisherIDCheckConnection(c *C) {
 func (s *policySuite) TestDollarPlugPublisherIDCheckConnection(c *C) {
 	// no known publishers
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["same-plug-publisher-id"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.randomSnap.Slots["same-plug-publisher-id"], nil, nil),
+		Plug:            s.plugSnap.Plugs["same-plug-publisher-id"],
+		Slot:            s.randomSnap.Slots["same-plug-publisher-id"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// no slot-side declaration
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["same-plug-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["same-plug-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.randomSnap.Slots["same-plug-publisher-id"], nil, nil),
+		Slot:                s.randomSnap.Slots["same-plug-publisher-id"],
 		BaseDeclaration:     s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// slot-side declaration, wrong publisher-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["same-plug-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["same-plug-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.randomSnap.Slots["same-plug-publisher-id"], nil, nil),
+		Slot:                s.randomSnap.Slots["same-plug-publisher-id"],
 		SlotSnapDeclaration: s.randomDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1267,9 +1102,9 @@ AXNpZw==`))
 	samePubSlotDecl := a.(*asserts.SnapDeclaration)
 
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs["same-plug-publisher-id"], nil, nil),
+		Plug:                s.plugSnap.Plugs["same-plug-publisher-id"],
 		PlugSnapDeclaration: s.plugDecl,
-		Slot:                interfaces.NewConnectedSlot(samePubSlotSnap.Slots["same-plug-publisher-id"], nil, nil),
+		Slot:                samePubSlotSnap.Slots["same-plug-publisher-id"],
 		SlotSnapDeclaration: samePubSlotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1279,16 +1114,16 @@ AXNpZw==`))
 func (s *policySuite) TestDollarSlotPublisherIDCheckConnection(c *C) {
 	// no known publishers
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.randomSnap.Plugs["same-slot-publisher-id"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["same-slot-publisher-id"], nil, nil),
+		Plug:            s.randomSnap.Plugs["same-slot-publisher-id"],
+		Slot:            s.slotSnap.Slots["same-slot-publisher-id"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// no plug-side declaration
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.randomSnap.Plugs["same-slot-publisher-id"], nil, nil),
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["same-slot-publisher-id"], nil, nil),
+		Plug:                s.randomSnap.Plugs["same-slot-publisher-id"],
+		Slot:                s.slotSnap.Slots["same-slot-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1296,9 +1131,9 @@ func (s *policySuite) TestDollarSlotPublisherIDCheckConnection(c *C) {
 
 	// plug-side declaration, wrong publisher-id
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(s.randomSnap.Plugs["same-slot-publisher-id"], nil, nil),
+		Plug:                s.randomSnap.Plugs["same-slot-publisher-id"],
 		PlugSnapDeclaration: s.randomDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["same-slot-publisher-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["same-slot-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1326,9 +1161,9 @@ AXNpZw==`))
 	samePubPlugDecl := a.(*asserts.SnapDeclaration)
 
 	cand = policy.ConnectCandidate{
-		Plug:                interfaces.NewConnectedPlug(samePubPlugSnap.Plugs["same-slot-publisher-id"], nil, nil),
+		Plug:                samePubPlugSnap.Plugs["same-slot-publisher-id"],
 		PlugSnapDeclaration: samePubPlugDecl,
-		Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots["same-slot-publisher-id"], nil, nil),
+		Slot:                s.slotSnap.Slots["same-slot-publisher-id"],
 		SlotSnapDeclaration: s.slotDecl,
 		BaseDeclaration:     s.baseDecl,
 	}
@@ -1556,106 +1391,6 @@ AXNpZw==`, "@plugsSlots@", strings.TrimSpace(t.plugsSlots), 1)))
 	}
 }
 
-func (s *policySuite) TestBaseDeclAllowDenyInstallationMinimalCheck(c *C) {
-	tests := []struct {
-		installYaml string
-		expected    string // "" => no error
-	}{
-		{`name: install-snap
-version: 0
-slots:
-  innocuous:
-  install-slot-coreonly:
-`, `installation not allowed by "install-slot-coreonly" slot rule of interface "install-slot-coreonly"`},
-		{`name: install-gadget
-version: 0
-type: gadget
-slots:
-  install-slot-or:
-`, `installation denied by "install-slot-or" slot rule.*`},
-		{`name: install-snap
-version: 0
-slots:
-  install-slot-or:
-`, ""},
-		{`name: install-snap
-version: 0
-plugs:
-  install-plug-gadget-only:
-`, ``}, // plug is not validated with minimal installation check
-	}
-
-	for _, t := range tests {
-		installSnap := snaptest.MockInfo(c, t.installYaml, nil)
-
-		cand := policy.InstallCandidateMinimalCheck{
-			Snap:            installSnap,
-			BaseDeclaration: s.baseDecl,
-		}
-
-		err := cand.Check()
-		if t.expected == "" {
-			c.Check(err, IsNil)
-		} else {
-			c.Check(err, ErrorMatches, t.expected)
-		}
-	}
-}
-
-func (s *policySuite) TestOnClassicMinimalInstallationCheck(c *C) {
-	r1 := release.MockOnClassic(false)
-	defer r1()
-	r2 := release.MockReleaseInfo(&release.ReleaseInfo)
-	defer r2()
-
-	tests := []struct {
-		distro      string // "" => not classic
-		installYaml string
-		err         string // "" => no error
-	}{
-		{"", `name: install-snap
-version: 0
-slots:
-  install-slot-on-classic-distros:`, `installation not allowed by "install-slot-on-classic-distros" slot rule.*`},
-		{"debian", `name: install-snap
-version: 0
-slots:
-  install-slot-on-classic-distros:`, ""},
-		{"", `name: install-snap
-version: 0
-plugs:
-  install-plug-on-classic-distros:`, ""}, // plug is not validated with minimal installation check
-		{"debian", `name: install-snap
-version: 0
-plugs:
-  install-plug-on-classic-distros:`, ""},
-	}
-
-	for _, t := range tests {
-		if t.distro == "" {
-			release.OnClassic = false
-		} else {
-			release.OnClassic = true
-			release.ReleaseInfo = release.OS{
-				ID: t.distro,
-			}
-		}
-
-		installSnap := snaptest.MockInfo(c, t.installYaml, nil)
-
-		cand := policy.InstallCandidateMinimalCheck{
-			Snap:            installSnap,
-			BaseDeclaration: s.baseDecl,
-		}
-		err := cand.Check()
-		if t.err == "" {
-			c.Check(err, IsNil)
-		} else {
-			c.Check(err, ErrorMatches, t.err)
-		}
-	}
-}
-
 func (s *policySuite) TestPlugOnClassicCheckConnection(c *C) {
 	r1 := release.MockOnClassic(false)
 	defer r1()
@@ -1687,8 +1422,8 @@ func (s *policySuite) TestPlugOnClassicCheckConnection(c *C) {
 			}
 		}
 		cand := policy.ConnectCandidate{
-			Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
+			Plug:            s.plugSnap.Plugs[t.iface],
+			Slot:            s.slotSnap.Slots[t.iface],
 			BaseDeclaration: s.baseDecl,
 		}
 		err := cand.Check()
@@ -1731,8 +1466,8 @@ func (s *policySuite) TestSlotOnClassicCheckConnection(c *C) {
 			}
 		}
 		cand := policy.ConnectCandidate{
-			Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
+			Plug:            s.plugSnap.Plugs[t.iface],
+			Slot:            s.slotSnap.Slots[t.iface],
 			BaseDeclaration: s.baseDecl,
 		}
 		err := cand.Check()
@@ -1798,377 +1533,27 @@ plugs:
 	}
 }
 
-var (
-	otherModel *asserts.Model
-	myModel1   *asserts.Model
-	myModel2   *asserts.Model
-	myModel3   *asserts.Model
-
-	substore1 *asserts.Store
-)
-
-func init() {
-	a, err := asserts.Decode([]byte(`type: model
-authority-id: other-brand
-series: 16
-brand-id: other-brand
-model: other-model
-classic: true
-gadget: gadget
-timestamp: 2018-09-12T12:00:00Z
-sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
-
-AXNpZw==`))
-	if err != nil {
-		panic(err)
-	}
-	otherModel = a.(*asserts.Model)
-
-	a, err = asserts.Decode([]byte(`type: model
-authority-id: my-brand
-series: 16
-brand-id: my-brand
-model: my-model1
-store: store1
-architecture: armhf
-kernel: krnl
-gadget: gadget
-timestamp: 2018-09-12T12:00:00Z
-sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
-
-AXNpZw==`))
-	if err != nil {
-		panic(err)
-	}
-	myModel1 = a.(*asserts.Model)
-
-	a, err = asserts.Decode([]byte(`type: model
-authority-id: my-brand-subbrand
-series: 16
-brand-id: my-brand-subbrand
-model: my-model2
-store: store2
-architecture: armhf
-kernel: krnl
-gadget: gadget
-timestamp: 2018-09-12T12:00:00Z
-sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
-
-AXNpZw==`))
-	if err != nil {
-		panic(err)
-	}
-	myModel2 = a.(*asserts.Model)
-
-	a, err = asserts.Decode([]byte(`type: model
-authority-id: my-brand
-series: 16
-brand-id: my-brand
-model: my-model3
-store: substore1
-architecture: armhf
-kernel: krnl
-gadget: gadget
-timestamp: 2018-09-12T12:00:00Z
-sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
-
-AXNpZw==`))
-	if err != nil {
-		panic(err)
-	}
-	myModel3 = a.(*asserts.Model)
-
-	a, err = asserts.Decode([]byte(`type: store
-store: substore1
-authority-id: canonical
-operator-id: canonical
-friendly-stores:
-  - a-store
-  - store1
-  - store2
-timestamp: 2018-09-12T12:00:00Z
-sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
-
-AXNpZw==`))
-	if err != nil {
-		panic(err)
-	}
-	substore1 = a.(*asserts.Store)
-}
-
-func (s *policySuite) TestPlugDeviceScopeCheckAutoConnection(c *C) {
-	tests := []struct {
-		model *asserts.Model
-		iface string
-		err   string // "" => no error
-	}{
-		{nil, "auto-plug-on-store1", `auto-connection not allowed by plug rule of interface "auto-plug-on-store1" for "plug-snap" snap`},
-		{otherModel, "auto-plug-on-store1", `auto-connection not allowed by plug rule of interface "auto-plug-on-store1" for "plug-snap" snap`},
-		{myModel1, "auto-plug-on-store1", ""},
-		{myModel2, "auto-plug-on-store1", `auto-connection not allowed by plug rule of interface "auto-plug-on-store1" for "plug-snap" snap`},
-		{otherModel, "auto-plug-on-my-brand", `auto-connection not allowed by plug rule of interface "auto-plug-on-my-brand" for "plug-snap" snap`},
-		{myModel1, "auto-plug-on-my-brand", ""},
-		{myModel2, "auto-plug-on-my-brand", ""},
-		{otherModel, "auto-plug-on-my-model2", `auto-connection not allowed by plug rule of interface "auto-plug-on-my-model2" for "plug-snap" snap`},
-		{myModel1, "auto-plug-on-my-model2", `auto-connection not allowed by plug rule of interface "auto-plug-on-my-model2" for "plug-snap" snap`},
-		{myModel2, "auto-plug-on-my-model2", ""},
-		// on-store/on-brand/on-model are ANDed for consistency!
-		{otherModel, "auto-plug-on-multi", `auto-connection not allowed by plug rule of interface "auto-plug-on-multi" for "plug-snap" snap`},
-		{myModel1, "auto-plug-on-multi", ""},
-		{myModel2, "auto-plug-on-multi", `auto-connection not allowed by plug rule of interface "auto-plug-on-multi" for "plug-snap" snap`},
-	}
-
-	for _, t := range tests {
-		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
-			PlugSnapDeclaration: s.plugDecl,
-			SlotSnapDeclaration: s.slotDecl,
-
-			BaseDeclaration: s.baseDecl,
-
-			Model: t.model,
-		}
-		arity, err := cand.CheckAutoConnect()
-		if t.err == "" {
-			c.Check(err, IsNil)
-			c.Check(arity.SlotsPerPlugAny(), Equals, false)
-		} else {
-			c.Check(err, ErrorMatches, t.err)
-		}
-	}
-}
-
-func (s *policySuite) TestPlugDeviceScopeFriendlyStoreCheckAutoConnection(c *C) {
-	tests := []struct {
-		model *asserts.Model
-		store *asserts.Store
-		iface string
-		err   string // "" => no error
-	}{
-		{nil, nil, "auto-plug-on-store1", `auto-connection not allowed by plug rule of interface "auto-plug-on-store1" for "plug-snap" snap`},
-		{myModel3, nil, "auto-plug-on-store1", `auto-connection not allowed by plug rule of interface "auto-plug-on-store1" for "plug-snap" snap`},
-		{myModel3, substore1, "auto-plug-on-store1", ""},
-		{myModel2, substore1, "auto-plug-on-store1", `auto-connection not allowed by plug rule of interface "auto-plug-on-store1" for "plug-snap" snap`},
-	}
-
-	for _, t := range tests {
-		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
-			PlugSnapDeclaration: s.plugDecl,
-			SlotSnapDeclaration: s.slotDecl,
-
-			BaseDeclaration: s.baseDecl,
-
-			Model: t.model,
-			Store: t.store,
-		}
-		arity, err := cand.CheckAutoConnect()
-		if t.err == "" {
-			c.Check(err, IsNil)
-			c.Check(arity.SlotsPerPlugAny(), Equals, false)
-		} else {
-			c.Check(err, ErrorMatches, t.err)
-		}
-	}
-}
-
-func (s *policySuite) TestSlotDeviceScopeCheckAutoConnection(c *C) {
-	tests := []struct {
-		model *asserts.Model
-		iface string
-		err   string // "" => no error
-	}{
-		{nil, "auto-slot-on-store1", `auto-connection not allowed by slot rule of interface "auto-slot-on-store1" for "slot-snap" snap`},
-		{otherModel, "auto-slot-on-store1", `auto-connection not allowed by slot rule of interface "auto-slot-on-store1" for "slot-snap" snap`},
-		{myModel1, "auto-slot-on-store1", ""},
-		{myModel2, "auto-slot-on-store1", `auto-connection not allowed by slot rule of interface "auto-slot-on-store1" for "slot-snap" snap`},
-		{otherModel, "auto-slot-on-my-brand", `auto-connection not allowed by slot rule of interface "auto-slot-on-my-brand" for "slot-snap" snap`},
-		{myModel1, "auto-slot-on-my-brand", ""},
-		{myModel2, "auto-slot-on-my-brand", ""},
-		{otherModel, "auto-slot-on-my-model2", `auto-connection not allowed by slot rule of interface "auto-slot-on-my-model2" for "slot-snap" snap`},
-		{myModel1, "auto-slot-on-my-model2", `auto-connection not allowed by slot rule of interface "auto-slot-on-my-model2" for "slot-snap" snap`},
-		{myModel2, "auto-slot-on-my-model2", ""},
-		// on-store/on-brand/on-model are ANDed for consistency!
-		{otherModel, "auto-slot-on-multi", `auto-connection not allowed by slot rule of interface "auto-slot-on-multi" for "slot-snap" snap`},
-		{myModel1, "auto-slot-on-multi", ""},
-		{myModel2, "auto-slot-on-multi", `auto-connection not allowed by slot rule of interface "auto-slot-on-multi" for "slot-snap" snap`},
-	}
-
-	for _, t := range tests {
-		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
-			PlugSnapDeclaration: s.plugDecl,
-			SlotSnapDeclaration: s.slotDecl,
-
-			BaseDeclaration: s.baseDecl,
-
-			Model: t.model,
-		}
-		arity, err := cand.CheckAutoConnect()
-		if t.err == "" {
-			c.Check(err, IsNil)
-			c.Check(arity.SlotsPerPlugAny(), Equals, false)
-		} else {
-			c.Check(err, ErrorMatches, t.err)
-		}
-	}
-}
-
-func (s *policySuite) TestSlotDeviceScopeFriendlyStoreCheckAutoConnection(c *C) {
-	tests := []struct {
-		model *asserts.Model
-		store *asserts.Store
-		iface string
-		err   string // "" => no error
-	}{
-		{nil, nil, "auto-slot-on-store1", `auto-connection not allowed by slot rule of interface "auto-slot-on-store1" for "slot-snap" snap`},
-		{myModel3, nil, "auto-slot-on-store1", `auto-connection not allowed by slot rule of interface "auto-slot-on-store1" for "slot-snap" snap`},
-		{myModel3, substore1, "auto-slot-on-store1", ""},
-		{myModel2, substore1, "auto-slot-on-store1", `auto-connection not allowed by slot rule of interface "auto-slot-on-store1" for "slot-snap" snap`},
-	}
-
-	for _, t := range tests {
-		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
-			PlugSnapDeclaration: s.plugDecl,
-			SlotSnapDeclaration: s.slotDecl,
-
-			BaseDeclaration: s.baseDecl,
-
-			Model: t.model,
-			Store: t.store,
-		}
-		arity, err := cand.CheckAutoConnect()
-		if t.err == "" {
-			c.Check(err, IsNil)
-			c.Check(arity.SlotsPerPlugAny(), Equals, false)
-		} else {
-			c.Check(err, ErrorMatches, t.err)
-		}
-	}
-}
-
-func (s *policySuite) TestDeviceScopeInstallation(c *C) {
-	const plugSnap = `name: install-snap
-version: 0
-plugs:
-  install-plug-device-scope:`
-
-	const slotSnap = `name: install-snap
-version: 0
-slots:
-  install-slot-device-scope:`
-
-	const plugOnStore1 = `plugs:
-  install-plug-device-scope:
-    allow-installation:
-      on-store:
-        - store1
-`
-	const plugOnMulti = `plugs:
-  install-plug-device-scope:
-    allow-installation:
-      on-brand:
-        - my-brand
-        - my-brand-subbrand
-      on-store:
-        - store1
-        - other-store
-      on-model:
-        - my-brand/my-model1
-        - my-brand-subbrand/my-model2
-`
-	const slotOnStore2 = `slots:
-  install-slot-device-scope:
-    allow-installation:
-      on-store:
-        - store2
-`
-
-	tests := []struct {
-		model       *asserts.Model
-		store       *asserts.Store
-		installYaml string
-		plugsSlots  string
-		err         string // "" => no error
-	}{
-		{nil, nil, plugSnap, plugOnStore1, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{otherModel, nil, plugSnap, plugOnStore1, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{myModel1, nil, plugSnap, plugOnStore1, ""},
-		{myModel2, nil, plugSnap, plugOnStore1, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{otherModel, nil, plugSnap, plugOnMulti, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{myModel1, nil, plugSnap, plugOnMulti, ""},
-		{myModel2, nil, plugSnap, plugOnMulti, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{otherModel, nil, slotSnap, slotOnStore2, `installation not allowed by "install-slot-device-scope" slot rule of interface "install-slot-device-scope" for "install-snap" snap`},
-		{myModel1, nil, slotSnap, slotOnStore2, `installation not allowed by "install-slot-device-scope" slot rule of interface "install-slot-device-scope" for "install-snap" snap`},
-		{myModel2, nil, slotSnap, slotOnStore2, ""},
-		// friendly-stores
-		{myModel3, nil, plugSnap, plugOnStore1, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{myModel3, substore1, plugSnap, plugOnStore1, ""},
-		{myModel2, substore1, plugSnap, plugOnStore1, `installation not allowed by "install-plug-device-scope" plug rule of interface "install-plug-device-scope" for "install-snap" snap`},
-		{myModel3, nil, slotSnap, slotOnStore2, `installation not allowed by "install-slot-device-scope" slot rule of interface "install-slot-device-scope" for \"install-snap\" snap`},
-		{myModel3, substore1, slotSnap, slotOnStore2, ""},
-		{myModel2, substore1, slotSnap, slotOnStore2, `installation not allowed by "install-slot-device-scope" slot rule of interface "install-slot-device-scope" for \"install-snap\" snap`},
-	}
-
-	for _, t := range tests {
-		installSnap := snaptest.MockInfo(c, t.installYaml, nil)
-
-		a, err := asserts.Decode([]byte(strings.Replace(`type: snap-declaration
-authority-id: canonical
-series: 16
-snap-name: install-snap
-snap-id: installsnap6idididididididididid
-publisher-id: publisher
-@plugsSlots@
-timestamp: 2016-09-30T12:00:00Z
-sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
-
-AXNpZw==`, "@plugsSlots@", strings.TrimSpace(t.plugsSlots), 1)))
-		c.Assert(err, IsNil)
-		snapDecl := a.(*asserts.SnapDeclaration)
-
-		cand := policy.InstallCandidate{
-			Snap:            installSnap,
-			SnapDeclaration: snapDecl,
-			BaseDeclaration: s.baseDecl,
-			Model:           t.model,
-			Store:           t.store,
-		}
-		err = cand.Check()
-		if t.err == "" {
-			c.Check(err, IsNil)
-		} else {
-			c.Check(err, ErrorMatches, t.err)
-		}
-	}
-}
-
 func (s *policySuite) TestSlotDollarSlotAttrConnection(c *C) {
 	// no corresponding attr
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.randomSnap.Plugs["slot-slot-attr"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-slot-attr"], nil, nil),
+		Plug:            s.randomSnap.Plugs["slot-slot-attr"],
+		Slot:            s.slotSnap.Slots["slot-slot-attr"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// different attr values
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-slot-attr-mismatch"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-slot-attr"], nil, nil),
+		Plug:            s.plugSnap.Plugs["slot-slot-attr-mismatch"],
+		Slot:            s.slotSnap.Slots["slot-slot-attr"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// plug attr == slot attr
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-slot-attr-match"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-slot-attr"], nil, nil),
+		Plug:            s.plugSnap.Plugs["slot-slot-attr-match"],
+		Slot:            s.slotSnap.Slots["slot-slot-attr"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), IsNil)
@@ -2177,16 +1562,16 @@ func (s *policySuite) TestSlotDollarSlotAttrConnection(c *C) {
 func (s *policySuite) TestSlotDollarPlugAttrConnection(c *C) {
 	// different attr values
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-plug-attr-mismatch"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-plug-attr"], nil, nil),
+		Plug:            s.plugSnap.Plugs["slot-plug-attr-mismatch"],
+		Slot:            s.slotSnap.Slots["slot-plug-attr"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// plug attr == slot attr
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-plug-attr-match"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-plug-attr"], nil, nil),
+		Plug:            s.plugSnap.Plugs["slot-plug-attr-match"],
+		Slot:            s.slotSnap.Slots["slot-plug-attr"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), IsNil)
@@ -2195,16 +1580,16 @@ func (s *policySuite) TestSlotDollarPlugAttrConnection(c *C) {
 func (s *policySuite) TestPlugDollarPlugAttrConnection(c *C) {
 	// different attr values
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["plug-plug-attr"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["plug-plug-attr-mismatch"], nil, nil),
+		Plug:            s.plugSnap.Plugs["plug-plug-attr"],
+		Slot:            s.slotSnap.Slots["plug-plug-attr-mismatch"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// plug attr == slot attr
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["plug-plug-attr"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["plug-plug-attr-match"], nil, nil),
+		Plug:            s.plugSnap.Plugs["plug-plug-attr"],
+		Slot:            s.slotSnap.Slots["plug-plug-attr-match"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), IsNil)
@@ -2213,16 +1598,16 @@ func (s *policySuite) TestPlugDollarPlugAttrConnection(c *C) {
 func (s *policySuite) TestPlugDollarSlotAttrConnection(c *C) {
 	// different attr values
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["plug-slot-attr"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["plug-slot-attr-mismatch"], nil, nil),
+		Plug:            s.plugSnap.Plugs["plug-slot-attr"],
+		Slot:            s.slotSnap.Slots["plug-slot-attr-mismatch"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// plug attr == slot attr
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["plug-slot-attr"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["plug-slot-attr-match"], nil, nil),
+		Plug:            s.plugSnap.Plugs["plug-slot-attr"],
+		Slot:            s.slotSnap.Slots["plug-slot-attr-match"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), IsNil)
@@ -2231,88 +1616,17 @@ func (s *policySuite) TestPlugDollarSlotAttrConnection(c *C) {
 func (s *policySuite) TestDollarMissingConnection(c *C) {
 	// not missing
 	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-plug-missing-mismatch"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-plug-missing"], nil, nil),
+		Plug:            s.plugSnap.Plugs["slot-plug-missing-mismatch"],
+		Slot:            s.slotSnap.Slots["slot-plug-missing"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
 
 	// missing
 	cand = policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-plug-missing-match"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-plug-missing"], nil, nil),
+		Plug:            s.plugSnap.Plugs["slot-plug-missing-match"],
+		Slot:            s.slotSnap.Slots["slot-plug-missing"],
 		BaseDeclaration: s.baseDecl,
 	}
 	c.Check(cand.Check(), IsNil)
-}
-
-func (s *policySuite) TestSlotDollarPlugDynamicAttrConnection(c *C) {
-	// "c" attribute of the plug missing
-	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-plug-attr-dynamic"], nil, map[string]interface{}{}),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-plug-attr"], nil, nil),
-		BaseDeclaration: s.baseDecl,
-	}
-	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
-
-	// plug attr == slot attr, "c" attribute of the plug provided by dynamic attribute
-	cand = policy.ConnectCandidate{
-		Plug: interfaces.NewConnectedPlug(s.plugSnap.Plugs["slot-plug-attr-dynamic"], nil, map[string]interface{}{
-			"c": "C",
-		}),
-
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["slot-plug-attr"], nil, nil),
-		BaseDeclaration: s.baseDecl,
-	}
-	c.Check(cand.Check(), IsNil)
-}
-
-func (s *policySuite) TestPlugDollarSlotDynamicAttrConnection(c *C) {
-	// "c" attribute of the slot missing
-	cand := policy.ConnectCandidate{
-		Plug:            interfaces.NewConnectedPlug(s.plugSnap.Plugs["plug-plug-attr"], nil, nil),
-		Slot:            interfaces.NewConnectedSlot(s.slotSnap.Slots["plug-plug-attr-dynamic"], nil, map[string]interface{}{}),
-		BaseDeclaration: s.baseDecl,
-	}
-	c.Check(cand.Check(), ErrorMatches, "connection not allowed.*")
-
-	// plug attr == slot attr, "c" attribute of the slot provided by dynamic attribute
-	cand = policy.ConnectCandidate{
-		Plug: interfaces.NewConnectedPlug(s.plugSnap.Plugs["plug-plug-attr"], nil, nil),
-		Slot: interfaces.NewConnectedSlot(s.slotSnap.Slots["plug-plug-attr-dynamic"], nil, map[string]interface{}{
-			"c": "C",
-		}),
-
-		BaseDeclaration: s.baseDecl,
-	}
-	c.Check(cand.Check(), IsNil)
-}
-
-func (s *policySuite) TestSlotsArityAutoConnection(c *C) {
-	tests := []struct {
-		iface string
-		any   bool
-	}{
-		{"slots-arity-default", false},
-		{"slots-arity-slot-any", true},
-		{"slots-arity-plug-any", true},
-		{"slots-arity-slot-any-plug-one", false},
-		{"slots-arity-slot-any-plug-two", false},
-		{"slots-arity-slot-any-plug-default", false},
-		{"slots-arity-slot-one-plug-any", true},
-	}
-
-	for _, t := range tests {
-		cand := policy.ConnectCandidate{
-			Plug:                interfaces.NewConnectedPlug(s.plugSnap.Plugs[t.iface], nil, nil),
-			Slot:                interfaces.NewConnectedSlot(s.slotSnap.Slots[t.iface], nil, nil),
-			PlugSnapDeclaration: s.plugDecl,
-			SlotSnapDeclaration: s.slotDecl,
-
-			BaseDeclaration: s.baseDecl,
-		}
-		arity, err := cand.CheckAutoConnect()
-		c.Assert(err, IsNil)
-		c.Check(arity.SlotsPerPlugAny(), Equals, t.any)
-	}
 }

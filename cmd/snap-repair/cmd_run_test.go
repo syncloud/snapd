@@ -33,24 +33,8 @@ import (
 	"github.com/snapcore/snapd/release"
 )
 
-func (r *repairSuite) TestNonRoot(c *C) {
-	restore := repair.MockOsGetuid(func() int { return 1000 })
-	defer restore()
-	restore = release.MockOnClassic(false)
-	defer restore()
-
-	origArgs := os.Args
-	defer func() { os.Args = origArgs }()
-	os.Args = []string{"snap-repair", "run"}
-	err := repair.Run()
-	c.Assert(err, ErrorMatches, "must be run as root")
-}
-
 func (r *repairSuite) TestRun(c *C) {
-	restore := repair.MockOsGetuid(func() int { return 0 })
-	defer restore()
-	restore = release.MockOnClassic(false)
-	defer restore()
+	defer release.MockOnClassic(false)()
 
 	r1 := sysdb.InjectTrusted(r.storeSigning.Trusted)
 	defer r1()

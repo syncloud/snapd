@@ -10,6 +10,3 @@ apps:
     check-dirs:
         command: bin/check-dirs
         plugs: [desktop]
-    cmd:
-        command: bin/cmd
-        plugs: [desktop]

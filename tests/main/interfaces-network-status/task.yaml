@@ -9,12 +9,10 @@ details: |
     The snap is also declaring a plug on this interface must be able to ask for its status.
 
 # dbus-launch not supported in ubuntu-core
-systems: [-ubuntu-core-*]
+systems: [-ubuntu-core-16-*]
 
 prepare: |
-    #shellcheck source=tests/lib/dbus.sh
     . "$TESTSLIB/dbus.sh"
-    #shellcheck source=tests/lib/dirs.sh
     . "$TESTSLIB/dirs.sh"
 
     echo "Given a snap declaring a plug on the network-status interface is installed"
@@ -24,16 +22,20 @@ prepare: |
     start_dbus_unit $SNAP_MOUNT_DIR/bin/test-snapd-network-status-provider.provider
 
 restore: |
-    #shellcheck source=tests/lib/dbus.sh
+    rm -f getstate.error
+
     . "$TESTSLIB/dbus.sh"
     stop_dbus_unit
 
 execute: |
+    CONNECTED_PATTERN="^test-snapd-network-status-provider:network-status-test +test-snapd-network-status-provider:network-status"
+    DISCONNECTED_PATTERN="^- +test-snapd-network-status-provider:network-status$"
+
     echo "The interface is connected by default"
-    snap interfaces -i network-status | MATCH "test-snapd-network-status-provider:network-status-test .*test-snapd-network-status-provider:network-status"
+    snap interfaces | MATCH "$CONNECTED_PATTERN"
 
     echo "Then wait until the dbus name is properly reserved"
-    for _ in $(seq 10); do
+    for i in $(seq 10); do
         if ! test-snapd-network-status-provider.consumer GetVersion | MATCH "my-ap-version"; then
             sleep 1
         else
@@ -51,9 +53,10 @@ execute: |
 
     echo "When the plug is disconnected"
     snap disconnect test-snapd-network-status-provider:network-status test-snapd-network-status-provider:network-status-test
+    snap interfaces | MATCH "$DISCONNECTED_PATTERN"
 
     echo "And the snap state cannot be accessed"
-    if test-snapd-network-status-provider.consumer GetState 2> getstate.error; then
+    if test-snapd-network-status-provider.consumer GetState 2>${PWD}/getstate.error; then
         echo "Expected permission error trying to introspect state with disconnected plug"
         exit 1
     fi
@@ -61,3 +64,4 @@ execute: |
 
     echo "When the plug is re-connected the interfaces show the connection"
     snap connect test-snapd-network-status-provider:network-status test-snapd-network-status-provider:network-status-test
+    snap interfaces | MATCH "$CONNECTED_PATTERN"

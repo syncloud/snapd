@@ -46,7 +46,6 @@ func (cs *clientSuite) TestClientGetConfCallsEndpointMultipleKeys(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientSetConf(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"type": "async",
 		"status-code": 202,

@@ -20,70 +20,48 @@
 package snapstate_test
 
 import (
-	"time"
-
 	. "gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/overlord"
 	"github.com/snapcore/snapd/overlord/snapstate"
-	"github.com/snapcore/snapd/overlord/snapstate/snapstatetest"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/testutil"
 )
 
-type baseHandlerSuite struct {
-	testutil.BaseTest
-
+type prepareSnapSuite struct {
 	state   *state.State
-	runner  *state.TaskRunner
-	se      *overlord.StateEngine
 	snapmgr *snapstate.SnapManager
 
 	fakeBackend *fakeSnappyBackend
-}
 
-func (s *baseHandlerSuite) setup(c *C, b state.Backend) {
-	s.BaseTest.SetUpTest(c)
-
-	dirs.SetRootDir(c.MkDir())
-
-	s.fakeBackend = &fakeSnappyBackend{}
-	s.state = state.New(b)
-	s.runner = state.NewTaskRunner(s.state)
-
-	var err error
-	s.snapmgr, err = snapstate.Manager(s.state, s.runner)
-	c.Assert(err, IsNil)
-
-	s.se = overlord.NewStateEngine(s.state)
-	s.se.AddManager(s.snapmgr)
-	s.se.AddManager(s.runner)
-	c.Assert(s.se.StartUp(), IsNil)
-
-	AddForeignTaskHandlers(s.runner, s.fakeBackend)
-
-	snapstate.SetSnapManagerBackend(s.snapmgr, s.fakeBackend)
-
-	reset1 := snapstate.MockSnapReadInfo(s.fakeBackend.ReadInfo)
-	reset2 := snapstate.MockReRefreshRetryTimeout(time.Second / 200)
-
-	s.AddCleanup(func() { dirs.SetRootDir("/") })
-	s.AddCleanup(reset1)
-	s.AddCleanup(reset2)
-	s.AddCleanup(snapstatetest.MockDeviceModel(nil))
-}
-
-func (s *baseHandlerSuite) SetUpTest(c *C) {
-	s.setup(c, nil)
-}
-
-type prepareSnapSuite struct {
-	baseHandlerSuite
+	reset func()
 }
 
 var _ = Suite(&prepareSnapSuite{})
+
+func (s *prepareSnapSuite) SetUpTest(c *C) {
+	dirs.SetRootDir(c.MkDir())
+
+	s.fakeBackend = &fakeSnappyBackend{}
+	s.state = state.New(nil)
+
+	var err error
+	s.snapmgr, err = snapstate.Manager(s.state)
+	c.Assert(err, IsNil)
+	s.snapmgr.AddForeignTaskHandlers(s.fakeBackend)
+
+	snapstate.SetSnapManagerBackend(s.snapmgr, s.fakeBackend)
+
+	reset1 := snapstate.MockReadInfo(s.fakeBackend.ReadInfo)
+	s.reset = func() {
+		dirs.SetRootDir("/")
+		reset1()
+	}
+}
+
+func (s *prepareSnapSuite) TearDownTest(c *C) {
+	s.reset()
+}
 
 func (s *prepareSnapSuite) TestDoPrepareSnapSimple(c *C) {
 	s.state.Lock()
@@ -97,8 +75,8 @@ func (s *prepareSnapSuite) TestDoPrepareSnapSimple(c *C) {
 
 	s.state.Unlock()
 
-	s.se.Ensure()
-	s.se.Wait()
+	s.snapmgr.Ensure()
+	s.snapmgr.Wait()
 
 	s.state.Lock()
 	defer s.state.Unlock()

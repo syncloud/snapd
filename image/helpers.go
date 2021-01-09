@@ -23,20 +23,17 @@ package image
 
 import (
 	"bytes"
-	"context"
 	"crypto"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/mvo5/goconfigparser"
+	"golang.org/x/net/context"
 
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/asserts/snapasserts"
@@ -47,13 +44,12 @@ import (
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
-	"github.com/snapcore/snapd/strutil"
 )
 
 // A Store can find metadata on snaps, download snaps and fetch assertions.
 type Store interface {
-	SnapAction(context.Context, []*store.CurrentSnap, []*store.SnapAction, *auth.UserState, *store.RefreshOptions) ([]*snap.Info, error)
-	Download(ctx context.Context, name, targetFn string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState, dlOpts *store.DownloadOptions) error
+	SnapInfo(spec store.SnapSpec, user *auth.UserState) (*snap.Info, error)
+	Download(ctx context.Context, name, targetFn string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState) error
 
 	Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error)
 }
@@ -76,7 +72,7 @@ func newToolingStore(arch, storeID string) (*ToolingStore, error) {
 			return nil, err
 		}
 	}
-	sto := store.New(cfg, toolingStoreContext{})
+	sto := store.New(cfg, nil)
 	return &ToolingStore{
 		sto:  sto,
 		user: user,
@@ -158,47 +154,8 @@ func parseSnapcraftLoginFile(authFn string, data []byte) (*authData, error) {
 	}, nil
 }
 
-// toolingStoreContext implements trivially store.DeviceAndAuthContext
-// except implementing UpdateUserAuth properly to be used to refresh a
-// soft-expired user macaroon.
-type toolingStoreContext struct{}
-
-func (tac toolingStoreContext) CloudInfo() (*auth.CloudInfo, error) {
-	return nil, nil
-}
-
-func (tac toolingStoreContext) Device() (*auth.DeviceState, error) {
-	return &auth.DeviceState{}, nil
-}
-
-func (tac toolingStoreContext) DeviceSessionRequestParams(_ string) (*store.DeviceSessionRequestParams, error) {
-	return nil, store.ErrNoSerial
-}
-
-func (tac toolingStoreContext) ProxyStoreParams(defaultURL *url.URL) (proxyStoreID string, proxySroreURL *url.URL, err error) {
-	return "", defaultURL, nil
-}
-
-func (tac toolingStoreContext) StoreID(fallback string) (string, error) {
-	return fallback, nil
-}
-
-func (tac toolingStoreContext) UpdateDeviceAuth(_ *auth.DeviceState, newSessionMacaroon string) (*auth.DeviceState, error) {
-	return nil, fmt.Errorf("internal error: no device state in tools")
-}
-
-func (tac toolingStoreContext) UpdateUserAuth(user *auth.UserState, discharges []string) (*auth.UserState, error) {
-	user.StoreDischarges = discharges
-	return user, nil
-}
-
-func NewToolingStoreFromModel(model *asserts.Model, fallbackArchitecture string) (*ToolingStore, error) {
-	architecture := model.Architecture()
-	// can happen on classic
-	if architecture == "" {
-		architecture = fallbackArchitecture
-	}
-	return newToolingStore(architecture, model.Store())
+func NewToolingStoreFromModel(model *asserts.Model) (*ToolingStore, error) {
+	return newToolingStore(model.Architecture(), model.Store())
 }
 
 func NewToolingStore() (*ToolingStore, error) {
@@ -210,110 +167,37 @@ func NewToolingStore() (*ToolingStore, error) {
 // DownloadOptions carries options for downloading snaps plus assertions.
 type DownloadOptions struct {
 	TargetDir string
-	// if TargetPathFunc is not nil it will be invoked
-	// to compute the target path for the download and TargetDir is
-	// ignored
-	TargetPathFunc func(*snap.Info) (string, error)
-
-	Revision  snap.Revision
 	Channel   string
-	CohortKey string
-	Basename  string
-
-	LeavePartialOnError bool
 }
 
-var (
-	errRevisionAndCohort = errors.New("cannot specify both revision and cohort")
-	errPathInBase        = errors.New("cannot specify a path in basename (use target dir for that)")
-)
-
-func (opts *DownloadOptions) validate() error {
-	if strings.ContainsRune(opts.Basename, filepath.Separator) {
-		return errPathInBase
-	}
-	if !(opts.Revision.Unset() || opts.CohortKey == "") {
-		return errRevisionAndCohort
-	}
-	return nil
-}
-
-func (opts *DownloadOptions) String() string {
-	spec := make([]string, 0, 5)
-	if !opts.Revision.Unset() {
-		spec = append(spec, fmt.Sprintf("(%s)", opts.Revision))
-	}
-	if opts.Channel != "" {
-		spec = append(spec, fmt.Sprintf("from channel %q", opts.Channel))
-	}
-	if opts.CohortKey != "" {
-		// cohort keys are really long, and the rightmost bit being the
-		// interesting bit, so ellipt the rest
-		spec = append(spec, fmt.Sprintf(`from cohort %q`, strutil.ElliptLeft(opts.CohortKey, 10)))
-	}
-	if opts.Basename != "" {
-		spec = append(spec, fmt.Sprintf("to %q", opts.Basename+".snap"))
-	}
-	if opts.TargetDir != "" {
-		spec = append(spec, fmt.Sprintf("in %q", opts.TargetDir))
-	}
-	return strings.Join(spec, " ")
-}
-
-// DownloadSnap downloads the snap with the given name and optionally revision
-// using the provided store and options. It returns the final full path of the
-// snap inside the opts.TargetDir and a snap.Info for the snap.
-func (tsto *ToolingStore) DownloadSnap(name string, opts DownloadOptions) (targetFn string, info *snap.Info, err error) {
-	if err := opts.validate(); err != nil {
-		return "", nil, err
+// DownloadSnap downloads the snap with the given name and optionally revision  using the provided store and options. It returns the final full path of the snap inside the opts.TargetDir and a snap.Info for the snap.
+func (tsto *ToolingStore) DownloadSnap(name string, revision snap.Revision, opts *DownloadOptions) (targetFn string, info *snap.Info, err error) {
+	if opts == nil {
+		opts = &DownloadOptions{}
 	}
 	sto := tsto.sto
 
-	if opts.TargetPathFunc == nil && opts.TargetDir == "" {
+	targetDir := opts.TargetDir
+	if targetDir == "" {
 		pwd, err := os.Getwd()
 		if err != nil {
 			return "", nil, err
 		}
-		opts.TargetDir = pwd
+		targetDir = pwd
 	}
 
-	if !opts.Revision.Unset() {
-		// XXX: is this really necessary (and, if it is, shoudn't we error out instead)
-		opts.Channel = ""
+	spec := store.SnapSpec{
+		Name:     name,
+		Channel:  opts.Channel,
+		Revision: revision,
 	}
-
-	logger.Debugf("Going to download snap %q %s.", name, &opts)
-
-	actions := []*store.SnapAction{{
-		Action:       "download",
-		InstanceName: name,
-		Revision:     opts.Revision,
-		CohortKey:    opts.CohortKey,
-		Channel:      opts.Channel,
-	}}
-
-	snaps, err := sto.SnapAction(context.TODO(), nil, actions, tsto.user, nil)
+	snap, err := sto.SnapInfo(spec, tsto.user)
 	if err != nil {
-		// err will be 'cannot download snap "foo": <reasons>'
-		return "", nil, err
+		return "", nil, fmt.Errorf("cannot find snap %q: %v", name, err)
 	}
-	snap := snaps[0]
 
-	if opts.TargetPathFunc == nil {
-		baseName := opts.Basename
-		if baseName == "" {
-			baseName = filepath.Base(snap.MountFile())
-		} else {
-			baseName += ".snap"
-		}
-		targetFn = filepath.Join(opts.TargetDir, baseName)
-	} else {
-		var err error
-		targetFn, err = opts.TargetPathFunc(snap)
-		if err != nil {
-			return "", nil, err
-		}
-	}
+	baseName := filepath.Base(snap.MountFile())
+	targetFn = filepath.Join(targetDir, baseName)
 
 	// check if we already have the right file
 	if osutil.FileExists(targetFn) {
@@ -322,7 +206,6 @@ func (tsto *ToolingStore) DownloadSnap(name string, opts DownloadOptions) (targe
 			logger.Debugf("not downloading, using existing file %s", targetFn)
 			return targetFn, snap, nil
 		}
-		logger.Debugf("File exists but has wrong hash, ignoring (here).")
 	}
 
 	pb := progress.MakeProgressBar()
@@ -337,8 +220,7 @@ func (tsto *ToolingStore) DownloadSnap(name string, opts DownloadOptions) (targe
 		os.Exit(1)
 	}()
 
-	dlOpts := &store.DownloadOptions{LeavePartialOnError: opts.LeavePartialOnError}
-	if err = sto.Download(context.TODO(), name, targetFn, &snap.DownloadInfo, pb, tsto.user, dlOpts); err != nil {
+	if err = sto.Download(context.TODO(), name, targetFn, &snap.DownloadInfo, pb, tsto.user); err != nil {
 		return "", nil, err
 	}
 
@@ -379,7 +261,7 @@ func FetchAndCheckSnapAssertions(snapPath string, info *snap.Info, f asserts.Fet
 	}
 
 	// cross checks
-	if err := snapasserts.CrossCheck(info.InstanceName(), sha3_384, size, &info.SideInfo, db); err != nil {
+	if err := snapasserts.CrossCheck(info.Name(), sha3_384, size, &info.SideInfo, db); err != nil {
 		return nil, err
 	}
 
@@ -388,7 +270,7 @@ func FetchAndCheckSnapAssertions(snapPath string, info *snap.Info, f asserts.Fet
 		"snap-id": info.SnapID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("internal error: lost snap declaration for %q: %v", info.InstanceName(), err)
+		return nil, fmt.Errorf("internal error: lost snap declaration for %q: %v", info.Name(), err)
 	}
 	return a.(*asserts.SnapDeclaration), nil
 }

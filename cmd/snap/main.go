@@ -22,10 +22,8 @@ package main
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -41,7 +39,6 @@ import (
 	"github.com/snapcore/snapd/i18n"
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 )
 
@@ -54,8 +51,7 @@ func init() {
 		noticef = logger.Panicf
 	}
 
-	// plug/slot sanitization not used by snap commands (except for snap pack
-	// which re-sets it), make it no-op.
+	// plug/slot sanitization not used nor possible from snap command, make it no-op
 	snap.SanitizePlugsSlots = func(snapInfo *snap.Info) {}
 }
 
@@ -89,13 +85,9 @@ type cmdInfo struct {
 	name, shortHelp, longHelp string
 	builder                   func() flags.Commander
 	hidden                    bool
-	// completeHidden set to true forces completion even of
-	// a hidden command
-	completeHidden bool
-	optDescs       map[string]string
-	argDescs       []argDesc
-	alias          string
-	extra          func(*flags.Command)
+	optDescs                  map[string]string
+	argDescs                  []argDesc
+	alias                     string
 }
 
 // commands holds information about all non-debug commands.
@@ -122,14 +114,12 @@ func addCommand(name, shortHelp, longHelp string, builder func() flags.Commander
 // addDebugCommand replaces parser.addCommand() in a way that is
 // compatible with re-constructing a pristine parser. It is meant for
 // adding debug commands.
-func addDebugCommand(name, shortHelp, longHelp string, builder func() flags.Commander, optDescs map[string]string, argDescs []argDesc) *cmdInfo {
+func addDebugCommand(name, shortHelp, longHelp string, builder func() flags.Commander) *cmdInfo {
 	info := &cmdInfo{
 		name:      name,
 		shortHelp: shortHelp,
 		longHelp:  longHelp,
 		builder:   builder,
-		optDescs:  optDescs,
-		argDescs:  argDescs,
 	}
 	debugCommands = append(debugCommands, info)
 	return info
@@ -150,7 +140,11 @@ func lintDesc(cmdName, optName, desc, origDesc string) {
 		// decode the first rune instead of converting all of desc into []rune
 		r, _ := utf8.DecodeRuneInString(desc)
 		// note IsLower != !IsUpper for runes with no upper/lower.
-		if unicode.IsLower(r) && !strings.HasPrefix(desc, "login.ubuntu.com") && !strings.HasPrefix(desc, cmdName) {
+		// Also note that login.u.c. is the only exception we're allowing for
+		// now, but the list of exceptions could grow -- if it does, we might
+		// want to change it to check for urlish things instead of just
+		// login.u.c.
+		if unicode.IsLower(r) && !strings.HasPrefix(desc, "login.ubuntu.com") {
 			noticef("description of %s's %q is lowercase: %q", cmdName, optName, desc)
 		}
 	}
@@ -158,120 +152,35 @@ func lintDesc(cmdName, optName, desc, origDesc string) {
 
 func lintArg(cmdName, optName, desc, origDesc string) {
 	lintDesc(cmdName, optName, desc, origDesc)
-	if len(optName) > 0 && optName[0] == '<' && optName[len(optName)-1] == '>' {
-		return
-	}
-	if len(optName) > 0 && optName[0] == '<' && strings.HasSuffix(optName, ">s") {
-		// see comment in fixupArg about the >s case
-		return
-	}
-	noticef("argument %q's %q should begin with < and end with >", cmdName, optName)
-}
-
-func fixupArg(optName string) string {
-	// Due to misunderstanding some localized versions of option name are
-	// literally "<option>s" instead of "<option>". While translators can
-	// improve this over time we can be smarter and avoid silly messages
-	// logged whenever "snap" command is used.
-	//
-	// See: https://bugs.launchpad.net/snapd/+bug/1806761
-	if strings.HasSuffix(optName, ">s") {
-		return optName[:len(optName)-1]
-	}
-	return optName
-}
-
-type clientSetter interface {
-	setClient(*client.Client)
-}
-
-type clientMixin struct {
-	client *client.Client
-}
-
-func (ch *clientMixin) setClient(cli *client.Client) {
-	ch.client = cli
-}
-
-func firstNonOptionIsRun() bool {
-	if len(os.Args) < 2 {
-		return false
-	}
-	for _, arg := range os.Args[1:] {
-		if len(arg) == 0 || arg[0] == '-' {
-			continue
-		}
-		return arg == "run"
-	}
-	return false
-}
-
-// noCompletion marks command descriptions of commands that should not
-// be completed
-var noCompletion = make(map[string]bool)
-
-func markForNoCompletion(ci *cmdInfo) {
-	if ci.hidden && !ci.completeHidden {
-		if ci.shortHelp == "" {
-			logger.Panicf("%q missing short help", ci.name)
-		}
-		noCompletion[ci.shortHelp] = true
-	}
-}
-
-// completionHandler filters out unwanted completions based on
-// the noCompletion map before dumping them to stdout.
-func completionHandler(comps []flags.Completion) {
-	for _, comp := range comps {
-		if noCompletion[comp.Description] {
-			continue
-		}
-		fmt.Fprintln(Stdout, comp.Item)
+	if optName[0] != '<' || optName[len(optName)-1] != '>' {
+		noticef("argument %q's %q should be wrapped in <>s", cmdName, optName)
 	}
 }
 
 // Parser creates and populates a fresh parser.
 // Since commands have local state a fresh parser is required to isolate tests
 // from each other.
-func Parser(cli *client.Client) *flags.Parser {
+func Parser() *flags.Parser {
 	optionsData.Version = func() {
-		printVersions(cli)
+		printVersions()
 		panic(&exitStatus{0})
 	}
-	flagopts := flags.Options(flags.PassDoubleDash)
-	if firstNonOptionIsRun() {
-		flagopts |= flags.PassAfterNonOption
-	}
-	parser := flags.NewParser(&optionsData, flagopts)
-	parser.CompletionHandler = completionHandler
+	parser := flags.NewParser(&optionsData, flags.HelpFlag|flags.PassDoubleDash|flags.PassAfterNonOption)
 	parser.ShortDescription = i18n.G("Tool to interact with snaps")
-	parser.LongDescription = longSnapDescription
-	// hide the unhelpful "[OPTIONS]" from help output
-	parser.Usage = ""
-	if version := parser.FindOptionByLongName("version"); version != nil {
-		version.Description = i18n.G("Print the version and exit")
-		version.Hidden = true
-	}
-	// add --help like what go-flags would do for us, but hidden
-	addHelp(parser)
+	parser.LongDescription = i18n.G(`
+Install, configure, refresh and remove snap packages. Snaps are
+'universal' packages that work across many different Linux systems,
+enabling secure distribution of the latest apps and utilities for
+cloud, servers, desktops and the internet of things.
 
-	seen := make(map[string]bool, len(commands)+len(debugCommands))
-	checkUnique := func(ci *cmdInfo, kind string) {
-		if seen[ci.shortHelp] && ci.shortHelp != "Internal" && ci.shortHelp != "Deprecated (hidden)" {
-			logger.Panicf(`%scommand %q has an already employed description != "Internal"|"Deprecated (hidden)": %s`, kind, ci.name, ci.shortHelp)
-		}
-		seen[ci.shortHelp] = true
-	}
+This is the CLI for snapd, a background service that takes care of
+snaps on the system. Start with 'snap list' to see installed snaps.
+`)
+	parser.FindOptionByLongName("version").Description = i18n.G("Print the version and exit")
 
 	// Add all regular commands
 	for _, c := range commands {
-		checkUnique(c, "")
-		markForNoCompletion(c)
-
 		obj := c.builder()
-		if x, ok := obj.(clientSetter); ok {
-			x.setClient(cli)
-		}
 		if x, ok := obj.(parserSetter); ok {
 			x.setParser(parser)
 		}
@@ -315,12 +224,8 @@ func Parser(cli *client.Client) *flags.Parser {
 				desc = c.argDescs[i].desc
 			}
 			lintArg(c.name, name, desc, arg.Description)
-			name = fixupArg(name)
 			arg.Name = name
 			arg.Description = desc
-		}
-		if c.extra != nil {
-			c.extra(cmd)
 		}
 	}
 	// Add the debug command
@@ -331,89 +236,26 @@ func Parser(cli *client.Client) *flags.Parser {
 	}
 	// Add all the sub-commands of the debug command
 	for _, c := range debugCommands {
-		checkUnique(c, "debug ")
-		markForNoCompletion(c)
-
-		obj := c.builder()
-		if x, ok := obj.(clientSetter); ok {
-			x.setClient(cli)
-		}
-		cmd, err := debugCommand.AddCommand(c.name, c.shortHelp, strings.TrimSpace(c.longHelp), obj)
+		cmd, err := debugCommand.AddCommand(c.name, c.shortHelp, strings.TrimSpace(c.longHelp), c.builder())
 		if err != nil {
 			logger.Panicf("cannot add debug command %q: %v", c.name, err)
 		}
 		cmd.Hidden = c.hidden
-		opts := cmd.Options()
-		if c.optDescs != nil && len(opts) != len(c.optDescs) {
-			logger.Panicf("wrong number of option descriptions for %s: expected %d, got %d", c.name, len(opts), len(c.optDescs))
-		}
-		for _, opt := range opts {
-			name := opt.LongName
-			if name == "" {
-				name = string(opt.ShortName)
-			}
-			desc, ok := c.optDescs[name]
-			if !(c.optDescs == nil || ok) {
-				logger.Panicf("%s missing description for %s", c.name, name)
-			}
-			lintDesc(c.name, name, desc, opt.Description)
-			if desc != "" {
-				opt.Description = desc
-			}
-		}
-
-		args := cmd.Args()
-		if c.argDescs != nil && len(args) != len(c.argDescs) {
-			logger.Panicf("wrong number of argument descriptions for %s: expected %d, got %d", c.name, len(args), len(c.argDescs))
-		}
-		for i, arg := range args {
-			name, desc := arg.Name, ""
-			if c.argDescs != nil {
-				name = c.argDescs[i].name
-				desc = c.argDescs[i].desc
-			}
-			lintArg(c.name, name, desc, arg.Description)
-			name = fixupArg(name)
-			arg.Name = name
-			arg.Description = desc
-		}
 	}
 	return parser
 }
-
-var isStdinTTY = terminal.IsTerminal(0)
 
 // ClientConfig is the configuration of the Client used by all commands.
 var ClientConfig = client.Config{
 	// we need the powerful snapd socket
 	Socket: dirs.SnapdSocket,
 	// Allow interactivity if we have a terminal
-	Interactive: isStdinTTY,
+	Interactive: terminal.IsTerminal(0),
 }
 
 // Client returns a new client using ClientConfig as configuration.
-// commands should (in general) not use this, and instead use clientMixin.
-func mkClient() *client.Client {
-	cfg := &ClientConfig
-	// Set client user-agent when talking to the snapd daemon to the
-	// same value as when talking to the store.
-	cfg.UserAgent = httputil.UserAgent()
-
-	cli := client.New(cfg)
-	goos := runtime.GOOS
-	if release.OnWSL {
-		goos = "Windows Subsystem for Linux"
-	}
-	if goos != "linux" {
-		cli.Hijack(func(*http.Request) (*http.Response, error) {
-			fmt.Fprintf(Stderr, i18n.G(`Interacting with snapd is not yet supported on %s.
-This command has been left available for documentation purposes only.
-`), goos)
-			os.Exit(1)
-			panic("execution continued past call to exit")
-		})
-	}
-	return cli
+func Client() *client.Client {
+	return client.New(&ClientConfig)
 }
 
 func init() {
@@ -435,7 +277,7 @@ func resolveApp(snapApp string) (string, error) {
 }
 
 func main() {
-	cmd.ExecInSnapdOrCoreSnap()
+	cmd.ExecInCoreSnap()
 
 	// check for magic symlink to /usr/bin/snap:
 	// 1. symlink from command-not-found to /usr/bin/snap: run c-n-f
@@ -454,7 +296,7 @@ func main() {
 			}
 		}
 		if err := cmd.Execute(nil); err != nil {
-			fmt.Fprintln(Stderr, err)
+			fmt.Fprintf(Stderr, "%s\n", err)
 		}
 		return
 	}
@@ -469,12 +311,12 @@ func main() {
 			os.Exit(46)
 		}
 		cmd := &cmdRun{}
-		cmd.client = mkClient()
-		os.Args[0] = snapApp
+		args := []string{snapApp}
+		args = append(args, os.Args[1:]...)
 		// this will call syscall.Exec() so it does not return
 		// *unless* there is an error, i.e. we setup a wrong
 		// symlink (or syscall.Exec() fails for strange reasons)
-		err = cmd.Execute(os.Args)
+		err = cmd.Execute(args)
 		fmt.Fprintf(Stderr, i18n.G("internal error, please report: running %q failed: %v\n"), snapApp, err)
 		os.Exit(46)
 	}
@@ -491,9 +333,6 @@ func main() {
 	// no magic /o\
 	if err := run(); err != nil {
 		fmt.Fprintf(Stderr, errorPrefix, err)
-		if client.IsRetryable(err) {
-			os.Exit(10)
-		}
 		os.Exit(1)
 	}
 }
@@ -506,69 +345,30 @@ func (e *exitStatus) Error() string {
 	return fmt.Sprintf("internal error: exitStatus{%d} being handled as normal error", e.code)
 }
 
-var wrongDashes = string([]rune{
-	0x2010, // hyphen
-	0x2011, // non-breaking hyphen
-	0x2012, // figure dash
-	0x2013, // en dash
-	0x2014, // em dash
-	0x2015, // horizontal bar
-	0xfe58, // small em dash
-	0x2015, // figure dash
-	0x2e3a, // two-em dash
-	0x2e3b, // three-em dash
-})
-
 func run() error {
-	cli := mkClient()
-	parser := Parser(cli)
-	xtra, err := parser.Parse()
+	parser := Parser()
+	_, err := parser.Parse()
 	if err != nil {
 		if e, ok := err.(*flags.Error); ok {
-			switch e.Type {
-			case flags.ErrCommandRequired:
-				printShortHelp()
-				return nil
-			case flags.ErrHelp:
+			if e.Type == flags.ErrHelp || e.Type == flags.ErrCommandRequired {
+				if parser.Command.Active != nil && parser.Command.Active.Name == "help" {
+					parser.Command.Active = nil
+				}
 				parser.WriteHelp(Stdout)
 				return nil
-			case flags.ErrUnknownCommand:
-				sub := os.Args[1]
-				sug := "snap help"
-				if len(xtra) > 0 {
-					sub = xtra[0]
-					if x := parser.Command.Active; x != nil && x.Name != "help" {
-						sug = "snap help " + x.Name
-					}
-				}
-				// TRANSLATORS: %q is the command the user entered; %s is 'snap help' or 'snap help <cmd>'
-				return fmt.Errorf(i18n.G("unknown command %q, see '%s'."), sub, sug)
+			}
+			if e.Type == flags.ErrUnknownCommand {
+				return fmt.Errorf(i18n.G(`unknown command %q, see "snap --help"`), os.Args[1])
 			}
 		}
 
 		msg, err := errorToCmdMessage("", err, nil)
-
-		if cmdline := strings.Join(os.Args, " "); strings.ContainsAny(cmdline, wrongDashes) {
-			// TRANSLATORS: the %+q is the commandline (+q means quoted, with any non-ascii character called out). Please keep the lines to at most 80 characters.
-			fmt.Fprintf(Stderr, i18n.G(`Your command included some characters that look like dashes but are not:
-    %+q
-in some situations you might find that when copying from an online source such
-as a blog you need to replace “typographic” dashes and quotes with their ASCII
-equivalent.  Dashes in particular are homoglyphs on most terminals and in most
-fixed-width fonts, so it can be hard to tell.
-
-`), cmdline)
-		}
-
 		if err != nil {
 			return err
 		}
 
-		fmt.Fprintln(Stderr, msg)
-		return nil
+		fmt.Fprintf(Stderr, msg)
 	}
-
-	maybePresentWarnings(cli.WarningsSummary())
 
 	return nil
 }

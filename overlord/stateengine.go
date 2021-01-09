@@ -34,30 +34,16 @@ type StateManager interface {
 	// Ensure forces a complete evaluation of the current state.
 	// See StateEngine.Ensure for more details.
 	Ensure() error
-}
 
-// StateStarterUp is optionally implemented by StateManager that have expensive
-// initialization to perform before the main Overlord loop.
-type StateStarterUp interface {
-	// StartUp asks manager to perform any expensive initialization.
-	StartUp() error
-}
-
-// StateWaiter is optionally implemented by StateManagers that have running
-// activities that can be waited.
-type StateWaiter interface {
-	// Wait asks manager to wait for all running activities to
-	// finish.
+	// Wait asks manager to wait for all running activities to finish.
 	Wait()
-}
 
-// StateStopper is optionally implemented by StateManagers that have
-// running activities that can be terminated.
-type StateStopper interface {
-	// Stop asks the manager to terminate all activities running
-	// concurrently.  It must not return before these activities
-	// are finished.
+	// Stop asks the manager to terminate all activities running concurrently.
+	// It must not return before these activities are finished.
 	Stop()
+
+	// KnownTaskKinds returns all task kinds handled by this manager.
+	KnownTaskKinds() []string
 }
 
 // StateEngine controls the dispatching of state changes to state managers.
@@ -67,9 +53,8 @@ type StateStopper interface {
 // cope with Ensure calls in any order, coordinating among themselves
 // solely via the state.
 type StateEngine struct {
-	state     *state.State
-	stopped   bool
-	startedUp bool
+	state   *state.State
+	stopped bool
 	// managers in use
 	mgrLock  sync.Mutex
 	managers []StateManager
@@ -85,37 +70,6 @@ func NewStateEngine(s *state.State) *StateEngine {
 // State returns the current system state.
 func (se *StateEngine) State() *state.State {
 	return se.state
-}
-
-type startupError struct {
-	errs []error
-}
-
-func (e *startupError) Error() string {
-	return fmt.Sprintf("state startup errors: %v", e.errs)
-}
-
-// StartUp asks all managers to perform any expensive initialization. It is a noop after the first invocation.
-func (se *StateEngine) StartUp() error {
-	se.mgrLock.Lock()
-	defer se.mgrLock.Unlock()
-	if se.startedUp {
-		return nil
-	}
-	se.startedUp = true
-	var errs []error
-	for _, m := range se.managers {
-		if starterUp, ok := m.(StateStarterUp); ok {
-			err := starterUp.StartUp()
-			if err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-	if len(errs) != 0 {
-		return &startupError{errs}
-	}
-	return nil
 }
 
 type ensureError struct {
@@ -137,9 +91,6 @@ func (e *ensureError) Error() string {
 func (se *StateEngine) Ensure() error {
 	se.mgrLock.Lock()
 	defer se.mgrLock.Unlock()
-	if !se.startedUp {
-		return fmt.Errorf("state engine skipped startup")
-	}
 	if se.stopped {
 		return fmt.Errorf("state engine already stopped")
 	}
@@ -172,9 +123,7 @@ func (se *StateEngine) Wait() {
 		return
 	}
 	for _, m := range se.managers {
-		if waiter, ok := m.(StateWaiter); ok {
-			waiter.Wait()
-		}
+		m.Wait()
 	}
 }
 
@@ -186,9 +135,7 @@ func (se *StateEngine) Stop() {
 		return
 	}
 	for _, m := range se.managers {
-		if stopper, ok := m.(StateStopper); ok {
-			stopper.Stop()
-		}
+		m.Stop()
 	}
 	se.stopped = true
 }

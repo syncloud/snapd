@@ -20,7 +20,6 @@
 package backends
 
 import (
-  "fmt"
 	"github.com/snapcore/snapd/interfaces"
 	//"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
@@ -29,15 +28,13 @@ import (
 	//"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/systemd"
 	"github.com/snapcore/snapd/interfaces/udev"
-	apparmor_sandbox "github.com/snapcore/snapd/sandbox/apparmor"
+	//"github.com/snapcore/snapd/release"
 )
 
 var All []interfaces.SecurityBackend = backends()
 
 func backends() []interfaces.SecurityBackend {
 	all := []interfaces.SecurityBackend{
-		// Because of how the GPIO interface is implemented the systemd backend
-		// must be earlier in the sequence than the apparmor backend.
 		&systemd.Backend{},
 		//TODO: disable seccomp for now
         //	&seccomp.Backend{},
@@ -46,9 +43,6 @@ func backends() []interfaces.SecurityBackend {
 		&mount.Backend{},
 		&kmod.Backend{},
 	}
-
-	// TODO use something like:
-	// level, summary := apparmor.ProbeResults()
 
 	// This should be logger.Noticef but due to ordering of initialization
 	// calls, the logger is not ready at this point yet and the message goes
@@ -60,7 +54,7 @@ func backends() []interfaces.SecurityBackend {
 	// By printing this directly we ensure it will end up the journal for the
 	// snapd.service. This aspect should be retained even after the switch to
 	// user-warning.
-	fmt.Printf("AppArmor status: %s\n", apparmor_sandbox.Summary())
+	//fmt.Printf("AppArmor status: %s\n", release.AppArmorSummary())
 
 	// Enable apparmor backend if there is any level of apparmor support,
 	// including partial feature set. This will allow snap-confine to always
@@ -69,9 +63,9 @@ func backends() []interfaces.SecurityBackend {
 	//
 	// When some features are missing the backend will generate more permissive
 	// profiles that keep applications operational, in forced-devmode.
-  //TODO: disable apparmor for now
-	//switch apparmor_sandbox.ProbedLevel() {
-	//case apparmor_sandbox.Partial, apparmor_sandbox.Full:
+	//TODO: disable apparmor for now
+	//switch release.AppArmorLevel() {
+	//case release.FullAppArmor, release.PartialAppArmor:
 	//	all = append(all, &apparmor.Backend{})
 	//}
 	return all

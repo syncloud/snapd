@@ -1,30 +1,19 @@
 summary: Check that `snap run` runs
 
-# strace does not support _newselect on s390x
-# (https://github.com/strace/strace/issues/57)
-systems: [-*-s390x]
-
 prepare: |
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB"/snaps.sh
+    . $TESTSLIB/snaps.sh
     install_local basic-run
-    install_local test-snapd-sh
+    install_local test-snapd-tools
 
-debug: |
-    if [ -f stderr ]; then
-        cat stderr
-    fi
+restore: |
+    rm -f stdout stderr
+    
+debug:
+    cat stderr
 
 execute: |
     echo "Test that snap run use environments"
     basic-run.echo-data | MATCH ^/var/snap
-
-    if command -v gdb; then
-       echo "Test snap run --gdb works"
-       echo "c" | snap run --gdb test-snapd-sh.sh -c 'echo hello' > stdout
-       MATCH 'Continuing.' < stdout
-       MATCH hello < stdout
-    fi
 
     # the strace on 14.04 is too old
     if grep -q 'VERSION_ID="14.04"' /etc/os-release; then
@@ -35,30 +24,12 @@ execute: |
         snap install strace-static
     fi
     # install the snap if no system strace is found
-    if ! command -v strace; then
+    if ! which strace; then
         snap install strace-static
     fi
 
-    echo "Test snap --strace invalid works"
-    if snap run --strace="invalid" test-snapd-sh.sh -c 'echo hello' 2>stderr ; then
-        echo "snap run with an invalid strace option should fail but it did not"
-        exit 1
-    fi
-    MATCH "Can't stat 'invalid': No such file or directory" < stderr
-
-    if [[ "$SPREAD_SYSTEM" == arch-* || "$SPREAD_SYSTEM" == opensuse-tumbleweed-* ]] ; then
-        # Arch linux and Opensuse tumbleweed run the mainline kernel, strace
-        # (with event filter or not) *may* randomly get stuck on the kernel
-        # side, see:
-        # - proposed patch: https://lore.kernel.org/patchwork/patch/719314/
-        # - snap-exec & strace stuck: https://paste.ubuntu.com/p/8nVzj8Sqfq/
-        echo "SKIP further tests due to know kernel/strace problems"
-        exit 0
-    fi
-    # XXX: any tests that execute strace should be added below this point
-
     echo "Test snap run --strace"
-    snap run --strace test-snapd-sh.sh -c 'echo hello-world' >stdout 2>stderr
+    snap run --strace test-snapd-tools.echo "hello-world" >stdout 2>stderr
     MATCH hello-world < stdout
     MATCH 'write\(1, \"hello-world\\n\",' < stderr
     if grep "snap-confine" stderr; then
@@ -68,12 +39,21 @@ execute: |
     fi
 
     echo "Test snap run --strace with options works"
-    snap run --strace="-V" test-snapd-sh.sh -c 'echo hello-world' >stdout 2>stderr
-    MATCH "strace -- version" < stdout
-    [ ! -s stderr ]
+    snap run --strace="-tt" test-snapd-tools.echo "hello-world" >stdout 2>stderr
+    MATCH hello-world < stdout
+    MATCH '[0-9:.]+ write\(1, "hello-world\\n"' < stderr
+    
+    echo "Test snap --strace invalid works"
+    if snap run --strace="invalid" test-snapd-tools.echo hello 2>stderr ; then
+        echo "snap run with an invalid strace option should fail but it did not"
+        exit 1
+    fi
+    MATCH "Can't stat 'invalid': No such file or directory" < stderr
 
-    snap run --trace-exec test-snapd-sh.sh -c 'echo hello' 2> stderr
-    MATCH "Slowest [0-9]+ exec calls during snap run" < stderr
-    MATCH "  [0-9.]+s .*/snap-exec" < stderr
-    MATCH "  [0-9.]+s .*/snap-confine" < stderr
-    MATCH "Total time: [0-9.]+s" < stderr
+    if which gdb; then
+       echo "Test snap run --gdb works"
+       echo "c" | snap run --gdb test-snapd-tools.echo hello > stdout
+       cat stdout | MATCH 'Continuing.'
+       cat stdout | MATCH hello
+    fi
+

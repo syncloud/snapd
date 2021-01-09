@@ -11,30 +11,30 @@ details: |
 environment:
     DISPLAY: :0
 
-systems: [-ubuntu-core-*]
+systems: [-ubuntu-core-16-*]
 
 prepare: |
-    #shellcheck source=tests/lib/dirs.sh
     . "$TESTSLIB/dirs.sh"
 
     echo "Give a snap declaring a dbus slot in installed"
-    snap install --beta test-snapd-dbus-provider
+    snap install --edge test-snapd-dbus-provider
 
     echo "And a snap declaring a matching dbus plug is installed"
-    snap install --beta test-snapd-dbus-consumer
+    snap install --edge test-snapd-dbus-consumer
 
     echo "And the provider dbus loop is started"
-    #shellcheck source=tests/lib/dbus.sh
     . "$TESTSLIB/dbus.sh"
     start_dbus_unit $SNAP_MOUNT_DIR/bin/test-snapd-dbus-provider.provider
 
 restore: |
-    #shellcheck source=tests/lib/dbus.sh
+    rm -f call.error
     . "$TESTSLIB/dbus.sh"
     stop_dbus_unit || true
 
 execute: |
-    #shellcheck disable=SC2046
+    CONNECTED_PATTERN="test-snapd-dbus-provider:dbus-test +test-snapd-dbus-consumer"
+    DISCONNECTED_PATTERN="^\- +test-snapd-dbus-consumer:dbus-test"
+
     export $(cat dbus.env)
 
     echo "Then the dbus name is properly reserved by the provider and the method is accessible"
@@ -43,24 +43,22 @@ execute: |
     done
 
     echo "And plug is disconnected by default"
-    snap interfaces -i dbus | MATCH '^- +test-snapd-dbus-consumer:dbus-test'
-
-    echo "When the plug is connected"
-    snap connect test-snapd-dbus-consumer:dbus-test test-snapd-dbus-provider:dbus-test
-
-    echo "Then the consumer is able to call the provided method"
-    test-snapd-dbus-consumer.dbus-consumer | MATCH "hello world"
+    snap interfaces | MATCH "$DISCONNECTED_PATTERN"
 
     if [ "$(snap debug confinement)" = partial ]; then
         exit 0
     fi
 
-    echo "When the plug is disconnected"
-    snap disconnect test-snapd-dbus-consumer:dbus-test test-snapd-dbus-provider:dbus-test
-
-    echo "The consumer is not able to access the provided method"
-    if test-snapd-dbus-consumer.dbus-consumer 2> call.error; then
+    echo "And the consumer is not able to access the provided method"
+    if test-snapd-dbus-consumer.dbus-consumer 2>${PWD}/call.error; then
         echo "Expected permission error calling dbus method with disconnected plug"
         exit 1
     fi
-    MATCH "Permission denied" < call.error
+    cat call.error | MATCH "Permission denied"
+
+    echo "When the plug is connected"
+    snap connect test-snapd-dbus-consumer:dbus-test test-snapd-dbus-provider:dbus-test
+    snap interfaces | MATCH "$CONNECTED_PATTERN"
+
+    echo "Then the consumer is able to call the provided method"
+    test-snapd-dbus-consumer.dbus-consumer | MATCH "hello world"

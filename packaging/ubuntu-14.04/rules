@@ -20,7 +20,7 @@ export DH_GOLANG_GO_GENERATE=1
 
 export PATH:=${PATH}:${CURDIR}
 # make sure that correct go version is found on trusty
-export PATH:=/usr/lib/go-1.10/bin:${PATH}
+export PATH:=/usr/lib/go-1.6/bin:${PATH}
 
 include /etc/os-release
 
@@ -31,16 +31,21 @@ include /etc/os-release
 # from /lib/systemd/upstart.
 SYSTEMD_UNITS_DESTDIR="lib/systemd/upstart/"
 
+# make sure that trusty's golang-1.6 is picked up correctly.
+export PATH:=/usr/lib/go-1.6/bin:${PATH}
+
 # The go tool does not fully support vendoring with gccgo, but we can
 # work around that by constructing the appropriate -I flag by hand.
 GCCGO := $(shell go tool dist env > /dev/null 2>&1 && echo no || echo yes)
 
+# Disable -buildmode=pie mode on i386 as can panics in spectacular
+# ways (LP: #1711052).
+# See also https://forum.snapcraft.io/t/artful-i386-panics/
+# Note while the panic is only on artful, that's because artful
+# detects it; the issue potentially there on older things.
 BUILDFLAGS:=-pkgdir=$(CURDIR)/_build/std
-# Disable -buildmode=pie mode on all our 32bit platforms
-# (i386 and armhf). For i386 because of LP: #1711052 and for
-# armhf because of LP: #1822738
-ifeq ($(shell dpkg-architecture -qDEB_HOST_ARCH_BITS),64)
- BUILDFLAGS+= -buildmode=pie
+ifneq ($(shell dpkg-architecture -qDEB_HOST_ARCH),i386)
+BUILDFLAGS+= -buildmode=pie
 endif
 
 GCCGOFLAGS=
@@ -123,16 +128,14 @@ override_dh_auto_build:
 	mkdir -p _build/src/$(DH_GOPKG)/cmd/snap/test-data
 	cp -a cmd/snap/test-data/*.gpg _build/src/$(DH_GOPKG)/cmd/snap/test-data/
 	dh_auto_build -- $(BUILDFLAGS) $(TAGS) $(GCCGOFLAGS)
-	# Generate static snap-exec, snapctl and snap-udpate-ns - it somehow includes CGO so we must
-	# force a static build here. We need a static snap-{exec,update-ns}/snapctl inside
+	# Generate static snap-exec - it somehow includes CGO so we must
+	# force a static build here. We need a static snap-exec inside
 	# the core snap because not all bases will have a libc
 	(cd _build/bin && GOPATH=$$(pwd)/.. CGO_ENABLED=0 go build $(GCCGOFLAGS) $(DH_GOPKG)/cmd/snap-exec)
-	(cd _build/bin && GOPATH=$$(pwd)/.. CGO_ENABLED=0 go build $(GCCGOFLAGS) $(DH_GOPKG)/cmd/snapctl)
 	(cd _build/bin && GOPATH=$$(pwd)/.. go build --ldflags '-extldflags "-static"' $(GCCGOFLAGS) $(DH_GOPKG)/cmd/snap-update-ns)
 	# ensure we generated a static build
 	$(shell	if ldd _build/bin/snap-exec; then false "need static build"; fi)
 	$(shell	if ldd _build/bin/snap-update-ns; then false "need static build"; fi)
-	$(shell	if ldd _build/bin/snapctl; then false "need static build"; fi)
 
 	# Build C bits, sadly manually
 	cd cmd && ( autoreconf -i -f )
@@ -170,22 +173,18 @@ override_dh_install:
 	rm -f ${CURDIR}/debian/tmp/usr/bin/toolbelt
 	# we do not like /usr/bin/snappy anymore
 	rm -f ${CURDIR}/debian/tmp/usr/bin/snappy
-	# snap-bootstrap is only useful on core (and we don't have a 14.04 core)
-	rm -f ${CURDIR}/debian/tmp/usr/bin/snap-bootstrap
 	# i18n stuff
 	mkdir -p debian/snapd/usr/share
 	if [ -d share/locale ]; then \
 		cp -R share/locale debian/snapd/usr/share; \
 	fi
-	# chrorder generator
-	rm -f ${CURDIR}/debian/tmp/usr/bin/chrorder
 
-	# Install snapd's systemd units / upstart jobs, done
+	# install snapd's systemd units / upstart jobs, done
 	# here instead of debian/snapd.install because the
 	# ubuntu/14.04 release branch adds/changes bits here
 	$(MAKE) -C data install DESTDIR=$(CURDIR)/debian/snapd/ \
 		SYSTEMDSYSTEMUNITDIR=$(SYSTEMD_UNITS_DESTDIR)
-	# We called this apps-bin-path.sh instead of snapd.sh, and
+	# we called this apps-bin-path.sh instead of snapd.sh, and
 	# it's a conf file so we're stuck with it
 	mv debian/snapd/etc/profile.d/snapd.sh debian/snapd/etc/profile.d/apps-bin-path.sh
 
@@ -195,10 +194,6 @@ override_dh_install:
 	$(MAKE) -C cmd install DESTDIR=$(CURDIR)/debian/tmp
 
 	# trusty doesn't need the .real workaround
-
-	# On Ubuntu and Debian we don't need to install the apparmor helper service.
-	rm $(CURDIR)/debian/snapd/$(SYSTEMD_UNITS_DESTDIR)/snapd.apparmor.service
-	rm $(CURDIR)/debian/tmp/usr/lib/snapd/snapd-apparmor
 
 	dh_install
 

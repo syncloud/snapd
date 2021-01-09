@@ -17,28 +17,21 @@
  *
  */
 
-package squashfs_test
+package squashfs
 
 import (
-	"errors"
-	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/yaml.v2"
 
-	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/snap/snapdir"
-	"github.com/snapcore/snapd/snap/squashfs"
 	"github.com/snapcore/snapd/testutil"
 )
 
@@ -46,17 +39,11 @@ import (
 func Test(t *testing.T) { TestingT(t) }
 
 type SquashfsTestSuite struct {
-	oldStdout, oldStderr, outf *os.File
 }
 
 var _ = Suite(&SquashfsTestSuite{})
 
-func makeSnap(c *C, manifest, data string) *squashfs.Snap {
-	cur, _ := os.Getwd()
-	return makeSnapInDir(c, cur, manifest, data)
-}
-
-func makeSnapContents(c *C, manifest, data string) string {
+func makeSnap(c *C, manifest, data string) *Snap {
 	tmp := c.MkDir()
 	err := os.MkdirAll(filepath.Join(tmp, "meta", "hooks", "dir"), 0755)
 	c.Assert(err, IsNil)
@@ -83,132 +70,46 @@ func makeSnapContents(c *C, manifest, data string) string {
 	err = ioutil.WriteFile(filepath.Join(tmp, "data.bin"), []byte(data), 0644)
 	c.Assert(err, IsNil)
 
-	return tmp
-}
-
-func makeSnapInDir(c *C, dir, manifest, data string) *squashfs.Snap {
-	snapType := "app"
-	var m struct {
-		Type string `yaml:"type"`
-	}
-	if err := yaml.Unmarshal([]byte(manifest), &m); err == nil && m.Type != "" {
-		snapType = m.Type
-	}
-
-	tmp := makeSnapContents(c, manifest, data)
 	// build it
-	snap := squashfs.New(filepath.Join(dir, "foo.snap"))
-	err := snap.Build(tmp, snapType)
+	cur, _ := os.Getwd()
+	snap := New(filepath.Join(cur, "foo.snap"))
+	err = snap.Build(tmp)
 	c.Assert(err, IsNil)
 
 	return snap
 }
 
 func (s *SquashfsTestSuite) SetUpTest(c *C) {
-	d := c.MkDir()
-	dirs.SetRootDir(d)
-	err := os.Chdir(d)
+	err := os.Chdir(c.MkDir())
 	c.Assert(err, IsNil)
-
-	s.outf, err = ioutil.TempFile(c.MkDir(), "")
-	c.Assert(err, IsNil)
-	s.oldStdout, s.oldStderr = os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = s.outf, s.outf
 }
 
-func (s *SquashfsTestSuite) TearDownTest(c *C) {
-	os.Stdout, os.Stderr = s.oldStdout, s.oldStderr
-
-	// this ensures things were quiet
-	_, err := s.outf.Seek(0, 0)
-	c.Assert(err, IsNil)
-	outbuf, err := ioutil.ReadAll(s.outf)
-	c.Assert(err, IsNil)
-	c.Check(string(outbuf), Equals, "")
-}
-
-func (s *SquashfsTestSuite) TestInstallSimpleNoCp(c *C) {
-	// mock cp but still cp
-	cmd := testutil.MockCommand(c, "cp", `#!/bin/sh
-exec /bin/cp "$@"
-`)
-	defer cmd.Restore()
-	// mock link but still link
-	linked := 0
-	r := squashfs.MockLink(func(a, b string) error {
-		linked++
-		return os.Link(a, b)
-	})
-	defer r()
-
+func (s *SquashfsTestSuite) TestInstallSimple(c *C) {
 	snap := makeSnap(c, "name: test", "")
 	targetPath := filepath.Join(c.MkDir(), "target.snap")
 	mountDir := c.MkDir()
-	didNothing, err := snap.Install(targetPath, mountDir)
+	err := snap.Install(targetPath, mountDir)
 	c.Assert(err, IsNil)
-	c.Assert(didNothing, Equals, false)
 	c.Check(osutil.FileExists(targetPath), Equals, true)
-	c.Check(linked, Equals, 1)
-	c.Check(cmd.Calls(), HasLen, 0)
-}
-
-func noLink() func() {
-	return squashfs.MockLink(func(string, string) error { return errors.New("no.") })
 }
 
 func (s *SquashfsTestSuite) TestInstallNotCopyTwice(c *C) {
-	// first, disable os.Link
-	defer noLink()()
-
-	// then, mock cp but still cp
-	cmd := testutil.MockCommand(c, "cp", `#!/bin/sh
-exec /bin/cp "$@"
-`)
-	defer cmd.Restore()
-
 	snap := makeSnap(c, "name: test2", "")
 	targetPath := filepath.Join(c.MkDir(), "target.snap")
 	mountDir := c.MkDir()
-	didNothing, err := snap.Install(targetPath, mountDir)
+	err := snap.Install(targetPath, mountDir)
 	c.Assert(err, IsNil)
-	c.Assert(didNothing, Equals, false)
-	c.Check(cmd.Calls(), HasLen, 1)
 
-	didNothing, err = snap.Install(targetPath, mountDir)
+	cmd := testutil.MockCommand(c, "cp", "")
+	defer cmd.Restore()
+	err = snap.Install(targetPath, mountDir)
 	c.Assert(err, IsNil)
-	c.Assert(didNothing, Equals, true)
-	c.Check(cmd.Calls(), HasLen, 1) // and not 2 \o/
-}
-
-func (s *SquashfsTestSuite) TestInstallSeedNoLink(c *C) {
-	defer noLink()()
-
-	c.Assert(os.MkdirAll(dirs.SnapSeedDir, 0755), IsNil)
-	snap := makeSnapInDir(c, dirs.SnapSeedDir, "name: test2", "")
-	targetPath := filepath.Join(c.MkDir(), "target.snap")
-	_, err := os.Lstat(targetPath)
-	c.Check(os.IsNotExist(err), Equals, true)
-
-	didNothing, err := snap.Install(targetPath, c.MkDir())
-	c.Assert(err, IsNil)
-	c.Assert(didNothing, Equals, false)
-	c.Check(osutil.IsSymlink(targetPath), Equals, true) // \o/
-}
-
-func (s *SquashfsTestSuite) TestInstallNothingToDo(c *C) {
-	snap := makeSnap(c, "name: test2", "")
-
-	targetPath := filepath.Join(c.MkDir(), "foo.snap")
-	c.Assert(os.Symlink(snap.Path(), targetPath), IsNil)
-
-	didNothing, err := snap.Install(targetPath, c.MkDir())
-	c.Assert(err, IsNil)
-	c.Check(didNothing, Equals, true)
+	c.Assert(cmd.Calls(), HasLen, 0)
 }
 
 func (s *SquashfsTestSuite) TestPath(c *C) {
 	p := "/path/to/foo.snap"
-	snap := squashfs.New("/path/to/foo.snap")
+	snap := New("/path/to/foo.snap")
 	c.Assert(snap.Path(), Equals, p)
 }
 
@@ -229,6 +130,29 @@ func (s *SquashfsTestSuite) TestListDir(c *C) {
 	c.Check(fileNames[0], Equals, "bar-hook")
 	c.Check(fileNames[1], Equals, "dir")
 	c.Check(fileNames[2], Equals, "foo-hook")
+}
+
+func alike(a, b os.FileInfo, c *C, comment CommentInterface) {
+	c.Check(a, NotNil, comment)
+	c.Check(b, NotNil, comment)
+	if a == nil || b == nil {
+		return
+	}
+
+	// the .Name() of the root will be different on non-squashfs things
+	_, asq := a.(*stat)
+	_, bsq := b.(*stat)
+	if !((asq && a.Name() == "/") || (bsq && b.Name() == "/")) {
+		c.Check(a.Name(), Equals, b.Name(), comment)
+	}
+
+	c.Check(a.Mode(), Equals, b.Mode(), comment)
+	if a.Mode().IsRegular() {
+		c.Check(a.Size(), Equals, b.Size(), comment)
+	}
+	am := a.ModTime().UTC().Truncate(time.Minute)
+	bm := b.ModTime().UTC().Truncate(time.Minute)
+	c.Check(am.Equal(bm), Equals, true, Commentf("%s != %s (%s)", am, bm, comment))
 }
 
 func (s *SquashfsTestSuite) TestWalk(c *C) {
@@ -278,18 +202,18 @@ func (s *SquashfsTestSuite) TestWalk(c *C) {
 	})
 
 	for k := range fpw {
-		squashfs.Alike(sqw[k], fpw[k], c, Commentf(k))
-		squashfs.Alike(sdw[k], fpw[k], c, Commentf(k))
+		alike(sqw[k], fpw[k], c, Commentf(k))
+		alike(sdw[k], fpw[k], c, Commentf(k))
 	}
 
 	for k := range sqw {
-		squashfs.Alike(fpw[k], sqw[k], c, Commentf(k))
-		squashfs.Alike(sdw[k], sqw[k], c, Commentf(k))
+		alike(fpw[k], sqw[k], c, Commentf(k))
+		alike(sdw[k], sqw[k], c, Commentf(k))
 	}
 
 	for k := range sdw {
-		squashfs.Alike(fpw[k], sdw[k], c, Commentf(k))
-		squashfs.Alike(sqw[k], sdw[k], c, Commentf(k))
+		alike(fpw[k], sdw[k], c, Commentf(k))
+		alike(sqw[k], sdw[k], c, Commentf(k))
 	}
 
 }
@@ -362,201 +286,28 @@ EOF
 }
 
 func (s *SquashfsTestSuite) TestBuild(c *C) {
-	// please keep TestBuildUsesExcludes in sync with this one so it makes sense.
 	buildDir := c.MkDir()
 	err := os.MkdirAll(filepath.Join(buildDir, "/random/dir"), 0755)
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(filepath.Join(buildDir, "data.bin"), []byte("data"), 0644)
 	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(buildDir, "random", "data.bin"), []byte("more data"), 0644)
-	c.Assert(err, IsNil)
 
-	snap := squashfs.New(filepath.Join(c.MkDir(), "foo.snap"))
-	err = snap.Build(buildDir, "app")
+	snap := New(filepath.Join(c.MkDir(), "foo.snap"))
+	err = snap.Build(buildDir)
 	c.Assert(err, IsNil)
 
 	// unsquashfs writes a funny header like:
 	//     "Parallel unsquashfs: Using 1 processor"
 	//     "1 inodes (1 blocks) to write"
-	outputWithHeader, err := exec.Command("unsquashfs", "-n", "-l", snap.Path()).Output()
+	outputWithHeader, err := exec.Command("unsquashfs", "-n", "-l", snap.path).Output()
 	c.Assert(err, IsNil)
 	split := strings.Split(string(outputWithHeader), "\n")
 	output := strings.Join(split[3:], "\n")
-	c.Assert(string(output), Equals, `
-squashfs-root
+	c.Assert(string(output), Equals, `squashfs-root
 squashfs-root/data.bin
 squashfs-root/random
-squashfs-root/random/data.bin
 squashfs-root/random/dir
-`[1:]) // skip the first newline :-)
-}
-
-func (s *SquashfsTestSuite) TestBuildUsesExcludes(c *C) {
-	// please keep TestBuild in sync with this one so it makes sense.
-	buildDir := c.MkDir()
-	err := os.MkdirAll(filepath.Join(buildDir, "/random/dir"), 0755)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(buildDir, "data.bin"), []byte("data"), 0644)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(buildDir, "random", "data.bin"), []byte("more data"), 0644)
-	c.Assert(err, IsNil)
-
-	excludesFilename := filepath.Join(buildDir, ".snapignore")
-	err = ioutil.WriteFile(excludesFilename, []byte(`
-# ignore just one of the data.bin files we just added (the toplevel one)
-data.bin
-# also ignore ourselves
-.snapignore
-# oh and anything called "dir" anywhere
-... dir
-`), 0644)
-	c.Assert(err, IsNil)
-
-	snap := squashfs.New(filepath.Join(c.MkDir(), "foo.snap"))
-	err = snap.Build(buildDir, "app", excludesFilename)
-	c.Assert(err, IsNil)
-
-	outputWithHeader, err := exec.Command("unsquashfs", "-n", "-l", snap.Path()).Output()
-	c.Assert(err, IsNil)
-	split := strings.Split(string(outputWithHeader), "\n")
-	output := strings.Join(split[3:], "\n")
-	// compare with TestBuild
-	c.Assert(string(output), Equals, `
-squashfs-root
-squashfs-root/random
-squashfs-root/random/data.bin
-`[1:]) // skip the first newline :-)
-}
-
-func (s *SquashfsTestSuite) TestBuildSupportsMultipleExcludesWithOnlyOneWildcardsFlag(c *C) {
-	defer squashfs.MockCommandFromSystemSnap(func(cmd string, args ...string) (*exec.Cmd, error) {
-		c.Check(cmd, Equals, "/usr/bin/mksquashfs")
-		return nil, errors.New("bzzt")
-	})()
-	mksq := testutil.MockCommand(c, "mksquashfs", "")
-	defer mksq.Restore()
-
-	snapPath := filepath.Join(c.MkDir(), "foo.snap")
-	snap := squashfs.New(snapPath)
-	err := snap.Build(c.MkDir(), "core", "exclude1", "exclude2", "exclude3")
-	c.Assert(err, IsNil)
-	calls := mksq.Calls()
-	c.Assert(calls, HasLen, 1)
-	c.Check(calls[0], DeepEquals, []string{
-		// the usual:
-		"mksquashfs", ".", snapPath, "-noappend", "-comp", "xz", "-no-fragments", "-no-progress",
-		// the interesting bits:
-		"-wildcards", "-ef", "exclude1", "-ef", "exclude2", "-ef", "exclude3",
-	})
-}
-
-func (s *SquashfsTestSuite) TestBuildUsesMksquashfsFromCoreIfAvailable(c *C) {
-	usedFromCore := false
-	defer squashfs.MockCommandFromSystemSnap(func(cmd string, args ...string) (*exec.Cmd, error) {
-		usedFromCore = true
-		c.Check(cmd, Equals, "/usr/bin/mksquashfs")
-		return &exec.Cmd{Path: "/bin/true"}, nil
-	})()
-	mksq := testutil.MockCommand(c, "mksquashfs", "exit 1")
-	defer mksq.Restore()
-
-	buildDir := c.MkDir()
-
-	snap := squashfs.New(filepath.Join(c.MkDir(), "foo.snap"))
-	err := snap.Build(buildDir, "app")
-	c.Assert(err, IsNil)
-	c.Check(usedFromCore, Equals, true)
-	c.Check(mksq.Calls(), HasLen, 0)
-}
-
-func (s *SquashfsTestSuite) TestBuildUsesMksquashfsFromClassicIfCoreUnavailable(c *C) {
-	triedFromCore := false
-	defer squashfs.MockCommandFromSystemSnap(func(cmd string, args ...string) (*exec.Cmd, error) {
-		triedFromCore = true
-		c.Check(cmd, Equals, "/usr/bin/mksquashfs")
-		return nil, errors.New("bzzt")
-	})()
-	mksq := testutil.MockCommand(c, "mksquashfs", "")
-	defer mksq.Restore()
-
-	buildDir := c.MkDir()
-
-	snap := squashfs.New(filepath.Join(c.MkDir(), "foo.snap"))
-	err := snap.Build(buildDir, "app")
-	c.Assert(err, IsNil)
-	c.Check(triedFromCore, Equals, true)
-	c.Check(mksq.Calls(), HasLen, 1)
-}
-
-func (s *SquashfsTestSuite) TestBuildFailsIfNoMksquashfs(c *C) {
-	triedFromCore := false
-	defer squashfs.MockCommandFromSystemSnap(func(cmd string, args ...string) (*exec.Cmd, error) {
-		triedFromCore = true
-		c.Check(cmd, Equals, "/usr/bin/mksquashfs")
-		return nil, errors.New("bzzt")
-	})()
-	mksq := testutil.MockCommand(c, "mksquashfs", "exit 1")
-	defer mksq.Restore()
-
-	buildDir := c.MkDir()
-
-	snap := squashfs.New(filepath.Join(c.MkDir(), "foo.snap"))
-	err := snap.Build(buildDir, "app")
-	c.Assert(err, ErrorMatches, "mksquashfs call failed:.*")
-	c.Check(triedFromCore, Equals, true)
-	c.Check(mksq.Calls(), HasLen, 1)
-}
-
-func (s *SquashfsTestSuite) TestBuildVariesArgsByType(c *C) {
-	defer squashfs.MockCommandFromSystemSnap(func(cmd string, args ...string) (*exec.Cmd, error) {
-		return nil, errors.New("bzzt")
-	})()
-	mksq := testutil.MockCommand(c, "mksquashfs", "")
-	defer mksq.Restore()
-
-	buildDir := c.MkDir()
-	filename := filepath.Join(c.MkDir(), "foo.snap")
-	snap := squashfs.New(filename)
-
-	permissiveTypeArgs := []string{".", filename, "-noappend", "-comp", "xz", "-no-fragments", "-no-progress"}
-	restrictedTypeArgs := append(permissiveTypeArgs, "-all-root", "-no-xattrs")
-	tests := []struct {
-		snapType string
-		args     []string
-	}{
-		{"", restrictedTypeArgs},
-		{"app", restrictedTypeArgs},
-		{"gadget", restrictedTypeArgs},
-		{"kernel", restrictedTypeArgs},
-		{"snapd", restrictedTypeArgs},
-		{"base", permissiveTypeArgs},
-		{"os", permissiveTypeArgs},
-		{"core", permissiveTypeArgs},
-	}
-
-	for _, t := range tests {
-		mksq.ForgetCalls()
-		comm := Commentf("type: %s", t.snapType)
-
-		c.Check(snap.Build(buildDir, t.snapType), IsNil, comm)
-		c.Assert(mksq.Calls(), HasLen, 1, comm)
-		c.Assert(mksq.Calls()[0], HasLen, len(t.args)+1)
-		c.Check(mksq.Calls()[0][0], Equals, "mksquashfs", comm)
-		c.Check(mksq.Calls()[0][1:], DeepEquals, t.args, comm)
-	}
-}
-
-func (s *SquashfsTestSuite) TestBuildReportsFailures(c *C) {
-	mockUnsquashfs := testutil.MockCommand(c, "mksquashfs", `
-echo Yeah, nah. >&2
-exit 1
 `)
-	defer mockUnsquashfs.Restore()
-
-	data := "mock kernel snap"
-	dir := makeSnapContents(c, "", data)
-	snap := squashfs.New("foo.snap")
-	c.Check(snap.Build(dir, "kernel"), ErrorMatches, `mksquashfs call failed: Yeah, nah.`)
 }
 
 func (s *SquashfsTestSuite) TestUnsquashfsStderrWriter(c *C) {
@@ -589,7 +340,7 @@ func (s *SquashfsTestSuite) TestUnsquashfsStderrWriter(c *C) {
 			expectedErr: `failed: "failed 1", "failed 2", "3 Failed", "4 Failed", and 1 more`,
 		},
 	} {
-		usw := squashfs.NewUnsquashfsStderrWriter()
+		usw := newUnsquashfsStderrWriter()
 		for _, l := range t.inp {
 			usw.Write([]byte(l))
 		}
@@ -599,92 +350,4 @@ func (s *SquashfsTestSuite) TestUnsquashfsStderrWriter(c *C) {
 			c.Check(usw.Err(), IsNil)
 		}
 	}
-}
-
-func (s *SquashfsTestSuite) TestBuildDate(c *C) {
-	// This env is used in reproducible builds and will force
-	// squashfs to use a specific date. We need to unset it
-	// for this specific test.
-	if oldEnv := os.Getenv("SOURCE_DATE_EPOCH"); oldEnv != "" {
-		os.Unsetenv("SOURCE_DATE_EPOCH")
-		defer func() { os.Setenv("SOURCE_DATE_EPOCH", oldEnv) }()
-	}
-
-	// make a directory
-	d := c.MkDir()
-	// set its time waaay back
-	now := time.Now()
-	then := now.Add(-10000 * time.Hour)
-	c.Assert(os.Chtimes(d, then, then), IsNil)
-	// make a snap using this directory
-	filename := filepath.Join(c.MkDir(), "foo.snap")
-	snap := squashfs.New(filename)
-	c.Assert(snap.Build(d, "app"), IsNil)
-	// and see it's BuildDate is _now_, not _then_.
-	c.Check(squashfs.BuildDate(filename), Equals, snap.BuildDate())
-	c.Check(math.Abs(now.Sub(snap.BuildDate()).Seconds()) <= 61, Equals, true, Commentf("Unexpected build date %s", snap.BuildDate()))
-}
-
-func (s *SquashfsTestSuite) TestBuildChecksReadDifferentFiles(c *C) {
-	if os.Geteuid() == 0 {
-		c.Skip("cannot be tested when running as root")
-	}
-	// make a directory
-	d := c.MkDir()
-
-	err := os.MkdirAll(filepath.Join(d, "ro-dir"), 0755)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(d, "ro-dir", "in-ro-dir"), []byte("123"), 0664)
-	c.Assert(err, IsNil)
-	err = os.Chmod(filepath.Join(d, "ro-dir"), 0000)
-	c.Assert(err, IsNil)
-	// so that tear down does not complain
-	defer os.Chmod(filepath.Join(d, "ro-dir"), 0755)
-
-	err = ioutil.WriteFile(filepath.Join(d, "ro-file"), []byte("123"), 0000)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(d, "ro-empty-file"), nil, 0000)
-	c.Assert(err, IsNil)
-
-	err = syscall.Mkfifo(filepath.Join(d, "fifo"), 0000)
-	c.Assert(err, IsNil)
-
-	filename := filepath.Join(c.MkDir(), "foo.snap")
-	snap := squashfs.New(filename)
-	err = snap.Build(d, "app")
-	c.Assert(err, ErrorMatches, `(?s)cannot access the following locations in the snap source directory:
-- ro-(file|dir) \(owner [0-9]+:[0-9]+ mode 000\)
-- ro-(file|dir) \(owner [0-9]+:[0-9]+ mode 000\)
-`)
-
-}
-
-func (s *SquashfsTestSuite) TestBuildChecksReadErrorLimit(c *C) {
-	if os.Geteuid() == 0 {
-		c.Skip("cannot be tested when running as root")
-	}
-	// make a directory
-	d := c.MkDir()
-
-	// make more than maxErrPaths entries
-	for i := 0; i < squashfs.MaxErrPaths; i++ {
-		p := filepath.Join(d, fmt.Sprintf("0%d", i))
-		err := ioutil.WriteFile(p, []byte("123"), 0000)
-		c.Assert(err, IsNil)
-		err = os.Chmod(p, 0000)
-		c.Assert(err, IsNil)
-	}
-	filename := filepath.Join(c.MkDir(), "foo.snap")
-	snap := squashfs.New(filename)
-	err := snap.Build(d, "app")
-	c.Assert(err, ErrorMatches, `(?s)cannot access the following locations in the snap source directory:
-(- [0-9]+ \(owner [0-9]+:[0-9]+ mode 000.*\).){10}- too many errors, listing first 10 entries
-`)
-}
-
-func (s *SquashfsTestSuite) TestBuildBadSource(c *C) {
-	filename := filepath.Join(c.MkDir(), "foo.snap")
-	snap := squashfs.New(filename)
-	err := snap.Build("does-not-exist", "app")
-	c.Assert(err, ErrorMatches, ".*does-not-exist/: no such file or directory")
 }

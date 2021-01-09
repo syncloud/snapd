@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2017-2018 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,11 +20,7 @@
 package snapstate_test
 
 import (
-	"context"
 	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"time"
 
 	. "gopkg.in/check.v1"
@@ -43,32 +39,19 @@ import (
 type catalogStore struct {
 	storetest.Store
 
-	ops     []string
-	tooMany bool
+	ops []string
 }
 
-func (r *catalogStore) WriteCatalogs(ctx context.Context, w io.Writer, a store.SnapAdder) error {
-	if ctx == nil || !auth.IsEnsureContext(ctx) {
-		panic("Ensure marked context required")
-	}
+func (r *catalogStore) WriteCatalogs(w io.Writer, a store.SnapAdder) error {
 	r.ops = append(r.ops, "write-catalog")
-	if r.tooMany {
-		return store.ErrTooManyRequests
-	}
 	w.Write([]byte("pkg1\npkg2"))
-	a.AddSnap("foo", "1.0", "foo summary", []string{"foo", "meh"})
-	a.AddSnap("bar", "2.0", "bar summray", []string{"bar", "meh"})
+	a.AddSnap("foo", "foo summary", []string{"foo", "meh"})
+	a.AddSnap("bar", "bar summray", []string{"bar", "meh"})
 	return nil
 }
 
-func (r *catalogStore) Sections(ctx context.Context, _ *auth.UserState) ([]string, error) {
-	if ctx == nil || !auth.IsEnsureContext(ctx) {
-		panic("Ensure marked context required")
-	}
+func (r *catalogStore) Sections(*auth.UserState) ([]string, error) {
 	r.ops = append(r.ops, "sections")
-	if r.tooMany {
-		return nil, store.ErrTooManyRequests
-	}
 	return []string{"section1", "section2"}, nil
 }
 
@@ -85,12 +68,11 @@ func (s *catalogRefreshTestSuite) SetUpTest(c *C) {
 	s.tmpdir = c.MkDir()
 	dirs.SetRootDir(s.tmpdir)
 	s.state = state.New(nil)
+
 	s.store = &catalogStore{}
 	s.state.Lock()
-	defer s.state.Unlock()
 	snapstate.ReplaceStore(s.state, s.store)
-	// mark system as seeded
-	s.state.Set("seeded", true)
+	s.state.Unlock()
 
 	snapstate.CanAutoRefresh = func(*state.State) (bool, error) { return true, nil }
 }
@@ -100,21 +82,9 @@ func (s *catalogRefreshTestSuite) TearDownTest(c *C) {
 }
 
 func (s *catalogRefreshTestSuite) TestCatalogRefresh(c *C) {
-	// start with no catalog
-	c.Check(dirs.SnapSectionsFile, testutil.FileAbsent)
-	c.Check(dirs.SnapNamesFile, testutil.FileAbsent)
-	c.Check(dirs.SnapCommandsDB, testutil.FileAbsent)
-
 	cr7 := snapstate.NewCatalogRefresh(s.state)
-	// next is initially zero
-	c.Check(snapstate.NextCatalogRefresh(cr7).IsZero(), Equals, true)
-	t0 := time.Now()
-
 	err := cr7.Ensure()
 	c.Check(err, IsNil)
-
-	// next now has a delta (next refresh is not before t0 + delta)
-	c.Check(snapstate.NextCatalogRefresh(cr7).Before(t0.Add(snapstate.CatalogRefreshDelayWithDelta)), Equals, false)
 
 	c.Check(s.store.ops, DeepEquals, []string{"sections", "write-catalog"})
 
@@ -127,34 +97,11 @@ func (s *catalogRefreshTestSuite) TestCatalogRefresh(c *C) {
 	c.Check(osutil.FileExists(dirs.SnapCommandsDB), Equals, true)
 	dump, err := advisor.DumpCommands()
 	c.Assert(err, IsNil)
-	c.Check(dump, DeepEquals, map[string]string{
-		"foo": `[{"snap":"foo","version":"1.0"}]`,
-		"bar": `[{"snap":"bar","version":"2.0"}]`,
-		"meh": `[{"snap":"foo","version":"1.0"},{"snap":"bar","version":"2.0"}]`,
+	c.Check(dump, DeepEquals, map[string][]string{
+		"foo": {"foo"},
+		"bar": {"bar"},
+		"meh": {"foo", "bar"},
 	})
-}
-
-func (s *catalogRefreshTestSuite) TestCatalogRefreshTooMany(c *C) {
-	s.store.tooMany = true
-
-	cr7 := snapstate.NewCatalogRefresh(s.state)
-	// next is initially zero
-	c.Check(snapstate.NextCatalogRefresh(cr7).IsZero(), Equals, true)
-	t0 := time.Now()
-
-	err := cr7.Ensure()
-	c.Check(err, IsNil) // !!
-
-	// next now has a delta (next refresh is not before t0 + delta)
-	c.Check(snapstate.NextCatalogRefresh(cr7).Before(t0.Add(snapstate.CatalogRefreshDelayWithDelta)), Equals, false)
-
-	// it tried one endpoint and bailed at the first 429
-	c.Check(s.store.ops, HasLen, 1)
-
-	// nothing got created
-	c.Check(osutil.FileExists(dirs.SnapSectionsFile), Equals, false)
-	c.Check(osutil.FileExists(dirs.SnapNamesFile), Equals, false)
-	c.Check(osutil.FileExists(dirs.SnapCommandsDB), Equals, false)
 }
 
 func (s *catalogRefreshTestSuite) TestCatalogRefreshNotNeeded(c *C) {
@@ -165,60 +112,4 @@ func (s *catalogRefreshTestSuite) TestCatalogRefreshNotNeeded(c *C) {
 	c.Check(s.store.ops, HasLen, 0)
 	c.Check(osutil.FileExists(dirs.SnapSectionsFile), Equals, false)
 	c.Check(osutil.FileExists(dirs.SnapNamesFile), Equals, false)
-}
-
-func (s *catalogRefreshTestSuite) TestCatalogRefreshNewEnough(c *C) {
-	// write a fake sections file just to have it
-	c.Assert(os.MkdirAll(filepath.Dir(dirs.SnapNamesFile), 0755), IsNil)
-	c.Assert(ioutil.WriteFile(dirs.SnapNamesFile, nil, 0644), IsNil)
-	// set the timestamp to something known
-	t0 := time.Now().Truncate(time.Hour)
-	c.Assert(os.Chtimes(dirs.SnapNamesFile, t0, t0), IsNil)
-
-	cr7 := snapstate.NewCatalogRefresh(s.state)
-	// next is initially zero
-	c.Check(snapstate.NextCatalogRefresh(cr7).IsZero(), Equals, true)
-	err := cr7.Ensure()
-	c.Assert(err, IsNil)
-	c.Check(s.store.ops, HasLen, 0)
-	next := snapstate.NextCatalogRefresh(cr7)
-	// next is no longer zero,
-	c.Check(next.IsZero(), Equals, false)
-	// but has a delta WRT the timestamp
-	c.Check(next.Equal(t0.Add(snapstate.CatalogRefreshDelayWithDelta)), Equals, true)
-}
-
-func (s *catalogRefreshTestSuite) TestCatalogRefreshTooNew(c *C) {
-	// write a fake sections file just to have it
-	c.Assert(os.MkdirAll(filepath.Dir(dirs.SnapNamesFile), 0755), IsNil)
-	c.Assert(ioutil.WriteFile(dirs.SnapNamesFile, nil, 0644), IsNil)
-	// but set the timestamp in the future
-	t := time.Now().Add(time.Hour)
-	c.Assert(os.Chtimes(dirs.SnapNamesFile, t, t), IsNil)
-
-	cr7 := snapstate.NewCatalogRefresh(s.state)
-	err := cr7.Ensure()
-	c.Check(err, IsNil)
-	c.Check(s.store.ops, DeepEquals, []string{"sections", "write-catalog"})
-}
-
-func (s *catalogRefreshTestSuite) TestCatalogRefreshUnSeeded(c *C) {
-	// mark system as unseeded (first boot)
-	s.state.Lock()
-	s.state.Set("seeded", nil)
-	s.state.Unlock()
-
-	cr7 := snapstate.NewCatalogRefresh(s.state)
-	// next is initially zero
-	c.Check(snapstate.NextCatalogRefresh(cr7).IsZero(), Equals, true)
-
-	err := cr7.Ensure()
-	c.Assert(err, IsNil)
-
-	// next should be still zero as we skipped refresh on unseeded system
-	c.Check(snapstate.NextCatalogRefresh(cr7).IsZero(), Equals, true)
-	// nothing got created
-	c.Check(osutil.FileExists(dirs.SnapSectionsFile), Equals, false)
-	c.Check(osutil.FileExists(dirs.SnapNamesFile), Equals, false)
-	c.Check(osutil.FileExists(dirs.SnapCommandsDB), Equals, false)
 }

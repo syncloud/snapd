@@ -20,7 +20,6 @@
 package client
 
 import (
-	"encoding/json"
 	"io"
 	"net/url"
 )
@@ -30,11 +29,9 @@ func (client *Client) SetDoer(d doer) {
 	client.doer = d
 }
 
-type DoFlags = doFlags
-
 // Do does do.
-func (client *Client) Do(method, path string, query url.Values, body io.Reader, v interface{}, flags DoFlags) (statusCode int, err error) {
-	return client.do(method, path, query, nil, body, v, flags)
+func (client *Client) Do(method, path string, query url.Values, body io.Reader, v interface{}) error {
+	return client.do(method, path, query, nil, body, v)
 }
 
 // expose parseError for testing
@@ -46,10 +43,3 @@ var TestReadAuth = readAuthData
 var TestStoreAuthFilename = storeAuthDataFilename
 
 var TestAuthFileEnvKey = authFileEnvKey
-
-func UnmarshalSnapshotAction(body io.Reader) (act snapshotAction, err error) {
-	err = json.NewDecoder(body).Decode(&act)
-	return
-}
-
-type DownloadAction = downloadAction

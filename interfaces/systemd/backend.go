@@ -33,7 +33,6 @@ import (
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/snap"
 	sysd "github.com/snapcore/snapd/systemd"
-	"github.com/snapcore/snapd/timings"
 )
 
 // Backend is responsible for maintaining apparmor profiles for ubuntu-core-launcher.
@@ -53,9 +52,9 @@ func (b *Backend) Name() interfaces.SecuritySystem {
 //
 // This method should be called after changing plug, slots, connections between
 // them or application present in the snap.
-func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementOptions, repo *interfaces.Repository, tm timings.Measurer) error {
+func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementOptions, repo *interfaces.Repository) error {
 	// Record all the extra systemd services for this snap.
-	snapName := snapInfo.InstanceName()
+	snapName := snapInfo.Name()
 	// Get the services that apply to this snap
 	spec, err := repo.SnapSpecification(b.Name(), snapName)
 	if err != nil {
@@ -69,7 +68,7 @@ func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementO
 	}
 	glob := interfaces.InterfaceServiceName(snapName, "*")
 
-	systemd := sysd.New(dirs.GlobalRootDir, sysd.SystemMode, &dummyReporter{})
+	systemd := sysd.New(dirs.GlobalRootDir, &dummyReporter{})
 	// We need to be carefully here and stop all removed service units before
 	// we remove their files as otherwise systemd is not able to disable/stop
 	// them anymore.
@@ -100,7 +99,7 @@ func (b *Backend) Setup(snapInfo *snap.Info, confinement interfaces.ConfinementO
 
 // Remove disables, stops and removes systemd services of a given snap.
 func (b *Backend) Remove(snapName string) error {
-	systemd := sysd.New(dirs.GlobalRootDir, sysd.SystemMode, &dummyReporter{})
+	systemd := sysd.New(dirs.GlobalRootDir, &dummyReporter{})
 	// Remove all the files matching snap glob
 	glob := interfaces.InterfaceServiceName(snapName, "*")
 	_, removed, errEnsure := osutil.EnsureDirState(dirs.SnapServicesDir, glob, nil)
@@ -127,20 +126,15 @@ func (b *Backend) NewSpecification() interfaces.Specification {
 	return &Specification{}
 }
 
-// SandboxFeatures returns nil
-func (b *Backend) SandboxFeatures() []string {
-	return nil
-}
-
 // deriveContent computes .service files based on requests made to the specification.
-func deriveContent(spec *Specification, snapInfo *snap.Info) map[string]osutil.FileState {
+func deriveContent(spec *Specification, snapInfo *snap.Info) map[string]*osutil.FileState {
 	services := spec.Services()
 	if len(services) == 0 {
 		return nil
 	}
-	content := make(map[string]osutil.FileState)
+	content := make(map[string]*osutil.FileState)
 	for name, service := range services {
-		content[name] = &osutil.MemoryFileState{
+		content[name] = &osutil.FileState{
 			Content: []byte(service.String()),
 			Mode:    0644,
 		}
@@ -148,7 +142,7 @@ func deriveContent(spec *Specification, snapInfo *snap.Info) map[string]osutil.F
 	return content
 }
 
-func disableRemovedServices(systemd sysd.Systemd, dir, glob string, content map[string]osutil.FileState) error {
+func disableRemovedServices(systemd sysd.Systemd, dir, glob string, content map[string]*osutil.FileState) error {
 	paths, err := filepath.Glob(filepath.Join(dir, glob))
 	if err != nil {
 		return err

@@ -36,11 +36,15 @@ import (
 // system states. It manipulates the observed system state to ensure
 // nothing in it violates existing assertions, or misses required
 // ones.
-type AssertManager struct{}
+type AssertManager struct {
+	runner *state.TaskRunner
+}
 
 // Manager returns a new assertion manager.
-func Manager(s *state.State, runner *state.TaskRunner) (*AssertManager, error) {
+func Manager(s *state.State) (*AssertManager, error) {
 	delayedCrossMgrInit()
+
+	runner := state.NewTaskRunner(s)
 
 	runner.AddHandler("validate-snap", doValidateSnap, nil)
 
@@ -53,12 +57,27 @@ func Manager(s *state.State, runner *state.TaskRunner) (*AssertManager, error) {
 	ReplaceDB(s, db)
 	s.Unlock()
 
-	return &AssertManager{}, nil
+	return &AssertManager{runner: runner}, nil
+}
+
+func (m *AssertManager) KnownTaskKinds() []string {
+	return m.runner.KnownTaskKinds()
 }
 
 // Ensure implements StateManager.Ensure.
 func (m *AssertManager) Ensure() error {
+	m.runner.Ensure()
 	return nil
+}
+
+// Wait implements StateManager.Wait.
+func (m *AssertManager) Wait() {
+	m.runner.Wait()
+}
+
+// Stop implements StateManager.Stop.
+func (m *AssertManager) Stop() {
+	m.runner.Stop()
 }
 
 type cachedDBKey struct{}
@@ -83,17 +102,16 @@ func DB(s *state.State) asserts.RODatabase {
 
 // doValidateSnap fetches the relevant assertions for the snap being installed and cross checks them with the snap.
 func doValidateSnap(t *state.Task, _ *tomb.Tomb) error {
-	st := t.State()
-	st.Lock()
-	defer st.Unlock()
+	t.State().Lock()
+	defer t.State().Unlock()
 
 	snapsup, err := snapstate.TaskSnapSetup(t)
 	if err != nil {
-		return fmt.Errorf("internal error: cannot obtain snap setup: %s", err)
+		return nil
 	}
 
 	sha3_384, snapSize, err := asserts.SnapFileSHA3_384(snapsup.SnapPath)
-	appVersion := fmt.Sprintf("%s.%s", snapsup.SnapName(), snapsup.Revision())
+	appVersion := fmt.Sprintf("%s.%s", snapsup.Name(), snapsup.Revision())
 	sha3_384, err = asserts.EncodeDigest(crypto.SHA3_384, []byte(appVersion))
 	if err != nil {
 		return err
@@ -104,45 +122,22 @@ func doValidateSnap(t *state.Task, _ *tomb.Tomb) error {
 		return err
 	}
 
-	deviceCtx, err := snapstate.DeviceCtx(st, t, nil)
-	if err != nil {
-		return err
-	}
-
-	modelAs := deviceCtx.Model()
-
-	err = doFetch(st, snapsup.UserID, deviceCtx, func(f asserts.Fetcher) error {
-		if err := snapasserts.FetchSnapAssertions(f, sha3_384); err != nil {
-			return err
-		}
-
-		// fetch store assertion if available
-		if modelAs.Store() != "" {
-			err := snapasserts.FetchStore(f, modelAs.Store())
-			if notFound, ok := err.(*asserts.NotFoundError); ok {
-				if notFound.Type != asserts.StoreType {
-					return err
-				}
-			} else if err != nil {
-				return err
-			}
-		}
-
-		return nil
+	err = doFetch(t.State(), snapsup.UserID, func(f asserts.Fetcher) error {
+		return snapasserts.FetchSnapAssertions(f, sha3_384)
 	})
 	if notFound, ok := err.(*asserts.NotFoundError); ok {
 		if notFound.Type == asserts.SnapRevisionType {
-			return fmt.Errorf("cannot verify snap %q, no matching signatures found", snapsup.InstanceName())
+			return fmt.Errorf("cannot verify snap %q, no matching signatures found", snapsup.Name())
 		} else {
-			return fmt.Errorf("cannot find supported signatures to verify snap %q and its hash (%v)", snapsup.InstanceName(), notFound)
+			return fmt.Errorf("cannot find supported signatures to verify snap %q and its hash (%v)", snapsup.Name(), notFound)
 		}
 	}
 	if err != nil {
 		return err
 	}
 
-	db := DB(st)
-	err = snapasserts.CrossCheck(snapsup.InstanceName(), sha3_384, snapSize, snapsup.SideInfo, db)
+	db := DB(t.State())
+	err = snapasserts.CrossCheck(snapsup.Name(), sha3_384, snapSize, snapsup.SideInfo, db)
 	if err != nil {
 		// TODO: trigger a global sanity check
 		// that will generate the changes to deal with this

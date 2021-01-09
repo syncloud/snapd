@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/snapcore/snapd/overlord/configstate/config"
+	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/release"
 )
 
@@ -32,8 +33,13 @@ var (
 	Stderr = os.Stderr
 )
 
-// coreCfg returns the configuration value for the core snap.
-func coreCfg(tr config.Conf, key string) (result string, err error) {
+type Conf interface {
+	Get(snapName, key string, result interface{}) error
+	Set(snapName, key string, value interface{}) error
+	State() *state.State
+}
+
+func coreCfg(tr Conf, key string) (result string, err error) {
 	var v interface{} = ""
 	if err := tr.Get("core", key, &v); err != nil && !config.IsNoOption(err) {
 		return "", err
@@ -44,62 +50,16 @@ func coreCfg(tr config.Conf, key string) (result string, err error) {
 	return fmt.Sprintf("%v", v), nil
 }
 
-// supportedConfigurations contains a set of handled configuration keys.
-// The actual values are populated by `init()` functions in each module.
-var supportedConfigurations = make(map[string]bool, 32)
-
-func validateBoolFlag(tr config.Conf, flag string) error {
-	value, err := coreCfg(tr, flag)
-	if err != nil {
-		return err
-	}
-	switch value {
-	case "", "true", "false":
-		// noop
-	default:
-		return fmt.Errorf("%s can only be set to 'true' or 'false'", flag)
-	}
-	return nil
-}
-
-func Run(tr config.Conf) error {
-	// check if the changes
-	for _, k := range tr.Changes() {
-		if !supportedConfigurations[k] {
-			return fmt.Errorf("cannot set %q: unsupported system option", k)
-		}
-	}
-
+func Run(tr Conf) error {
 	if err := validateProxyStore(tr); err != nil {
 		return err
 	}
 	if err := validateRefreshSchedule(tr); err != nil {
 		return err
 	}
-	if err := validateRefreshRateLimit(tr); err != nil {
-		return err
-	}
-	if err := validateExperimentalSettings(tr); err != nil {
-		return err
-	}
-	if err := validateWatchdogOptions(tr); err != nil {
-		return err
-	}
-	if err := validateNetworkSettings(tr); err != nil {
-		return err
-	}
-	if err := validateAutomaticSnapshotsExpiration(tr); err != nil {
-		return err
-	}
-	// FIXME: ensure the user cannot set "core seed.loaded"
 
 	// capture cloud information
 	if err := setCloudInfoWhenSeeding(tr); err != nil {
-		return err
-	}
-
-	// Export experimental.* flags to a place easily accessible from snapd helpers.
-	if err := ExportExperimentalFlags(tr); err != nil {
 		return err
 	}
 
@@ -126,14 +86,6 @@ func Run(tr config.Conf) error {
 	}
 	// proxy.{http,https,ftp}
 	if err := handleProxyConfiguration(tr); err != nil {
-		return err
-	}
-	// watchdog.{runtime-timeout,shutdown-timeout}
-	if err := handleWatchdogConfiguration(tr); err != nil {
-		return err
-	}
-	// network.disable-ipv6
-	if err := handleNetworkConfiguration(tr); err != nil {
 		return err
 	}
 

@@ -131,7 +131,7 @@ func (c *getCommand) printValues(getByKey func(string) (interface{}, bool, error
 }
 
 func (c *getCommand) Execute(args []string) error {
-	if len(c.Positional.Keys) == 0 && c.Positional.PlugOrSlotSpec == "" {
+	if c.Positional.PlugOrSlotSpec == "" && len(c.Positional.Keys) == 0 {
 		return fmt.Errorf(i18n.G("get which option?"))
 	}
 
@@ -152,9 +152,6 @@ func (c *getCommand) Execute(args []string) error {
 		}
 		if snap != "" {
 			return fmt.Errorf(`"snapctl get %s" not supported, use "snapctl get :%s" instead`, c.Positional.PlugOrSlotSpec, parts[1])
-		}
-		if len(c.Positional.Keys) == 0 {
-			return fmt.Errorf(i18n.G("get which attribute?"))
 		}
 
 		return c.getInterfaceSetting(context, name)
@@ -178,7 +175,7 @@ func (c *getCommand) getConfigSetting(context *hookstate.Context) error {
 
 	return c.printValues(func(key string) (interface{}, bool, error) {
 		var value interface{}
-		err := transaction.Get(c.context().InstanceName(), key, &value)
+		err := transaction.Get(c.context().SnapName(), key, &value)
 		if err == nil {
 			return value, true, nil
 		}
@@ -197,36 +194,22 @@ type ifaceHookType int
 const (
 	preparePlugHook ifaceHookType = iota
 	prepareSlotHook
-	unpreparePlugHook
-	unprepareSlotHook
 	connectPlugHook
 	connectSlotHook
-	disconnectPlugHook
-	disconnectSlotHook
 	unknownHook
 )
 
 func interfaceHookType(hookName string) (ifaceHookType, error) {
-	switch {
-	case strings.HasPrefix(hookName, "prepare-plug-"):
+	if strings.HasPrefix(hookName, "prepare-plug-") {
 		return preparePlugHook, nil
-	case strings.HasPrefix(hookName, "connect-plug-"):
+	} else if strings.HasPrefix(hookName, "connect-plug-") {
 		return connectPlugHook, nil
-	case strings.HasPrefix(hookName, "prepare-slot-"):
+	} else if strings.HasPrefix(hookName, "prepare-slot-") {
 		return prepareSlotHook, nil
-	case strings.HasPrefix(hookName, "connect-slot-"):
+	} else if strings.HasPrefix(hookName, "connect-slot-") {
 		return connectSlotHook, nil
-	case strings.HasPrefix(hookName, "disconnect-plug-"):
-		return disconnectPlugHook, nil
-	case strings.HasPrefix(hookName, "disconnect-slot-"):
-		return disconnectSlotHook, nil
-	case strings.HasPrefix(hookName, "unprepare-slot-"):
-		return unprepareSlotHook, nil
-	case strings.HasPrefix(hookName, "unprepare-plug-"):
-		return unpreparePlugHook, nil
-	default:
-		return unknownHook, fmt.Errorf("unknown hook type")
 	}
+	return unknownHook, fmt.Errorf("unknown hook type")
 }
 
 func validatePlugOrSlot(attrsTask *state.Task, plugSide bool, plugOrSlot string) error {
@@ -292,47 +275,31 @@ func (c *getCommand) getInterfaceSetting(context *hookstate.Context, plugOrSlot 
 		return fmt.Errorf("cannot use --plug and --slot together")
 	}
 
-	isPlugSide := (hookType == preparePlugHook || hookType == unpreparePlugHook || hookType == connectPlugHook || hookType == disconnectPlugHook)
+	isPlugSide := (hookType == preparePlugHook || hookType == connectPlugHook)
 	if err = validatePlugOrSlot(attrsTask, isPlugSide, plugOrSlot); err != nil {
 		return err
 	}
 
 	var which string
 	if c.ForcePlugSide || (isPlugSide && !c.ForceSlotSide) {
-		which = "plug"
+		which = "plug-attrs"
 	} else {
-		which = "slot"
+		which = "slot-attrs"
 	}
 
 	st := context.State()
 	st.Lock()
 	defer st.Unlock()
 
-	var staticAttrs, dynamicAttrs map[string]interface{}
-	if err = attrsTask.Get(which+"-static", &staticAttrs); err != nil {
-		return fmt.Errorf(i18n.G("internal error: cannot get %s from appropriate task"), which)
-	}
-	if err = attrsTask.Get(which+"-dynamic", &dynamicAttrs); err != nil {
+	attributes := make(map[string]interface{})
+	if err = attrsTask.Get(which, &attributes); err != nil {
 		return fmt.Errorf(i18n.G("internal error: cannot get %s from appropriate task"), which)
 	}
 
 	return c.printValues(func(key string) (interface{}, bool, error) {
-		subkeys, err := config.ParseKey(key)
-		if err != nil {
-			return nil, false, err
-		}
-
-		var value interface{}
-		err = getAttribute(context.InstanceName(), subkeys, 0, staticAttrs, &value)
-		if err == nil {
+		if value, ok := attributes[key]; ok {
 			return value, true, nil
 		}
-		if isNoAttribute(err) {
-			err = getAttribute(context.InstanceName(), subkeys, 0, dynamicAttrs, &value)
-			if err == nil {
-				return value, true, nil
-			}
-		}
-		return nil, false, err
+		return nil, false, fmt.Errorf(i18n.G("unknown attribute %q"), key)
 	})
 }

@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,15 +20,10 @@
 package devicestate
 
 import (
-	"context"
 	"time"
 
 	"github.com/snapcore/snapd/asserts"
-	"github.com/snapcore/snapd/gadget"
-	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
-	"github.com/snapcore/snapd/overlord/storecontext"
-	"github.com/snapcore/snapd/timings"
 )
 
 func MockKeyLength(n int) (restore func()) {
@@ -43,11 +38,19 @@ func MockKeyLength(n int) (restore func()) {
 	}
 }
 
-func MockBaseStoreURL(url string) (restore func()) {
-	oldURL := baseStoreURL
-	baseStoreURL = mustParse(url).ResolveReference(authRef)
+func MockRequestIDURL(url string) (restore func()) {
+	oldURL := requestIDURL
+	requestIDURL = url
 	return func() {
-		baseStoreURL = oldURL
+		requestIDURL = oldURL
+	}
+}
+
+func MockSerialRequestURL(url string) (restore func()) {
+	oldURL := serialRequestURL
+	serialRequestURL = url
+	return func() {
+		serialRequestURL = oldURL
 	}
 }
 
@@ -67,30 +70,20 @@ func MockMaxTentatives(max int) (restore func()) {
 	}
 }
 
-func KeypairManager(m *DeviceManager) asserts.KeypairManager {
+func (m *DeviceManager) KeypairManager() asserts.KeypairManager {
 	return m.keypairMgr
 }
 
-func EnsureOperationalShouldBackoff(m *DeviceManager, now time.Time) bool {
+func (m *DeviceManager) EnsureOperationalShouldBackoff(now time.Time) bool {
 	return m.ensureOperationalShouldBackoff(now)
 }
 
-func BecomeOperationalBackoff(m *DeviceManager) time.Duration {
+func (m *DeviceManager) BecomeOperationalBackoff() time.Duration {
 	return m.becomeOperationalBackoff
 }
 
-func SetLastBecomeOperationalAttempt(m *DeviceManager, t time.Time) {
+func (m *DeviceManager) SetLastBecomeOperationalAttempt(t time.Time) {
 	m.lastBecomeOperationalAttempt = t
-}
-
-func SetOperatingMode(m *DeviceManager, mode string) {
-	m.modeEnv.Mode = mode
-}
-
-// XXX: will become properly exported but we probably want to make
-//      mode a type and not a string before we do that
-func OperatingMode(m *DeviceManager) string {
-	return m.operatingMode()
 }
 
 func MockRepeatRequestSerial(label string) (restore func()) {
@@ -101,31 +94,13 @@ func MockRepeatRequestSerial(label string) (restore func()) {
 	}
 }
 
-func MockSnapstateInstallWithDeviceContext(f func(ctx context.Context, st *state.State, name string, opts *snapstate.RevisionOptions, userID int, flags snapstate.Flags, deviceCtx snapstate.DeviceContext, fromChange string) (*state.TaskSet, error)) (restore func()) {
-	old := snapstateInstallWithDeviceContext
-	snapstateInstallWithDeviceContext = f
-	return func() {
-		snapstateInstallWithDeviceContext = old
-	}
-}
-
-func MockSnapstateUpdateWithDeviceContext(f func(st *state.State, name string, opts *snapstate.RevisionOptions, userID int, flags snapstate.Flags, deviceCtx snapstate.DeviceContext, fromChange string) (*state.TaskSet, error)) (restore func()) {
-	old := snapstateUpdateWithDeviceContext
-	snapstateUpdateWithDeviceContext = f
-	return func() {
-		snapstateUpdateWithDeviceContext = old
-	}
-}
-
-func EnsureSeeded(m *DeviceManager) error {
-	return m.ensureSeeded()
+func (m *DeviceManager) EnsureSeedYaml() error {
+	return m.ensureSeedYaml()
 }
 
 var PopulateStateFromSeedImpl = populateStateFromSeedImpl
 
-type PopulateStateFromSeedOptions = populateStateFromSeedOptions
-
-func MockPopulateStateFromSeed(f func(*state.State, *PopulateStateFromSeedOptions, timings.Measurer) ([]*state.TaskSet, error)) (restore func()) {
+func MockPopulateStateFromSeed(f func(*state.State) ([]*state.TaskSet, error)) (restore func()) {
 	old := populateStateFromSeed
 	populateStateFromSeed = f
 	return func() {
@@ -133,62 +108,19 @@ func MockPopulateStateFromSeed(f func(*state.State, *PopulateStateFromSeedOption
 	}
 }
 
-func EnsureBootOk(m *DeviceManager) error {
+func (m *DeviceManager) EnsureBootOk() error {
 	return m.ensureBootOk()
 }
 
-func SetBootOkRan(m *DeviceManager, b bool) {
+func (m *DeviceManager) SetBootOkRan(b bool) {
 	m.bootOkRan = b
 }
 
-type (
-	RegistrationContext = registrationContext
-	RemodelContext      = remodelContext
-)
-
-func RegistrationCtx(m *DeviceManager, t *state.Task) (registrationContext, error) {
-	return m.registrationCtx(t)
-}
-
-func RemodelDeviceBackend(remodCtx remodelContext) storecontext.DeviceBackend {
-	return remodCtx.(interface {
-		deviceBackend() storecontext.DeviceBackend
-	}).deviceBackend()
-}
-
 var (
-	ImportAssertionsFromSeed     = importAssertionsFromSeed
-	CheckGadgetOrKernel          = checkGadgetOrKernel
-	CheckGadgetRemodelCompatible = checkGadgetRemodelCompatible
-	CanAutoRefresh               = canAutoRefresh
-	NewEnoughProxy               = newEnoughProxy
+	ImportAssertionsFromSeed = importAssertionsFromSeed
+	CheckGadgetOrKernel      = checkGadgetOrKernel
+	CanAutoRefresh           = canAutoRefresh
 
 	IncEnsureOperationalAttempts = incEnsureOperationalAttempts
 	EnsureOperationalAttempts    = ensureOperationalAttempts
-
-	RemodelTasks = remodelTasks
-
-	RemodelCtx        = remodelCtx
-	CleanupRemodelCtx = cleanupRemodelCtx
-	CachedRemodelCtx  = cachedRemodelCtx
-
-	GadgetUpdateBlocked = gadgetUpdateBlocked
-	CurrentGadgetInfo   = currentGadgetInfo
-	PendingGadgetInfo   = pendingGadgetInfo
 )
-
-func MockGadgetUpdate(mock func(current, update gadget.GadgetData, path string, policy gadget.UpdatePolicyFunc) error) (restore func()) {
-	old := gadgetUpdate
-	gadgetUpdate = mock
-	return func() {
-		gadgetUpdate = old
-	}
-}
-
-func MockGadgetIsCompatible(mock func(current, update *gadget.Info) error) (restore func()) {
-	old := gadgetIsCompatible
-	gadgetIsCompatible = mock
-	return func() {
-		gadgetIsCompatible = old
-	}
-}

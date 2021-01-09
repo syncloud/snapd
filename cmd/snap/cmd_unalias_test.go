@@ -30,17 +30,20 @@ import (
 
 func (s *SnapSuite) TestUnaliasHelp(c *C) {
 	msg := `Usage:
-  snap.test unalias [unalias-OPTIONS] [<alias-or-snap>]
+  snap.test [OPTIONS] unalias [<alias-or-snap>]
 
-The unalias command removes a single alias if the provided argument is a manual
-alias, or disables all aliases of a snap, including manual ones, if the
-argument is a snap name.
+The unalias command tears down a manual alias when given one or disables all
+aliases of a snap, removing also all manual ones, when given a snap name.
 
-[unalias command options]
-      --no-wait            Do not wait for the operation to finish but just
-                           print the change id.
+Application Options:
+      --version              Print the version and exit
+
+Help Options:
+  -h, --help                 Show this help message
 `
-	s.testSubCommandHelp(c, "unalias", msg)
+	rest, err := Parser().ParseArgs([]string{"unalias", "--help"})
+	c.Assert(err.Error(), Equals, msg)
+	c.Assert(rest, DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestUnalias(c *C) {
@@ -53,7 +56,6 @@ func (s *SnapSuite) TestUnalias(c *C) {
 				"snap":   "alias1",
 				"alias":  "alias1",
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -62,7 +64,7 @@ func (s *SnapSuite) TestUnalias(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"unalias", "alias1"})
+	rest, err := Parser().ParseArgs([]string{"unalias", "alias1"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	c.Assert(s.Stdout(), Equals, ""+

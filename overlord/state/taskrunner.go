@@ -36,17 +36,13 @@ type HandlerFunc func(task *Task, tomb *tomb.Tomb) error
 // is asked to stop through its tomb. After can be used to indicate
 // how much to postpone the retry, 0 (the default) means at the next
 // ensure pass and is what should be used if stopped through its tomb.
-// Reason is an optional explanation of the conflict.
 type Retry struct {
-	After  time.Duration
-	Reason string
+	After time.Duration
 }
 
 func (r *Retry) Error() string {
 	return "task should be retried"
 }
-
-type blockedFunc func(t *Task, running []*Task) bool
 
 // TaskRunner controls the running of goroutines to execute known task kinds.
 type TaskRunner struct {
@@ -59,7 +55,7 @@ type TaskRunner struct {
 	cleanups map[string]HandlerFunc
 	stopped  bool
 
-	blocked     []blockedFunc
+	blocked     func(t *Task, running []*Task) bool
 	someBlocked bool
 
 	// go-routines lifecycle
@@ -147,35 +143,24 @@ func (r *TaskRunner) SetBlocked(pred func(t *Task, running []*Task) bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.blocked = []blockedFunc{pred}
-}
-
-// AddBlocked adds a predicate function to decide whether to block a task from running based on the current running tasks. It can be used to control task serialisation. All added predicates are considered in turn until one returns true, or none.
-func (r *TaskRunner) AddBlocked(pred func(t *Task, running []*Task) bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.blocked = append(r.blocked, pred)
+	r.blocked = pred
 }
 
 // run must be called with the state lock in place
 func (r *TaskRunner) run(t *Task) {
 	var handler HandlerFunc
-	var accuRuntime func(dur time.Duration)
 	switch t.Status() {
 	case DoStatus:
 		t.SetStatus(DoingStatus)
 		fallthrough
 	case DoingStatus:
 		handler = r.handlerPair(t).do
-		accuRuntime = t.accumulateDoingTime
 
 	case UndoStatus:
 		t.SetStatus(UndoingStatus)
 		fallthrough
 	case UndoingStatus:
 		handler = r.handlerPair(t).undo
-		accuRuntime = t.accumulateUndoingTime
 
 	default:
 		panic("internal error: attempted to run task in status " + t.Status().String())
@@ -191,16 +176,13 @@ func (r *TaskRunner) run(t *Task) {
 		// Capture the error result with tomb.Kill so we can
 		// use tomb.Err uniformily to consider both it or a
 		// overriding previous Kill reason.
-		t0 := time.Now()
 		tomb.Kill(handler(t, tomb))
-		t1 := time.Now()
 
 		// Locks must be acquired in the same order everywhere.
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.state.Lock()
 		defer r.state.Unlock()
-		accuRuntime(t1.Sub(t0))
 
 		delete(r.tombs, t.ID())
 
@@ -334,13 +316,13 @@ func (r *TaskRunner) tryUndo(t *Task) {
 // Ensure starts new goroutines for all known tasks with no pending
 // dependencies.
 // Note that Ensure will lock the state.
-func (r *TaskRunner) Ensure() error {
+func (r *TaskRunner) Ensure() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.stopped {
 		// we are stopping, don't run another ensure
-		return nil
+		return
 	}
 
 	// Locks must be acquired in the same order everywhere.
@@ -358,7 +340,6 @@ func (r *TaskRunner) Ensure() error {
 
 	ensureTime := timeNow()
 	nextTaskTime := time.Time{}
-ConsiderTasks:
 	for _, t := range r.state.Tasks() {
 		handlers := r.handlerPair(t)
 		if handlers.do == nil {
@@ -414,13 +395,9 @@ ConsiderTasks:
 			continue
 		}
 
-		// check if any of the blocked predicates returns true
-		// and skip the task if so
-		for _, blocked := range r.blocked {
-			if blocked(t, running) {
-				r.someBlocked = true
-				continue ConsiderTasks
-			}
+		if r.blocked != nil && r.blocked(t, running) {
+			r.someBlocked = true
+			continue
 		}
 
 		logger.Debugf("Running task %s on %s: %s", t.ID(), t.Status(), t.Summary())
@@ -433,8 +410,6 @@ ConsiderTasks:
 	if !nextTaskTime.IsZero() {
 		r.state.EnsureBefore(nextTaskTime.Sub(ensureTime))
 	}
-
-	return nil
 }
 
 // mustWait returns whether task t must wait for other tasks to be done.
@@ -488,36 +463,4 @@ func (r *TaskRunner) Wait() {
 	defer r.mu.Unlock()
 
 	r.wait()
-}
-
-// StopKinds kills all concurrent tasks of the given kinds and returns
-// after that's done.
-func (r *TaskRunner) StopKinds(kind ...string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	kinds := make(map[string]bool, len(kind))
-	for _, k := range kind {
-		kinds[k] = true
-	}
-
-	var tombs []*tomb.Tomb
-	// Locks must be acquired in the same order everywhere:
-	// r.mu, r.state
-	r.state.Lock()
-	for tid, tb := range r.tombs {
-		task := r.state.Task(tid)
-		if task == nil || !kinds[task.Kind()] {
-			continue
-		}
-		tombs = append(tombs, tb)
-		tb.Kill(nil)
-	}
-	r.state.Unlock()
-
-	for _, tb := range tombs {
-		r.mu.Unlock()
-		tb.Wait()
-		r.mu.Lock()
-	}
 }

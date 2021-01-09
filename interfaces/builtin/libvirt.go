@@ -48,5 +48,6 @@ func init() {
 		baseDeclarationSlots:  libvirtBaseDeclarationSlots,
 		connectedPlugAppArmor: libvirtConnectedPlugAppArmor,
 		connectedPlugSecComp:  libvirtConnectedPlugSecComp,
+		reservedForOS:         true,
 	})
 }

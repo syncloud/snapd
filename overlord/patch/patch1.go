@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	patches[1] = []PatchFunc{patch1}
+	patches[1] = patch1
 }
 
 type patch1SideInfo struct {
@@ -56,7 +56,7 @@ var patch1ReadType = func(name string, rev snap.Revision) (snap.Type, error) {
 		return snap.TypeApp, err
 	}
 
-	return info.GetType(), nil
+	return info.Type, nil
 }
 
 type patch1Flags int

@@ -44,5 +44,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  localeControlBaseDeclarationSlots,
 		connectedPlugAppArmor: localeControlConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

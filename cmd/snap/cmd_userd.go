@@ -1,8 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
-// +build !darwin
 
 /*
- * Copyright (C) 2017-2019 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,22 +27,16 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/snapcore/snapd/cmd"
 	"github.com/snapcore/snapd/i18n"
-	"github.com/snapcore/snapd/usersession/agent"
-	"github.com/snapcore/snapd/usersession/autostart"
-	"github.com/snapcore/snapd/usersession/userd"
+	"github.com/snapcore/snapd/userd"
 )
 
 type cmdUserd struct {
-	Autostart bool `long:"autostart"`
-	Agent     bool `long:"agent"`
+	userd userd.Userd
 }
 
 var shortUserdHelp = i18n.G("Start the userd service")
-var longUserdHelp = i18n.G(`
-The userd command starts the snap user session service.
-`)
+var longUserdHelp = i18n.G("The userd command starts the snap user session service.")
 
 func init() {
 	cmd := addCommand("userd",
@@ -51,12 +44,10 @@ func init() {
 		longUserdHelp,
 		func() flags.Commander {
 			return &cmdUserd{}
-		}, map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"autostart": i18n.G("Autostart user applications"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"agent": i18n.G("Run the user session agent"),
-		}, nil)
+		},
+		nil,
+		[]argDesc{},
+	)
 	cmd.hidden = true
 }
 
@@ -65,70 +56,19 @@ func (x *cmdUserd) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	if x.Autostart {
-		return x.runAutostart()
-	}
-
-	if x.Agent {
-		return x.runAgent()
-	}
-
-	return x.runUserd()
-}
-
-var signalNotify = signalNotifyImpl
-
-func (x *cmdUserd) runUserd() error {
-	var userd userd.Userd
-	if err := userd.Init(); err != nil {
+	if err := x.userd.Init(); err != nil {
 		return err
 	}
-	userd.Start()
+	x.userd.Start()
 
-	ch, stop := signalNotify(syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
 	select {
 	case sig := <-ch:
 		fmt.Fprintf(Stdout, "Exiting on %s.\n", sig)
-	case <-userd.Dying():
+	case <-x.userd.Dying():
 		// something called Stop()
 	}
 
-	return userd.Stop()
-}
-
-func (x *cmdUserd) runAgent() error {
-	agent, err := agent.New()
-	if err != nil {
-		return err
-	}
-	agent.Version = cmd.Version
-	agent.Start()
-
-	ch, stop := signalNotify(syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	select {
-	case sig := <-ch:
-		fmt.Fprintf(Stdout, "Exiting on %s.\n", sig)
-	case <-agent.Dying():
-		// something called Stop()
-	}
-
-	return agent.Stop()
-}
-
-func (x *cmdUserd) runAutostart() error {
-	if err := autostart.AutostartSessionApps(); err != nil {
-		return fmt.Errorf("autostart failed for the following apps:\n%v", err)
-	}
-	return nil
-}
-
-func signalNotifyImpl(sig ...os.Signal) (ch chan os.Signal, stop func()) {
-	ch = make(chan os.Signal, len(sig))
-	signal.Notify(ch, sig...)
-	stop = func() { signal.Stop(ch) }
-	return ch, stop
+	return x.userd.Stop()
 }

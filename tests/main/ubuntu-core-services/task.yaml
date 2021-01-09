@@ -1,15 +1,23 @@
 summary: Ensure all services on Core are active
 
-systems: [ubuntu-core-1*]
+systems: [ubuntu-core-*]
 
+prepare: |
+    # the timer is disabled by default to not interfere with the
+    # tests and  cleanups
+    systemctl start snapd.refresh.timer
 execute: |
     echo "Ensure one-shot services are working"
     for oneshot in snapd.autoimport.service snapd.sshd-keygen.service; do
-        systemctl status "$oneshot" |MATCH SUCCESS
+        systemctl status $oneshot |MATCH SUCCESS
     done
 
     echo "Ensure services are working"
     systemctl status snapd.service |MATCH active
     
     echo "Ensure timers are working"
-    systemctl is-active snapd.snap-repair.timer
+    for timer in snapd.refresh.timer snapd.snap-repair.timer; do
+        systemctl is-active $timer
+    done
+restore: |
+    systemctl stop snapd.refresh.timer

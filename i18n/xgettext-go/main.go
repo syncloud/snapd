@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -173,13 +172,13 @@ func processFiles(args []string) error {
 func processSingleGoSource(fset *token.FileSet, fname string) error {
 	fnameContent, err := ioutil.ReadFile(fname)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	// Create the AST by parsing src.
 	f, err := parser.ParseFile(fset, fname, fnameContent, parser.ParseComments)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -191,15 +190,6 @@ func processSingleGoSource(fset *token.FileSet, fname string) error {
 
 var formatTime = func() string {
 	return time.Now().Format("2006-01-02 15:04-0700")
-}
-
-// mustFprintf will write the given format string to the given
-// writer. Any error will make it panic.
-func mustFprintf(w io.Writer, format string, a ...interface{}) {
-	_, err := fmt.Fprintf(w, format, a...)
-	if err != nil {
-		panic(fmt.Sprintf("cannot write output: %v", err))
-	}
 }
 
 func writePotFile(out io.Writer) {
@@ -223,7 +213,7 @@ msgstr  "Project-Id-Version: %s\n"
         "Content-Transfer-Encoding: 8bit\n"
 
 `, opts.PackageName, opts.MsgIDBugsAddress, formatTime())
-	mustFprintf(out, "%s", header)
+	fmt.Fprintf(out, "%s", header)
 
 	// yes, this is the way to do it in go
 	sortedKeys := []string{}
@@ -239,19 +229,19 @@ msgstr  "Project-Id-Version: %s\n"
 		msgidList := msgIDs[k]
 		for _, msgid := range msgidList {
 			if opts.AddComments || opts.AddCommentsTag != "" {
-				mustFprintf(out, "%s", msgid.comment)
+				fmt.Fprintf(out, "%s", msgid.comment)
 			}
 		}
 		if !opts.NoLocation {
-			mustFprintf(out, "#:")
+			fmt.Fprintf(out, "#:")
 			for _, msgid := range msgidList {
-				mustFprintf(out, " %s:%d", msgid.fname, msgid.line)
+				fmt.Fprintf(out, " %s:%d", msgid.fname, msgid.line)
 			}
-			mustFprintf(out, "\n")
+			fmt.Fprintf(out, "\n")
 		}
 		msgid := msgidList[0]
 		if msgid.formatHint != "" {
-			mustFprintf(out, "#, %s\n", msgid.formatHint)
+			fmt.Fprintf(out, "#, %s\n", msgid.formatHint)
 		}
 		var formatOutput = func(in string) string {
 			// split string with \n into multiple lines
@@ -260,23 +250,21 @@ msgstr  "Project-Id-Version: %s\n"
 			// cleanup too aggressive splitting (empty "" lines)
 			return strings.TrimSuffix(out, "\"\n        \"")
 		}
-		mustFprintf(out, "msgid   \"%v\"\n", formatOutput(k))
+		fmt.Fprintf(out, "msgid   \"%v\"\n", formatOutput(k))
 		if msgid.msgidPlural != "" {
-			mustFprintf(out, "msgid_plural   \"%v\"\n", formatOutput(msgid.msgidPlural))
-			mustFprintf(out, "msgstr[0]  \"\"\n")
-			mustFprintf(out, "msgstr[1]  \"\"\n")
+			fmt.Fprintf(out, "msgid_plural   \"%v\"\n", formatOutput(msgid.msgidPlural))
+			fmt.Fprintf(out, "msgstr[0]  \"\"\n")
+			fmt.Fprintf(out, "msgstr[1]  \"\"\n")
 		} else {
-			mustFprintf(out, "msgstr  \"\"\n")
+			fmt.Fprintf(out, "msgstr  \"\"\n")
 		}
-		mustFprintf(out, "\n")
+		fmt.Fprintf(out, "\n")
 	}
 
 }
 
 // FIXME: this must be setable via go-flags
 var opts struct {
-	FilesFrom string `short:"f" long:"files-from" description:"get list of input files from FILE"`
-
 	Output string `short:"o" long:"output" description:"output to specified file"`
 
 	AddComments bool `short:"c" long:"add-comments" description:"place all comment blocks preceding keyword lines in output file"`
@@ -302,18 +290,7 @@ func main() {
 		log.Fatalf("ParseArgs failed %s", err)
 	}
 
-	var files []string
-	if opts.FilesFrom != "" {
-		content, err := ioutil.ReadFile(opts.FilesFrom)
-		if err != nil {
-			log.Fatalf("cannot read file %v: %v", opts.FilesFrom, err)
-		}
-		content = bytes.TrimSpace(content)
-		files = strings.Split(string(content), "\n")
-	} else {
-		files = args[1:]
-	}
-	if err := processFiles(files); err != nil {
+	if err := processFiles(args[1:]); err != nil {
 		log.Fatalf("processFiles failed with: %s", err)
 	}
 

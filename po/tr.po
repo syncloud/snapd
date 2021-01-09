@@ -1,21 +1,21 @@
 # Turkish translation for snapd
-# Copyright (c) 2018 Rosetta Contributors and Canonical Ltd 2018
+# Copyright (c) 2017 Rosetta Contributors and Canonical Ltd 2017
 # This file is distributed under the same license as the snapd package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, 2018.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2017.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: snapd\n"
 "Report-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>\n"
-"POT-Creation-Date: 2018-04-03 12:06+0200\n"
-"PO-Revision-Date: 2018-09-27 14:02+0000\n"
+"POT-Creation-Date: 2017-10-14 00:51+0000\n"
+"PO-Revision-Date: 2017-03-11 18:21+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <tr@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Launchpad-Export-Date: 2019-11-20 06:56+0000\n"
-"X-Generator: Launchpad (build c597c3229eb023b1e626162d5947141bf7befb13)\n"
+"X-Launchpad-Export-Date: 2017-10-18 08:37+0000\n"
+"X-Generator: Launchpad (build 18476)\n"
 
 #, c-format
 msgid ""
@@ -24,7 +24,6 @@ msgid ""
 "Try \"snapcraft prime\" in your project directory, then \"snap try\" again."
 msgstr ""
 
-#. TRANSLATORS: the first %q will be the (quoted) snap name, the second a channel
 #, c-format
 msgid "%q switched to the %q channel\n"
 msgstr ""
@@ -46,7 +45,7 @@ msgstr ""
 #. TRANSLATORS: %s is an error message (e.g. “cannot yadda yadda: permission denied”)
 #, c-format
 msgid "%s (try with sudo)"
-msgstr "%s (sudo ile dene)"
+msgstr ""
 
 #, c-format
 msgid "%s already installed\n"
@@ -68,204 +67,121 @@ msgstr "%s kurulu değil\n"
 msgid "%s removed\n"
 msgstr "%s kaldırıldı\n"
 
-#. TRANSLATORS: first %s is a snap name, second %s is a revision
 #, c-format
 msgid "%s reverted to %s\n"
 msgstr ""
 
-#. TRANSLATORS: the args are a snap name optionally followed by a channel, then a version, then the developer name (e.g. "some-snap (beta) 1.3 from 'alice' installed")
 #, c-format
 msgid "%s%s %s from '%s' installed\n"
 msgstr ""
 
-#. TRANSLATORS: the args are a snap name optionally followed by a channel, then a version, then the developer name (e.g. "some-snap (beta) 1.3 from 'alice' refreshed")
 #, c-format
 msgid "%s%s %s from '%s' refreshed\n"
 msgstr ""
 
-#. TRANSLATORS: the args are a snap name optionally followed by a channel, then a version (e.g. "some-snap (beta) 1.3 installed")
 #, c-format
 msgid "%s%s %s installed\n"
 msgstr "%s%s %s kuruldu\n"
 
-#. TRANSLATORS: the args are a snap name optionally followed by a channel, then a version (e.g. "some-snap (beta) 1.3 refreshed")
 #, c-format
 msgid "%s%s %s refreshed\n"
-msgstr "%s%s %s yenilendi\n"
+msgstr ""
 
 msgid "--list does not take mode nor channel flags"
-msgstr "--liste kipi veya kanal bayrakları almıyor"
+msgstr ""
 
 msgid "--time does not take mode nor channel flags"
-msgstr "--zaman kipi veya kanal bayrakları almıyor"
+msgstr ""
 
 msgid "-r can only be used with --hook"
 msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<alias-or-snap>"
 msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<alias>"
-msgstr "<takma ad>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<assertion file>"
-msgstr "<onay dosyası>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<assertion type>"
-msgstr "<onay türü>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<change-id>"
 msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<conf value>"
-msgstr "<ayar değeri>"
+msgstr ""
 
-#. TRANSLATORS: This is a noun, and it needs to begin with < and end with >
-#. TRANSLATORS: This is a noun and it needs to begin with < and end with >
+#. TRANSLATORS: noun
+#. TRANSLATORS: noun
 msgid "<email>"
-msgstr "<e-posta>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<filename>"
-msgstr "<dosya adı>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<header filter>"
-msgstr "<başlık süzgeci>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<interface>"
-msgstr "<arayüz>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
-#. TRANSLATORS: This needs to begin with < and end with >
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<key-name>"
-msgstr "<anahtar-adı>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<key>"
-msgstr "<anahtar>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<model-assertion>"
 msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<query>"
-msgstr "<sorgu>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<root-dir>"
 msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
-msgid "<service>"
+msgid "<snap>:<plug>"
 msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
-#. TRANSLATORS: This needs to begin with < and end with >
-msgid "<snap>:<plug>"
-msgstr "<snap>:<plug>"
-
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<snap>:<slot or plug>"
-msgstr "<snap>:<slot or plug>"
+msgstr ""
 
-#. TRANSLATORS: This needs to begin with < and end with >
-#. TRANSLATORS: This needs to begin with < and end with >
 msgid "<snap>:<slot>"
-msgstr "<snap>:<slot>"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid ""
-"A service specification, which can be just a snap name (for all services in "
-"the snap), or <snap>.<app> for a single service."
 msgstr ""
 
 msgid "Abort a pending change"
-msgstr "Bekleyen bir değişikliği iptal edin"
+msgstr ""
 
-#. TRANSLATORS: this is used to introduce a list of aliases that were added
 msgid "Added"
-msgstr "Eklendi"
+msgstr ""
 
 msgid "Adds an assertion to the system"
-msgstr "Sistemde bir onaylama ekler"
-
-msgid "Advise on available snaps."
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Advise on snaps that provide the given command"
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Alias for --dangerous (DEPRECATED)"
 msgstr ""
 
 msgid "All snaps up to date."
 msgstr ""
 
-msgid "Allow opening file?"
-msgstr "Dosya açılsın mı?"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Allow refresh attempt on snap unknown to the store"
-msgstr ""
-
-msgid "Allow settings change?"
-msgstr "Ayarların değişmesine izin verilsin mi?"
-
-#, c-format
-msgid "Allow snap %q to change %q to %q ?"
-msgstr ""
-
-#, c-format
-msgid "Allow snap %q to open file %q?"
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Alternative command to run"
-msgstr "Çalıştırmak için alternatif komut"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Always return document, even with single key"
-msgstr "Tek anahtarla daima belgeyi geri getirin"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Always return list, even with single key"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter (unless it's "login.ubuntu.com"). Also, note users on login.ubuntu.com can have multiple email addresses.
+msgid "Always return document, even with single key"
+msgstr ""
+
+#. TRANSLATORS: note users on login.ubuntu.com can have multiple email addresses
 msgid "An email of a user on login.ubuntu.com"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid ""
-"As well as starting the service now, arrange for it to be started on boot."
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid ""
-"As well as stopping the service now, arrange for it to no longer be started "
-"on boot."
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Assertion file"
-msgstr "Onaylama dosyası"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Assertion type name"
-msgstr "Onaylama türü adı"
+msgstr ""
 
 msgid "Authenticates on snapd and the store"
 msgstr ""
@@ -276,34 +192,34 @@ msgstr ""
 
 #, c-format
 msgid "Auto-refresh snap %q"
-msgstr "Otomatik yenile snap %q"
+msgstr ""
 
 #. TRANSLATORS: the %s is a comma-separated list of quoted snap names
 #, c-format
 msgid "Auto-refresh snaps %s"
-msgstr "Otomatik yenile snap %s"
-
-#, c-format
-msgid "Automatically connect eligible plugs and slots of snap %q"
 msgstr ""
 
 msgid "Bad code. Try again: "
-msgstr "Kötü kod. Tekrar deneyin: "
+msgstr ""
 
 msgid "Buys a snap"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Change ID"
-msgstr "ID Değiştir"
+msgstr ""
 
 msgid "Changes configuration options"
-msgstr "Yapılandırma seçeneklerini değiştirir"
+msgstr ""
+
+msgid ""
+"Classic dimension disabled on this system.\n"
+"Use \"sudo snap install --devmode classic && sudo classic.create\" to enable "
+"it."
+msgstr ""
 
 msgid "Command\tAlias\tNotes"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Configuration value (key=value)"
 msgstr ""
 
@@ -312,20 +228,17 @@ msgstr ""
 
 #, c-format
 msgid "Connect %s:%s to %s:%s"
-msgstr "Bağlan %s:%s to %s:%s"
+msgstr ""
 
 msgid "Connects a plug to a slot"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Constrain listing to a specific snap or snap:name"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Constrain listing to specific interfaces"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Constrain listing to those matching header=value"
 msgstr ""
 
@@ -336,11 +249,9 @@ msgstr ""
 msgid ""
 "Create a cryptographic key pair that can be used for signing assertions."
 msgstr ""
-"Onayları imzalamak için kullanılabilecek bir şifreleme anahtarı çifti "
-"oluşturun."
 
 msgid "Create cryptographic key pair"
-msgstr "Şifreleme anahtarı çifti oluştur"
+msgstr ""
 
 msgid "Create snap build assertion"
 msgstr ""
@@ -349,13 +260,13 @@ msgid "Create snap-build assertion for the provided snap file."
 msgstr ""
 
 msgid "Creates a local system user"
-msgstr "Yerel bir sistem kullanıcısı oluşturur"
+msgstr ""
 
 msgid "Delete cryptographic key pair"
-msgstr "Şifreleme anahtarı çiftini sil"
+msgstr ""
 
 msgid "Delete the local cryptographic key pair with the given name."
-msgstr "Verilen adla yerel şifreleme anahtarı çiftini silin."
+msgstr ""
 
 #, c-format
 msgid "Disable %q snap"
@@ -383,7 +294,6 @@ msgstr ""
 msgid "Disconnects a plug from a slot"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Do not wait for the operation to finish but just print the change id."
 msgstr ""
 
@@ -391,18 +301,16 @@ msgstr ""
 msgid "Download snap %q%s from channel %q"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid ""
 "Download the given revision of a snap, to which you must have developer "
 "access"
 msgstr ""
-"Geliştiriciye erişiminizin olması gereken belirli bir revizyonunu indirin"
 
 msgid "Downloads the given snap"
 msgstr ""
 
 msgid "Email address: "
-msgstr "E-posta adresiniz: "
+msgstr ""
 
 #, c-format
 msgid "Enable %q snap"
@@ -411,17 +319,15 @@ msgstr ""
 msgid "Enables a snap in the system"
 msgstr ""
 
-#, c-format
-msgid "Ensure prerequisites for %q are available"
+msgid "Entering classic dimension"
 msgstr ""
 
 msgid ""
 "Export a public key assertion body that may be imported by other systems."
 msgstr ""
-"Diğer sistemlerin içe aktarabileceği bir açık anahtar beyanını dışa aktarın."
 
 msgid "Export cryptographic public key"
-msgstr "Şifreleme genel anahtarı verme"
+msgstr ""
 
 #, c-format
 msgid "Fetch and check assertions for snap %q%s"
@@ -429,72 +335,56 @@ msgstr ""
 
 #, c-format
 msgid "Fetching assertions for %q\n"
-msgstr "%q için onaylar getiriliyor\n"
+msgstr ""
 
 #, c-format
 msgid "Fetching snap %q\n"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Filename of the snap you want to assert a build for"
 msgstr ""
 
 msgid "Finds packages to install"
-msgstr "Yüklenecek paketleri bulur"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Force adding the user, even if the device is already managed"
-msgstr "Cihaz zaten yönetilmiş olsa dahi kullanıcıyı zorla ekleme"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Force import on classic systems"
-msgstr "Klasik sistemlerde içe aktarmayı zorla"
+msgstr ""
 
 msgid ""
 "Format public key material as a request for an account-key for this account-"
 "id"
 msgstr ""
-"Ortak anahtar malzemesini, bu hesap kimliği için bir hesap anahtarı için bir "
-"istek olarak biçimlendirin"
 
 msgid "Generate device key"
-msgstr "Aygıt anahtarı oluştur"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Generate the manpage"
-msgstr "Man sayfasını oluştur"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Grade states the build quality of the snap (defaults to 'stable')"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Grant sudo access to the created user"
-msgstr "Oluşturulan kullanıcıya sudo erişimi verin"
+msgstr ""
 
 msgid "Help"
-msgstr "Yardım"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Hook to run"
-msgstr "Koşmak için kanca"
+msgstr ""
 
 msgid "ID\tStatus\tSpawn\tReady\tSummary\n"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Identifier of the signer"
-msgstr "İmzacı belirleyici"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Identifier of the snap package associated with the build"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "If the service has a reload command, use it instead of restarting."
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Ignore validation by other snaps blocking the refresh"
 msgstr ""
 
@@ -509,15 +399,14 @@ msgstr ""
 msgid "Include a verbose list of a snap's notes (otherwise, summarise notes)"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Include unused interfaces"
-msgstr "Kullanılmayan arabirimleri dahil et"
+msgstr ""
 
 msgid "Initialize device"
-msgstr "Aygıtı başlat"
+msgstr ""
 
 msgid "Inspects devices for actionable information"
-msgstr "Aygıtları eyleme geçirilebilecek bilgiler için denetler."
+msgstr ""
 
 #, c-format
 msgid "Install %q snap"
@@ -535,21 +424,17 @@ msgstr ""
 msgid "Install %q snap from file %q"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Install from the beta channel"
-msgstr "Beta kanalından yükle"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Install from the candidate channel"
-msgstr "Aday kanalından yükle"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Install from the edge channel"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Install from the stable channel"
-msgstr "Kararlı kanaldan yükleme"
+msgstr ""
 
 #, c-format
 msgid "Install snap %q"
@@ -560,70 +445,54 @@ msgstr ""
 msgid "Install snaps %s"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid ""
 "Install the given revision of a snap, to which you must have developer access"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid ""
 "Install the given snap file even if there are no pre-acknowledged signatures "
 "for it, meaning it was not verified and could be dangerous (--devmode "
 "implies this)"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Install the given snap without enabling its automatic aliases"
-msgstr ""
-
-#, c-format
-msgid ""
-"Install the snap with:\n"
-"   snap ack %s\n"
-"   snap install %s\n"
 msgstr ""
 
 msgid "Installs a snap to the system"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Key of interest within the configuration"
 msgstr ""
 
 msgid "List a change's tasks"
-msgstr "Değişikliğin görevlerini listele"
+msgstr ""
 
 msgid "List cryptographic keys"
-msgstr "Şifreleme anahtarlarını listele"
+msgstr ""
 
 msgid "List cryptographic keys that can be used for signing assertions."
 msgstr ""
-"Onayları imzalamak için kullanılabilecek şifreleme anahtarlarının listesi."
 
 msgid "List installed snaps"
 msgstr ""
 
 msgid "List system changes"
-msgstr "Sistem değişikliklerini listele"
+msgstr ""
 
 msgid "Lists aliases in the system"
-msgstr "Sistemdeki takma adları listeler"
-
-msgid "Lists all repairs"
-msgstr "Tüm onarımları listeler"
+msgstr ""
 
 msgid "Lists interfaces in the system"
-msgstr "Sistemdeki arabirimleri listeler"
+msgstr ""
 
 msgid "Lists snap interfaces"
 msgstr ""
 
 msgid "Log out of the store"
-msgstr "Mağazadan çıkın"
+msgstr ""
 
 msgid "Login successful"
-msgstr "Giriş başarılı"
+msgstr ""
 
 #, c-format
 msgid "Make current revision for snap %q unavailable"
@@ -646,37 +515,32 @@ msgid "Make snap %q%s available to the system"
 msgstr ""
 
 msgid "Mark system seeded"
-msgstr "İşaretlenmiş sistem işaretle"
+msgstr ""
 
 #, c-format
 msgid "Mount snap %q%s"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Name of key to create; defaults to 'default'"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Name of key to delete"
-msgstr "Silinecek anahtarın adı"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Name of key to export"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Name of the GnuPG key to use (defaults to 'default' as key name)"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Name of the key to use, otherwise use the default key"
-msgstr "Kullanılacak anahtarın adı, aksi takdirde varsayılan tuşu kullanın"
+msgstr ""
 
 msgid "Name\tSHA3-384"
-msgstr "Ad \tSHA3-384"
+msgstr ""
 
 msgid "Name\tSummary"
-msgstr "Ad \tÖzet"
+msgstr ""
 
 msgid "Name\tVersion\tDeveloper\tNotes\tSummary"
 msgstr ""
@@ -684,65 +548,17 @@ msgstr ""
 msgid "Name\tVersion\tRev\tDeveloper\tNotes"
 msgstr ""
 
-msgid "Name\tVersion\tRev\tTracking\tDeveloper\tNotes"
-msgstr ""
-
-#, c-format
-msgid "No aliases are currently defined for snap %q.\n"
-msgstr ""
-
-msgid "No aliases are currently defined."
-msgstr ""
-
-#, c-format
-msgid "No command %q found, did you mean:\n"
-msgstr ""
-
-msgid "No connections to disconnect"
-msgstr ""
-
-#. TRANSLATORS: the %q is the (quoted) name of the section the user entered
-#, c-format
-msgid "No matching section %q, use --section to list existing sections"
-msgstr ""
-
-#. TRANSLATORS: the first %q is the (quoted) query, the
-#. second %q is the (quoted) name of the section the
-#. user entered
-#, c-format
-msgid "No matching snaps for %q in section %q\n"
-msgstr ""
-
-#. TRANSLATORS: the %q is the (quoted) query the user entered
-#, c-format
-msgid "No matching snaps for %q\n"
-msgstr ""
-
-msgid ""
-"No search term specified. Here are some interesting snaps:\n"
-"\n"
-msgstr ""
-
-msgid "No section specified. Available sections:\n"
-msgstr ""
-
 msgid "No snaps are installed yet. Try \"snap install hello-world\"."
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Output results in JSON format"
-msgstr "Çıktı sonuçları JSON formatında"
-
-msgid "Pack the given target dir as a snap"
+msgid "No snaps to auto-refresh found"
 msgstr ""
 
-#, c-format
-msgid "Packages matching %q:\n"
+msgid "Output results in JSON format"
 msgstr ""
 
 msgid "Passphrase: "
-msgstr "Parola: "
+msgstr ""
 
 #, c-format
 msgid "Password of %q: "
@@ -753,9 +569,6 @@ msgstr ""
 msgid ""
 "Please re-enter your Ubuntu One password to purchase %q from %q\n"
 "for %s. Press ctrl-c to cancel."
-msgstr ""
-
-msgid "Please try: snap find --section=<selected section>\n"
 msgstr ""
 
 #, c-format
@@ -781,38 +594,35 @@ msgid "Prepare snap %q%s"
 msgstr ""
 
 msgid "Print the version and exit"
-msgstr "Sürümü yazdırın ve çıkın"
+msgstr ""
 
 msgid "Prints configuration options"
-msgstr "Yapılandırma seçeneklerini yazdırır"
+msgstr ""
 
 msgid "Prints the confinement mode the system operates in"
 msgstr ""
 
-msgid "Prints the email the user is logged in with"
+msgid "Prints the email the user is logged in with."
 msgstr ""
 
 msgid "Prints whether system is managed"
-msgstr "Sistemin yönetilip yönetilmediğini yazdırır"
+msgstr ""
 
 #, c-format
 msgid "Prune automatic aliases for snap %q"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Put snap in classic mode and disable security confinement"
-msgstr "Klasik kipe geçin ve güvenlik sınırlamasını devre dışı bırakın"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Put snap in development mode and disable security confinement"
-msgstr "Grliştirme kipine geçin ve güvenlik sınırlamasını devre dışı bırakın"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Put snap in enforced confinement mode"
 msgstr ""
 
 msgid "Query the status of services"
-msgstr "Hizmetlerin durumunu sorgulayın"
+msgstr ""
 
 #, c-format
 msgid "Refresh %q snap"
@@ -844,7 +654,7 @@ msgid "Refresh snaps %s: no updates"
 msgstr ""
 
 msgid "Refresh to the given revision"
-msgstr "Verilen revizyona yenileyin"
+msgstr ""
 
 msgid "Refreshes a snap in the system"
 msgstr ""
@@ -865,7 +675,6 @@ msgstr ""
 msgid "Remove manual alias %q for snap %q"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Remove only the given revision"
 msgstr ""
 
@@ -890,28 +699,26 @@ msgstr ""
 msgid "Remove snaps %s"
 msgstr ""
 
-#. TRANSLATORS: this is used to introduce a list of aliases that were removed
 msgid "Removed"
-msgstr "Kaldırıldı"
+msgstr ""
 
 msgid "Removes a snap from the system"
 msgstr ""
 
 msgid "Request device serial"
-msgstr "Cihaz serisi iste"
+msgstr ""
 
 msgid "Restart services"
-msgstr "Servisleri Yeniden Başlat"
+msgstr ""
 
 msgid "Restarted.\n"
-msgstr "Yeniden Başlatıldı.\n"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Restrict the search to a given section"
-msgstr "Aramayı belirli bir bölüme sınırla"
+msgstr ""
 
 msgid "Retrieve logs of services"
-msgstr "Servis kayıtlarını geri al"
+msgstr ""
 
 #, c-format
 msgid "Revert %q snap"
@@ -920,12 +727,7 @@ msgstr ""
 msgid "Reverts the given snap to the previous state"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Run a shell instead of the command (useful for debugging)"
-msgstr "Komut yerine bir kabuk çalıştırın (hata ayıklama için kullanışlıdır)"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Run as a timer service with given schedule"
 msgstr ""
 
 #, c-format
@@ -948,24 +750,11 @@ msgstr ""
 msgid "Run post-refresh hook of %q snap if present"
 msgstr ""
 
-#, c-format
-msgid "Run pre-refresh hook of %q snap if present"
-msgstr ""
-
 msgid "Run prepare-device hook"
 msgstr ""
 
 #, c-format
 msgid "Run remove hook of %q snap if present"
-msgstr ""
-
-msgid ""
-"Run the command under strace (useful for debugging). Extra strace options "
-"can be specified as well here."
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Run the command with gdb"
 msgstr ""
 
 msgid "Run the given snap command"
@@ -975,9 +764,8 @@ msgid "Run the given snap command with the right confinement and environment"
 msgstr ""
 
 msgid "Runs debug commands"
-msgstr "Hata ayıklama komutlarını çalıştırır"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Search private snaps"
 msgstr ""
 
@@ -985,18 +773,13 @@ msgid ""
 "Select last change of given type (install, refresh, remove, try, auto-"
 "refresh etc.)"
 msgstr ""
-"Verilen türdeki son değişikliği seçin (yükleme, yenileme, kaldırma, otomatik "
-"yenile deneyin vb.)"
-
-msgid "Service\tStartup\tCurrent"
-msgstr ""
 
 #, c-format
 msgid "Set automatic aliases for snap %q"
 msgstr ""
 
 msgid "Sets up a manual alias"
-msgstr "Elle takma ad oluşturur"
+msgstr ""
 
 #, c-format
 msgid "Setup alias %q => %q for snap %q"
@@ -1022,41 +805,26 @@ msgstr ""
 msgid "Setup snap %q%s security profiles (phase 2)"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Show all revisions"
-msgstr "Tüm revizyonları göster"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Show auto refresh information but do not perform a refresh"
 msgstr ""
-"Otomatik yenileme bilgilerini göster ancak yenileme işlemini gerçekleştirme"
 
 msgid "Show available snaps for refresh but do not perform a refresh"
 msgstr ""
 
-msgid "Show detailed information about a snap"
+msgid "Show details of a specific interface"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Show details of a specific interface"
-msgstr "Belirli bir arabirimin ayrıntılarını göster"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Show interface attributes"
-msgstr "Arayüz özelliklerini göster"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Show only the given number of lines, or 'all'."
 msgstr ""
 
 msgid "Shows known assertions of the provided type"
-msgstr "Sağlanan tipin bilinen iddialarını gösterir"
-
-msgid "Shows specific repairs"
 msgstr ""
 
 msgid "Shows version details"
-msgstr "Sürüm ayrıntılarını gösterir"
+msgstr ""
 
 msgid "Sign an assertion"
 msgstr ""
@@ -1066,21 +834,14 @@ msgid ""
 "a JSON mapping provided through stdin, the body of the assertion can be "
 "specified through a \"body\" pseudo-header.\n"
 msgstr ""
-"Belirtilen anahtarı kullanarak bir onaylama imzalayın, bir JSON "
-"eşleştirmesinden üstbilgiler için girdiyi kullanarak stdin aracılığıyla "
-"sağlanan, onaylama gövdesi \"gövde\" sözde üstbilgiyle belirtilebilir.\n"
 
 msgid "Slot\tPlug"
 msgstr ""
 
-#. TRANSLATORS: first %s is a snap name, following %s is a channel name
-#, c-format
-msgid "Snap %s is no longer tracking %s.\n"
+msgid "Snap name"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Snap name"
+msgid "Snap\tService\tStartup\tCurrent"
 msgstr ""
 
 msgid ""
@@ -1090,7 +851,7 @@ msgid ""
 msgstr ""
 
 msgid "Start services"
-msgstr "Servisleri Başlat"
+msgstr ""
 
 #, c-format
 msgid "Start snap %q (%s) services"
@@ -1101,19 +862,19 @@ msgid "Start snap %q%s services"
 msgstr ""
 
 msgid "Start snap services"
-msgstr "Snap hizmetlerini başlat"
+msgstr ""
 
 msgid "Start the userd service"
-msgstr "Kullanıcı servisini başlat"
+msgstr ""
 
 msgid "Started.\n"
-msgstr "Başlatıldı.\n"
+msgstr ""
 
 msgid "Status\tSpawn\tReady\tSummary\n"
 msgstr ""
 
 msgid "Stop services"
-msgstr "Servisleri Durdur"
+msgstr ""
 
 #, c-format
 msgid "Stop snap %q (%s) services"
@@ -1127,11 +888,10 @@ msgid "Stop snap services"
 msgstr ""
 
 msgid "Stopped.\n"
-msgstr "Durduruldu.\n"
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Strict typing with nulls and quoted strings"
-msgstr "Boşluklar ve tırnak işaretli dizgilerle sıkı yazma"
+msgstr ""
 
 #, c-format
 msgid "Switch %q snap to %s"
@@ -1148,9 +908,8 @@ msgstr ""
 msgid "Switches snap to a different channel"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Temporarily mount device before inspecting"
-msgstr "İncelemeden önce geçici olarak cihaz bağlayın"
+msgstr ""
 
 msgid "Tests a snap in the system"
 msgstr ""
@@ -1164,30 +923,25 @@ msgstr ""
 
 msgid ""
 "The get command prints configuration and interface connection settings."
-msgstr "Get komutu yapılandırma ve arabirim bağlantı ayarlarını yazdırır."
+msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter (unless it's "login.ubuntu.com")
 msgid "The login.ubuntu.com email to login as"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "The model assertion name"
-msgstr "Model onaylama adı"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "The output directory"
-msgstr "Çıktı dizini"
-
-#, c-format
-msgid "The program %q can be found in the following snaps:\n"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
-#. TRANSLATORS: This should not start with a lowercase letter.
+msgid "The output directory"
+msgstr ""
+
+#. TRANSLATORS: the %q is the (quoted) query the user entered
+#, c-format
+msgid "The search %q returned 0 snaps\n"
+msgstr ""
+
 msgid "The snap to configure (e.g. hello-world)"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "The snap whose conf is being requested"
 msgstr ""
 
@@ -1195,13 +949,6 @@ msgid "The userd command starts the snap user session service."
 msgstr ""
 
 msgid "This command logs the current user out of the store"
-msgstr "Bu komut, geçerli kullanıcıyı mağazanın dışına çıkarır"
-
-msgid "This dialog will close automatically after 5 minutes of inactivity."
-msgstr ""
-
-#, c-format
-msgid "Toggle snap %q flags"
 msgstr ""
 
 msgid "Tool to interact with snaps"
@@ -1209,16 +956,13 @@ msgstr ""
 
 #, c-format
 msgid "Transition security profiles from %q to %q"
-msgstr "Geçiş güvenlik profilleri %q'dan %q'ya"
+msgstr ""
 
 msgid "Transition ubuntu-core to core"
-msgstr "Çekirdekten ubuntu-çekirdeğe geçiş"
+msgstr ""
 
 #, c-format
 msgid "Try %q snap from %s"
-msgstr ""
-
-msgid "Try: snap install <selected snap>\n"
 msgstr ""
 
 msgid "Two-factor code: "
@@ -1227,39 +971,24 @@ msgstr ""
 msgid "Unalias a manual alias or an entire snap"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Use a specific snap revision when running hook"
 msgstr ""
 
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Use known assertions for user creation"
 msgstr ""
 
-msgid "Use the given output format (pretty or json)"
-msgstr ""
-
-#. TRANSLATORS: This should not start with a lowercase letter.
 msgid "Use this channel instead of stable"
-msgstr "Bu kanalı kararlı yerine kullanın"
-
-msgid ""
-"WARNING: The output of \"snap get\" will become a list with columns - use -d "
-"or -l to force the output format.\n"
 msgstr ""
 
 #, c-format
 msgid "WARNING: failed to activate logging: %v\n"
-msgstr "UYARI: günlüğe kaydetmeyi etkinleştirmek başarısız: %v\n"
-
-#. TRANSLATORS: This should not start with a lowercase letter.
-msgid "Wait for new lines and print them as they come in."
 msgstr ""
 
 msgid "Waiting for server to restart"
-msgstr "Sunucunun yeniden başlatılmasını bekleme"
+msgstr ""
 
 msgid "Watch a change in progress"
-msgstr "Devam eden bir değişikliği izleyin"
+msgstr ""
 
 msgid "Wrong again. Once more: "
 msgstr ""
@@ -1269,14 +998,12 @@ msgid "Xauthority file isn't owned by the current user %s"
 msgstr ""
 
 msgid "Yes, yes it does."
-msgstr "Evet evet öyle."
+msgstr ""
 
 msgid ""
 "You need to be logged in to purchase software. Please run 'snap login' and "
 "try again."
 msgstr ""
-"Yazılım satın almak için giriş yapmanız gerekmektedir. Lütfen 'snap login' "
-"çalıştırıp tekrar deneyin."
 
 #, c-format
 msgid ""
@@ -1305,11 +1032,6 @@ msgstr ""
 
 msgid ""
 "\n"
-"Provide a search term for more specific results.\n"
-msgstr ""
-
-msgid ""
-"\n"
 "The abort command attempts to abort a change that still has pending tasks.\n"
 msgstr ""
 
@@ -1324,12 +1046,6 @@ msgid ""
 "To succeed the assertion must be valid, its signature verified with a known\n"
 "public key and the assertion consistent with and its prerequisite in the\n"
 "database.\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The advise-snap command shows what snaps with the given command are\n"
-"available.\n"
 msgstr ""
 
 msgid ""
@@ -1600,19 +1316,8 @@ msgstr ""
 
 msgid ""
 "\n"
-"The logs command fetches logs of the given services and displays them in "
-"chronological order.\n"
-msgstr ""
-
-msgid ""
-"\n"
 "The managed command will print true or false informing whether\n"
 "snapd has registered users.\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The pack command packs the given snap-dir as a snap."
 msgstr ""
 
 msgid ""
@@ -1658,43 +1363,12 @@ msgstr ""
 
 msgid ""
 "\n"
-"The repair command shows the details about one or multiple repairs.\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The repairs command lists all processed repairs for this device.\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The restart command restarts the given services of the snap. If executed "
-"from the\n"
-"\"configure\" hook, the services will be restarted after the hook finishes."
-msgstr ""
-
-msgid ""
-"\n"
-"The restart command restarts the given services.\n"
-"\n"
-"If the --reload option is given, for each service whose app has a reload "
-"command, a reload is performed instead of a restart.\n"
-msgstr ""
-
-msgid ""
-"\n"
 "The revert command reverts the given snap to its state before\n"
 "the latest refresh. This will reactivate the previous snap revision,\n"
 "and will use the original data that was associated with that revision,\n"
 "discarding any data changes that were done by the latest revision. As\n"
 "an exception, data which the snap explicitly chooses to share across\n"
 "revisions is not touched by the revert process.\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The services command lists information about the services specified, or "
-"about the services in all currently installed snaps.\n"
 msgstr ""
 
 msgid ""
@@ -1729,29 +1403,6 @@ msgid ""
 "naming the respective plug or slot:\n"
 "\n"
 "    $ snapctl set :myplug path=/dev/ttyS0\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The start command starts the given services of the snap. If executed from "
-"the\n"
-"\"configure\" hook, the services will be started after the hook finishes."
-msgstr ""
-
-msgid ""
-"\n"
-"The start command starts, and optionally enables, the given services.\n"
-msgstr ""
-
-msgid ""
-"\n"
-"The stop command stops the given services of the snap. If executed from the\n"
-"\"configure\" hook, the services will be stopped after the hook finishes."
-msgstr ""
-
-msgid ""
-"\n"
-"The stop command stops, and optionally disables, the given services.\n"
 msgstr ""
 
 msgid ""
@@ -1821,7 +1472,9 @@ msgstr ""
 
 msgid ""
 "\n"
-"Use snap alias --help to learn how to create aliases manually."
+"\n"
+"The home directory is shared between snappy and the classic dimension.\n"
+"Run \"exit\" to leave the classic shell.\n"
 msgstr ""
 
 msgid "a single snap name is needed to specify mode or channel flags"
@@ -1834,20 +1487,13 @@ msgid "a single snap name must be specified when ignoring validation"
 msgstr ""
 
 msgid "active"
-msgstr "etkin"
-
-msgid "auto-refresh: all snaps are up-to-date"
 msgstr ""
 
 msgid "bought"
-msgstr "alınmış"
+msgstr ""
 
 #. TRANSLATORS: if possible, a single short word
 msgid "broken"
-msgstr "bozuk paket"
-
-#, c-format
-msgid "cannot %s without a context"
 msgstr ""
 
 #, c-format
@@ -1883,6 +1529,7 @@ msgid "cannot find hook %q in %q"
 msgstr ""
 
 #. TRANSLATORS: %q gets the snap name, %v the list of things found when trying to list it
+#. TRANSLATORS: %q gets the snap name, %v the list of things found when trying to list it
 #, c-format
 msgid "cannot get data for %q: %v"
 msgstr ""
@@ -1894,28 +1541,28 @@ msgstr ""
 
 #, c-format
 msgid "cannot get the current user: %s"
-msgstr "şu anki kullanıcıyı alınamıyor: %s"
+msgstr ""
 
 #, c-format
 msgid "cannot get the current user: %v"
-msgstr "geçerli kullanıcıyı alınamıyor:% v"
+msgstr ""
 
 #, c-format
 msgid "cannot mark boot successful: %s"
-msgstr "önyükleme başarıyla işaretlenemiyor: %s"
+msgstr ""
 
 #, c-format
 msgid "cannot open the assertions database: %v"
-msgstr "onaylama veritabanı açılamıyor: %v"
+msgstr ""
 
 #, c-format
 msgid "cannot read assertion input: %v"
-msgstr "onaylama girdisi okunamıyor: %v"
+msgstr ""
 
 #. TRANSLATORS: %v the error message
 #, c-format
 msgid "cannot read symlink: %v"
-msgstr "sembolik bağlantısı okunamıyor: %v"
+msgstr ""
 
 #, c-format
 msgid "cannot resolve snap app %q: %v"
@@ -1923,26 +1570,29 @@ msgstr ""
 
 #, c-format
 msgid "cannot sign assertion: %v"
-msgstr "onaylama işaretini imzalayamıyorum: %v"
+msgstr ""
 
 #, c-format
 msgid "cannot update the 'current' symlink of %q: %v"
-msgstr "%q'nun 'geçerli' sembolik bağını güncellemiyor: %v"
+msgstr ""
 
 #. TRANSLATORS: %q is the key name, %v the error message
 #, c-format
 msgid "cannot use %q key: %v"
 msgstr ""
 
+msgid "cannot use --hook and --command together"
+msgstr ""
+
 msgid "cannot use change ID and type together"
 msgstr ""
 
 msgid "cannot use devmode and jailmode flags together"
-msgstr "devmode ve jailmode bayrakları birlikte kullanılamaz"
+msgstr ""
 
 #, c-format
 msgid "cannot validate owner of file %s"
-msgstr "%s dosyası sahibini doğrulayamıyor"
+msgstr ""
 
 #, c-format
 msgid "cannot write new Xauthority file at %s: %s"
@@ -1959,42 +1609,31 @@ msgstr ""
 
 #, c-format
 msgid "created user %q\n"
-msgstr "kullanıcı %q oluşturdu\n"
-
-#. TRANSLATORS: this needs to be a single rune that is understood to mean "days" in e.g. 1d20h
-msgid "d"
 msgstr ""
 
 #. TRANSLATORS: if possible, a single short word
 msgid "disabled"
-msgstr "devre dışı"
+msgstr ""
 
 msgid "email:"
-msgstr "e-posta:"
+msgstr ""
 
 msgid "enabled"
-msgstr "etkinleştirildi"
+msgstr ""
 
 #, c-format
 msgid "error: %v\n"
-msgstr "hata: %v\n"
+msgstr ""
 
 msgid ""
 "error: the `<snap-dir>` argument was not provided and couldn't be inferred"
 msgstr ""
 
 msgid "get which option?"
-msgstr "hangi sürüm alınsın?"
-
-#. TRANSLATORS: this needs to be a single rune that is understood to mean "hours" in e.g. 1h30m
-msgid "h"
-msgstr ""
-
-msgid "ignore-validation"
 msgstr ""
 
 msgid "inactive"
-msgstr "aktif değil"
+msgstr ""
 
 msgid ""
 "interface attributes can only be read during the execution of interface hooks"
@@ -2009,14 +1648,14 @@ msgid "internal error, please report: running %q failed: %v\n"
 msgstr ""
 
 msgid "internal error: cannot find attrs task"
-msgstr "dahili hata: görev attık görev bulunamıyor"
+msgstr ""
 
 msgid "internal error: cannot find plug or slot data in the appropriate task"
-msgstr "dahili hata: ilgili görevde bir eklenti veya yuva veri bulunamıyor"
+msgstr ""
 
 #, c-format
 msgid "internal error: cannot get %s from appropriate task"
-msgstr "dahili hata: %s ilgili görevden alınamıyor"
+msgstr ""
 
 msgid ""
 "invalid argument for flag ‘-n’: expected a non-negative integer argument, or "
@@ -2048,40 +1687,35 @@ msgid ""
 "key name %q is not valid; only ASCII letters, digits, and hyphens are allowed"
 msgstr ""
 
-#, c-format
-msgid "local snap %q is unknown to the store, use --amend to proceed anyway"
-msgstr ""
-
-#. TRANSLATORS: this needs to be a single rune that is understood to mean "minutes" in e.g. 1m30s
-msgid "m"
-msgstr ""
-
 msgid "missing snap-confine: try updating your snapd package"
 msgstr ""
 
 msgid "need the application to run as argument"
-msgstr "argüman olarak çalıştırmak için uygulamanın olması gerekir"
+msgstr ""
 
 msgid "no changes found"
-msgstr "değişiklik bulunamadı"
+msgstr ""
 
 #, c-format
 msgid "no changes of type %q found"
-msgstr "%q türü değişiklikleri bulunamadı"
+msgstr ""
 
 msgid "no interfaces currently connected"
-msgstr "şu anda bağlı herhangi bir parazit yok"
+msgstr ""
 
 msgid "no interfaces found"
-msgstr "arabirim bulunamadı"
+msgstr ""
 
 msgid "no matching snaps installed"
 msgstr ""
 
 msgid "no such interface"
-msgstr "böyle bir arayüz yok"
+msgstr ""
 
 msgid "no valid snaps given"
+msgstr ""
+
+msgid "not a valid snap"
 msgstr ""
 
 msgid "please provide change ID or type with --last=<type>"
@@ -2089,19 +1723,11 @@ msgstr ""
 
 #. TRANSLATORS: if possible, a single short word
 msgid "private"
-msgstr "özel"
+msgstr ""
 
 msgid ""
 "reboot scheduled to update the system - temporarily cancel with 'sudo "
 "shutdown -c'"
-msgstr ""
-
-msgid "repairs are not available on a classic system"
-msgstr ""
-
-#. TRANSLATORS: this needs to be a single rune that is understood to mean "seconds" in e.g. 1m30s
-#. (I fully expect this to always be "s", given it's a SI unit)
-msgid "s"
 msgstr ""
 
 #, c-format
@@ -2109,6 +1735,9 @@ msgid "set failed: %v"
 msgstr ""
 
 msgid "set which option?"
+msgstr ""
+
+msgid "show detailed information about a snap"
 msgstr ""
 
 #. TRANSLATORS: %%q will become a %q for the snap name; %q is whatever foo the user used for --revision=foo
@@ -2127,6 +1756,10 @@ msgstr ""
 
 #, c-format
 msgid "snap %q is already installed, see \"snap refresh --help\""
+msgstr ""
+
+#, c-format
+msgid "snap %q is local"
 msgstr ""
 
 #, c-format
@@ -2150,15 +1783,12 @@ msgstr ""
 msgid "too many arguments: %s"
 msgstr ""
 
-msgid "unable to contact snap store"
-msgstr ""
-
 msgid "unavailable"
-msgstr "mevcut değil"
+msgstr ""
 
 #, c-format
 msgid "unknown attribute %q"
-msgstr "bilinmeyen öznitelik %q"
+msgstr ""
 
 #, c-format
 msgid "unknown command %q, see \"snap --help\""
@@ -2169,36 +1799,5 @@ msgid "unknown plug or slot %q"
 msgstr ""
 
 #, c-format
-msgid "unknown service: %q"
-msgstr "bilinmeyen hizmet: %q"
-
-#, c-format
-msgid "warning:\tno snap found for %q\n"
+msgid "unsupported shell %v"
 msgstr ""
-
-#. TRANSLATORS: this needs to be a single rune that is understood to mean "years" in e.g. 1y45d
-msgid "y"
-msgstr ""
-
-msgid "Authenticate on snap daemon"
-msgstr "Snap Daemon kimlik doğrulaması"
-
-msgid "Authorization is required to authenticate on the snap daemon"
-msgstr ""
-"Snap daemon'da kimlik doğrulaması yapmak için yetkilendirme gerekiyor"
-
-msgid "Install, update, or remove packages"
-msgstr "Paketleri yükleme, güncelleme veya kaldırma"
-
-msgid "Authentication is required to install, update, or remove packages"
-msgstr ""
-"Paketleri yüklemek, güncellemek veya kaldırmak için kimlik doğrulaması "
-"gerekiyor"
-
-msgid "Connect, disconnect interfaces"
-msgstr "Bağlayın, arayüzleri çıkarın"
-
-msgid "Authentication is required to connect or disconnect interfaces"
-msgstr ""
-"Arabirimleri bağlamak veya bağlantıyı kesmek için kimlik doğrulaması "
-"gerekiyor"

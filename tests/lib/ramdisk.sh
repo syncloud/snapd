@@ -1,5 +1,4 @@
-#!/bin/bash
-
+#!/bin/sh
 setup_ramdisk(){
     if [ ! -e /dev/ram0 ]; then
         mknod -m 660 /dev/ram0 b 1 0

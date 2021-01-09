@@ -27,22 +27,26 @@ extra_opts=
 . /etc/os-release
 case "$ID" in
 	arch)
-		extra_opts="--libexecdir=/usr/lib/snapd --with-snap-mount-dir=/var/lib/snapd/snap --enable-apparmor --enable-nvidia-biarch --enable-merged-usr"
+		extra_opts="--libexecdir=/usr/lib/snapd --with-snap-mount-dir=/var/lib/snapd/snap --disable-apparmor --enable-nvidia-biarch --enable-merged-usr"
 		;;
 	debian)
 		extra_opts="--libexecdir=/usr/lib/snapd"
 		;;
 	ubuntu)
-		extra_opts="--libexecdir=/usr/lib/snapd --enable-nvidia-multiarch --enable-static-libcap --enable-static-libapparmor --with-host-arch-triplet=$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
-		if [ "$(dpkg-architecture -qDEB_HOST_ARCH)" = "amd64" ]; then
-			extra_opts="$extra_opts --with-host-arch-32bit-triplet=$(dpkg-architecture -ai386 -qDEB_HOST_MULTIARCH)"
-		fi
+		case "$VERSION_ID" in
+			16.04)
+				extra_opts="--libexecdir=/usr/lib/snapd --enable-nvidia-multiarch --enable-static-libcap --enable-static-libapparmor --enable-static-libseccomp"
+				;;
+			*)
+				extra_opts="--libexecdir=/usr/lib/snapd --enable-nvidia-multiarch --enable-static-libcap"
+				;;
+		esac
 		;;
 	fedora|centos|rhel)
-		extra_opts="--libexecdir=/usr/libexec/snapd --with-snap-mount-dir=/var/lib/snapd/snap --enable-merged-usr --disable-apparmor --enable-selinux"
+		extra_opts="--libexecdir=/usr/libexec/snapd --with-snap-mount-dir=/var/lib/snapd/snap --enable-merged-usr --disable-apparmor"
 		;;
-	opensuse|opensuse-tumbleweed)
-		extra_opts="--libexecdir=/usr/lib/snapd --enable-nvidia-biarch --with-32bit-libdir=/usr/lib --enable-merged-usr"
+	opensuse)
+		extra_opts="--libexecdir=/usr/lib/snapd"
 		;;
 	solus)
 		extra_opts="--enable-nvidia-biarch"
@@ -52,4 +56,4 @@ esac
 echo "Configuring in build directory $BUILD_DIR with: $extra_opts"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 # shellcheck disable=SC2086
-"${SRC_DIR}/configure" --enable-maintainer-mode --prefix=/usr $extra_opts "$@"
+"${SRC_DIR}/configure" --enable-maintainer-mode --prefix=/usr $extra_opts

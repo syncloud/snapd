@@ -26,7 +26,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"gopkg.in/tomb.v2"
@@ -35,7 +34,6 @@ import (
 	"github.com/snapcore/snapd/errtracker"
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/overlord/configstate/settings"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
@@ -49,15 +47,13 @@ type hijackKey struct{ hook, snap string }
 // snap. Otherwise they're skipped with no error.
 type HookManager struct {
 	state      *state.State
+	runner     *state.TaskRunner
 	repository *repository
 
 	contextsMutex sync.RWMutex
 	contexts      map[string]*Context
 
 	hijackMap map[hijackKey]hijackFunc
-
-	runningHooks int32
-	runner       *state.TaskRunner
 }
 
 // Handler is the interface a client must satify to handle hooks.
@@ -77,20 +73,22 @@ type HandlerGenerator func(*Context) Handler
 
 // HookSetup is a reference to a hook within a specific snap.
 type HookSetup struct {
-	Snap        string        `json:"snap"`
-	Revision    snap.Revision `json:"revision"`
-	Hook        string        `json:"hook"`
+	Snap     string        `json:"snap"`
+	Revision snap.Revision `json:"revision"`
+	Hook     string        `json:"hook"`
+	Optional bool          `json:"optional,omitempty"`
+
 	Timeout     time.Duration `json:"timeout,omitempty"`
-	Optional    bool          `json:"optional,omitempty"`     // do not error if script is missing
-	Always      bool          `json:"always,omitempty"`       // run handler even if script is missing
-	IgnoreError bool          `json:"ignore-error,omitempty"` // do not run handler's Error() on error
-	TrackError  bool          `json:"track-error,omitempty"`  // report hook error to oopsie
+	IgnoreError bool          `json:"ignore-error,omitempty"`
+	TrackError  bool          `json:"track-error,omitempty"`
 }
 
 // Manager returns a new HookManager.
-func Manager(s *state.State, runner *state.TaskRunner) (*HookManager, error) {
+func Manager(s *state.State) (*HookManager, error) {
+	runner := state.NewTaskRunner(s)
+
 	// Make sure we only run 1 hook task for given snap at a time
-	runner.AddBlocked(func(thisTask *state.Task, running []*state.Task) bool {
+	runner.SetBlocked(func(thisTask *state.Task, running []*state.Task) bool {
 		// check if we're a hook task, probably not needed but let's take extra care
 		if thisTask.Kind() != "run-hook" {
 			return false
@@ -115,13 +113,13 @@ func Manager(s *state.State, runner *state.TaskRunner) (*HookManager, error) {
 
 	manager := &HookManager{
 		state:      s,
+		runner:     runner,
 		repository: newRepository(),
 		contexts:   make(map[string]*Context),
 		hijackMap:  make(map[hijackKey]hijackFunc),
-		runner:     runner,
 	}
 
-	runner.AddHandler("run-hook", manager.doRunHook, manager.undoRunHook)
+	runner.AddHandler("run-hook", manager.doRunHook, nil)
 	// Compatibility with snapd between 2.29 and 2.30 in edge only.
 	// We generated a configure-snapd task on core refreshes and
 	// for compatibility we need to handle those.
@@ -130,8 +128,6 @@ func Manager(s *state.State, runner *state.TaskRunner) (*HookManager, error) {
 	}, nil)
 
 	setupHooks(manager)
-
-	snapstate.AddAffectedSnapsByAttr("hook-setup", manager.hookAffectedSnaps)
 
 	return manager, nil
 }
@@ -142,42 +138,35 @@ func (m *HookManager) Register(pattern *regexp.Regexp, generator HandlerGenerato
 	m.repository.addHandlerGenerator(pattern, generator)
 }
 
+func (m *HookManager) KnownTaskKinds() []string {
+	return m.runner.KnownTaskKinds()
+}
+
 // Ensure implements StateManager.Ensure.
 func (m *HookManager) Ensure() error {
+	m.runner.Ensure()
 	return nil
 }
 
-// StopHooks kills all currently running hooks and returns after
-// that's done.
-func (m *HookManager) StopHooks() {
-	m.runner.StopKinds("run-hook")
+// Wait implements StateManager.Wait.
+func (m *HookManager) Wait() {
+	m.runner.Wait()
 }
 
-func (m *HookManager) hijacked(hookName, instanceName string) hijackFunc {
-	return m.hijackMap[hijackKey{hookName, instanceName}]
+// Stop implements StateManager.Stop.
+func (m *HookManager) Stop() {
+	m.runner.Stop()
 }
 
-func (m *HookManager) RegisterHijack(hookName, instanceName string, f hijackFunc) {
-	if _, ok := m.hijackMap[hijackKey{hookName, instanceName}]; ok {
-		panic(fmt.Sprintf("hook %s for snap %s already hijacked", hookName, instanceName))
-	}
-	m.hijackMap[hijackKey{hookName, instanceName}] = f
+func (m *HookManager) hijacked(hookName, snapName string) hijackFunc {
+	return m.hijackMap[hijackKey{hookName, snapName}]
 }
 
-func (m *HookManager) hookAffectedSnaps(t *state.Task) ([]string, error) {
-	var hooksup HookSetup
-	if err := t.Get("hook-setup", &hooksup); err != nil {
-		return nil, fmt.Errorf("internal error: cannot obtain hook data from task: %s", t.Summary())
-
+func (m *HookManager) RegisterHijack(hookName, snapName string, f hijackFunc) {
+	if _, ok := m.hijackMap[hijackKey{hookName, snapName}]; ok {
+		panic(fmt.Sprintf("hook %s for snap %s already hijacked", hookName, snapName))
 	}
-
-	if m.hijacked(hooksup.Hook, hooksup.Snap) != nil {
-		// assume being these internal they should not
-		// generate conflicts
-		return nil, nil
-	}
-
-	return []string{hooksup.Snap}, nil
+	m.hijackMap[hijackKey{hookName, snapName}] = f
 }
 
 func (m *HookManager) ephemeralContext(cookieID string) (context *Context, err error) {
@@ -188,9 +177,9 @@ func (m *HookManager) ephemeralContext(cookieID string) (context *Context, err e
 	if err != nil {
 		return nil, fmt.Errorf("cannot get snap cookies: %v", err)
 	}
-	if instanceName, ok := contexts[cookieID]; ok {
+	if snapName, ok := contexts[cookieID]; ok {
 		// create new ephemeral cookie
-		context, err = NewContext(nil, m.state, &HookSetup{Snap: instanceName}, nil, cookieID)
+		context, err = NewContext(nil, m.state, &HookSetup{Snap: snapName}, nil, cookieID)
 		return context, err
 	}
 	return nil, fmt.Errorf("invalid snap cookie requested")
@@ -213,11 +202,11 @@ func (m *HookManager) Context(cookieID string) (*Context, error) {
 	return context, nil
 }
 
-func hookSetup(task *state.Task, key string) (*HookSetup, *snapstate.SnapState, error) {
+func hookSetup(task *state.Task) (*HookSetup, *snapstate.SnapState, error) {
 	var hooksup HookSetup
-	err := task.Get(key, &hooksup)
+	err := task.Get("hook-setup", &hooksup)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("cannot extract hook setup from task: %s", err)
 	}
 
 	var snapst snapstate.SnapState
@@ -229,60 +218,18 @@ func hookSetup(task *state.Task, key string) (*HookSetup, *snapstate.SnapState, 
 	return &hooksup, &snapst, nil
 }
 
-// NumRunningHooks returns the number of hooks running at the moment.
-func (m *HookManager) NumRunningHooks() int {
-	return int(atomic.LoadInt32(&m.runningHooks))
-}
-
-// GracefullyWaitRunningHooks waits for currently running hooks to finish up to the default hook timeout. Returns true if there are no more running hooks on exit.
-func (m *HookManager) GracefullyWaitRunningHooks() bool {
-	toutC := time.After(defaultHookTimeout)
-	doWait := true
-	for m.NumRunningHooks() > 0 && doWait {
-		select {
-		case <-time.After(1 * time.Second):
-		case <-toutC:
-			doWait = false
-		}
-	}
-	return m.NumRunningHooks() == 0
-}
-
 // doRunHook actually runs the hook that was requested.
 //
 // Note that this method is synchronous, as the task is already running in a
 // goroutine.
 func (m *HookManager) doRunHook(task *state.Task, tomb *tomb.Tomb) error {
 	task.State().Lock()
-	hooksup, snapst, err := hookSetup(task, "hook-setup")
+	hooksup, snapst, err := hookSetup(task)
 	task.State().Unlock()
 	if err != nil {
-		return fmt.Errorf("cannot extract hook setup from task: %s", err)
+		return err
 	}
 
-	return m.runHook(task, tomb, snapst, hooksup)
-}
-
-// undoRunHook runs the undo-hook that was requested.
-//
-// Note that this method is synchronous, as the task is already running in a
-// goroutine.
-func (m *HookManager) undoRunHook(task *state.Task, tomb *tomb.Tomb) error {
-	task.State().Lock()
-	hooksup, snapst, err := hookSetup(task, "undo-hook-setup")
-	task.State().Unlock()
-	if err != nil {
-		if err == state.ErrNoState {
-			// no undo hook setup
-			return nil
-		}
-		return fmt.Errorf("cannot extract undo hook setup from task: %s", err)
-	}
-
-	return m.runHook(task, tomb, snapst, hooksup)
-}
-
-func (m *HookManager) runHook(task *state.Task, tomb *tomb.Tomb, snapst *snapstate.SnapState, hooksup *HookSetup) error {
 	mustHijack := m.hijacked(hooksup.Hook, hooksup.Snap) != nil
 	hookExists := false
 	if !mustHijack {
@@ -300,21 +247,6 @@ func (m *HookManager) runHook(task *state.Task, tomb *tomb.Tomb, snapst *snapsta
 		if !hookExists && !hooksup.Optional {
 			return fmt.Errorf("snap %q has no %q hook", hooksup.Snap, hooksup.Hook)
 		}
-	}
-
-	if hookExists || mustHijack {
-		// we will run something, not a noop
-		if ok, _ := task.State().Restarting(); ok {
-			// don't start running a hook if we are restarting
-			return &state.Retry{}
-		}
-
-		// keep count of running hooks
-		atomic.AddInt32(&m.runningHooks, 1)
-		defer atomic.AddInt32(&m.runningHooks, -1)
-	} else if !hooksup.Always {
-		// a noop with no 'always' flag: bail
-		return nil
 	}
 
 	context, err := NewContext(task, task.State(), hooksup, nil, "")
@@ -395,7 +327,7 @@ func (m *HookManager) runHook(task *state.Task, tomb *tomb.Tomb, snapst *snapsta
 }
 
 func runHookImpl(c *Context, tomb *tomb.Tomb) ([]byte, error) {
-	return runHookAndWait(c.InstanceName(), c.SnapRevision(), c.HookName(), c.ID(), c.Timeout(), tomb)
+	return runHookAndWait(c.SnapName(), c.SnapRevision(), c.HookName(), c.ID(), c.Timeout(), tomb)
 }
 
 var runHook = runHookImpl
@@ -456,24 +388,18 @@ func runHookAndWait(snapName string, revision snap.Revision, hookName, hookConte
 var errtrackerReport = errtracker.Report
 
 func trackHookError(context *Context, output []byte, err error) {
-	errmsg := fmt.Sprintf("hook %s in snap %q failed: %v", context.HookName(), context.InstanceName(), osutil.OutputErr(output, err))
-	dupSig := fmt.Sprintf("hook:%s:%s:%s\n%s", context.InstanceName(), context.HookName(), err, output)
+	errmsg := fmt.Sprintf("hook %s in snap %q failed: %v", context.HookName(), context.SnapName(), osutil.OutputErr(output, err))
+	dupSig := fmt.Sprintf("hook:%s:%s:%s\n%s", context.SnapName(), context.HookName(), err, output)
 	extra := map[string]string{
 		"HookName": context.HookName(),
 	}
 	if context.setup.IgnoreError {
 		extra["IgnoreError"] = "1"
 	}
-
-	context.state.Lock()
-	problemReportsDisabled := settings.ProblemReportsDisabled(context.state)
-	context.state.Unlock()
-	if !problemReportsDisabled {
-		oopsid, err := errtrackerReport(context.InstanceName(), errmsg, dupSig, extra)
-		if err == nil {
-			logger.Noticef("Reported hook failure from %q for snap %q as %s", context.HookName(), context.InstanceName(), oopsid)
-		} else {
-			logger.Debugf("Cannot report hook failure: %s", err)
-		}
+	oopsid, err := errtrackerReport(context.SnapName(), errmsg, dupSig, extra)
+	if err == nil {
+		logger.Noticef("Reported hook failure from %q for snap %q as %s", context.HookName(), context.SnapName(), oopsid)
+	} else {
+		logger.Debugf("Cannot report hook failure: %s", err)
 	}
 }

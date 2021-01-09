@@ -30,13 +30,11 @@ import (
 )
 
 var (
-	RegisterIface               = registerIface
-	ResolveSpecialVariable      = resolveSpecialVariable
-	ImplicitSystemPermanentSlot = implicitSystemPermanentSlot
-	ImplicitSystemConnectedSlot = implicitSystemConnectedSlot
-	LabelExpr                   = labelExpr
-	PlugAppLabelExpr            = plugAppLabelExpr
-	SlotAppLabelExpr            = slotAppLabelExpr
+	RegisterIface                     = registerIface
+	ResolveSpecialVariable            = resolveSpecialVariable
+	SanitizeSlotReservedForOS         = sanitizeSlotReservedForOS
+	SanitizeSlotReservedForOSOrGadget = sanitizeSlotReservedForOSOrGadget
+	SanitizeSlotReservedForOSOrApp    = sanitizeSlotReservedForOSOrApp
 )
 
 func MprisGetName(iface interfaces.Interface, attribs map[string]interface{}) (string, error) {
@@ -68,7 +66,7 @@ func MockPlug(c *C, yaml string, si *snap.SideInfo, plugName string) *snap.PlugI
 	if plugInfo, ok := info.Plugs[plugName]; ok {
 		return plugInfo
 	}
-	panic(fmt.Sprintf("cannot find plug %q in snap %q", plugName, info.InstanceName()))
+	panic(fmt.Sprintf("cannot find plug %q in snap %q", plugName, info.Name()))
 }
 
 func MockSlot(c *C, yaml string, si *snap.SideInfo, slotName string) *snap.SlotInfo {
@@ -76,41 +74,21 @@ func MockSlot(c *C, yaml string, si *snap.SideInfo, slotName string) *snap.SlotI
 	if slotInfo, ok := info.Slots[slotName]; ok {
 		return slotInfo
 	}
-	panic(fmt.Sprintf("cannot find slot %q in snap %q", slotName, info.InstanceName()))
+	panic(fmt.Sprintf("cannot find slot %q in snap %q", slotName, info.Name()))
 }
 
 func MockConnectedPlug(c *C, yaml string, si *snap.SideInfo, plugName string) (*interfaces.ConnectedPlug, *snap.PlugInfo) {
 	info := snaptest.MockInfo(c, yaml, si)
 	if plugInfo, ok := info.Plugs[plugName]; ok {
-		return interfaces.NewConnectedPlug(plugInfo, nil, nil), plugInfo
+		return interfaces.NewConnectedPlug(plugInfo, nil), plugInfo
 	}
-	panic(fmt.Sprintf("cannot find plug %q in snap %q", plugName, info.InstanceName()))
+	panic(fmt.Sprintf("cannot find plug %q in snap %q", plugName, info.Name()))
 }
 
 func MockConnectedSlot(c *C, yaml string, si *snap.SideInfo, slotName string) (*interfaces.ConnectedSlot, *snap.SlotInfo) {
 	info := snaptest.MockInfo(c, yaml, si)
 	if slotInfo, ok := info.Slots[slotName]; ok {
-		return interfaces.NewConnectedSlot(slotInfo, nil, nil), slotInfo
+		return interfaces.NewConnectedSlot(slotInfo, nil), slotInfo
 	}
-	panic(fmt.Sprintf("cannot find slot %q in snap %q", slotName, info.InstanceName()))
-}
-
-func MockOsGetenv(mock func(string) string) (restore func()) {
-	old := osGetenv
-	restore = func() {
-		osGetenv = old
-	}
-	osGetenv = mock
-
-	return restore
-}
-
-func MockProcCpuinfo(filename string) (restore func()) {
-	old := procCpuinfo
-	restore = func() {
-		procCpuinfo = old
-	}
-	procCpuinfo = filename
-
-	return restore
+	panic(fmt.Sprintf("cannot find slot %q in snap %q", slotName, info.Name()))
 }

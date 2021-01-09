@@ -110,12 +110,6 @@ func rewriteExecLine(s *snap.Info, desktopFile, line string) (string, error) {
 	for _, app := range s.Apps {
 		wrapper := app.WrapperPath()
 		validCmd := filepath.Base(wrapper)
-		if s.InstanceKey != "" {
-			// wrapper uses s.InstanceName(), with the instance key
-			// set the command will be 'snap_foo.app' instead of
-			// 'snap.app', need to account for that
-			validCmd = snap.JoinSnapApp(s.SnapName(), app.Name)
-		}
 		// check the prefix to allow %flag style args
 		// this is ok because desktop files are not run through sh
 		// so we don't have to worry about the arguments too much
@@ -126,7 +120,7 @@ func rewriteExecLine(s *snap.Info, desktopFile, line string) (string, error) {
 		}
 	}
 
-	logger.Noticef("cannot use line %q for desktop file %q (snap %s)", line, desktopFile, s.InstanceName())
+	logger.Noticef("cannot use line %q for desktop file %q (snap %s)", line, desktopFile, s.Name())
 	// The Exec= line in the desktop file is invalid. Instead of failing
 	// hard we rewrite the Exec= line. The convention is that the desktop
 	// file has the same name as the application we can use this fact here.
@@ -140,36 +134,6 @@ func rewriteExecLine(s *snap.Info, desktopFile, line string) (string, error) {
 	}
 
 	return "", fmt.Errorf("invalid exec command: %q", cmd)
-}
-
-func rewriteIconLine(s *snap.Info, line string) (string, error) {
-	icon := strings.SplitN(line, "=", 2)[1]
-
-	// If there is a path separator, assume the icon is a path name
-	if strings.ContainsRune(icon, filepath.Separator) {
-		if !strings.HasPrefix(icon, "${SNAP}/") {
-			return "", fmt.Errorf("icon path %q is not part of the snap", icon)
-		}
-		if filepath.Clean(icon) != icon {
-			return "", fmt.Errorf("icon path %q is not canonicalized, did you mean %q?", icon, filepath.Clean(icon))
-		}
-		return line, nil
-	}
-
-	// If the icon is prefixed with "snap.${SNAP_NAME}.", rewrite
-	// to the instance name.
-	snapIconPrefix := fmt.Sprintf("snap.%s.", s.SnapName())
-	if strings.HasPrefix(icon, snapIconPrefix) {
-		return fmt.Sprintf("Icon=snap.%s.%s", s.InstanceName(), icon[len(snapIconPrefix):]), nil
-	}
-
-	// If the icon has any other "snap." prefix, treat this as an error.
-	if strings.HasPrefix(icon, "snap.") {
-		return "", fmt.Errorf("invalid icon name: %q, must start with %q", icon, snapIconPrefix)
-	}
-
-	// Allow other icons names through unchanged.
-	return line, nil
 }
 
 func sanitizeDesktopFile(s *snap.Info, desktopFile string, rawcontent []byte) []byte {
@@ -195,27 +159,12 @@ func sanitizeDesktopFile(s *snap.Info, desktopFile string, rawcontent []byte) []
 			bline = []byte(line)
 		}
 
-		// rewrite icon line if it references an icon theme icon
-		if bytes.HasPrefix(bline, []byte("Icon=")) {
-			line, err := rewriteIconLine(s, string(bline))
-			if err != nil {
-				logger.Debugf("ignoring icon in source desktop file %q: %s", filepath.Base(desktopFile), err)
-				continue
-			}
-			bline = []byte(line)
-		}
-
 		// do variable substitution
 		bline = bytes.Replace(bline, []byte("${SNAP}"), mountDir, -1)
 
 		newContent.Grow(len(bline) + 1)
 		newContent.Write(bline)
 		newContent.WriteByte('\n')
-
-		// insert snap name
-		if bytes.Equal(bline, []byte("[Desktop Entry]")) {
-			newContent.Write([]byte("X-SnapInstanceName=" + s.InstanceName() + "\n"))
-		}
 	}
 
 	return newContent.Bytes()
@@ -233,21 +182,6 @@ func updateDesktopDatabase(desktopFiles []string) error {
 		logger.Debugf("update-desktop-database successful")
 	}
 	return nil
-}
-
-// desktopPrefix returns the prefix string for the desktop files that
-// belongs to the given snapInstance. We need to do something custom
-// here because a) we need to be compatible with the world before we had
-// parallel installs b) we can't just use the usual "_" parallel installs
-// separator because that is already used as the separator between snap
-// and desktop filename.
-func desktopPrefix(s *snap.Info) string {
-	if s.SnapName() == s.InstanceName() {
-		return s.SnapName()
-	}
-	// we cannot use the usual "_" separator because that is also used
-	// to separate "$snap_$desktopfile"
-	return fmt.Sprintf("%s+%s", s.SnapName(), s.InstanceKey)
 }
 
 // AddSnapDesktopFiles puts in place the desktop files for the applications from the snap.
@@ -280,11 +214,7 @@ func AddSnapDesktopFiles(s *snap.Info) (err error) {
 			return err
 		}
 
-		// FIXME: don't blindly use the snap desktop filename, mangle it
-		// but we can't just use the app name because a desktop file
-		// may call the same app with multiple parameters, e.g.
-		// --create-new, --open-existing etc
-		installedDesktopFileName := filepath.Join(dirs.SnapDesktopFilesDir, fmt.Sprintf("%s_%s", desktopPrefix(s), filepath.Base(df)))
+		installedDesktopFileName := filepath.Join(dirs.SnapDesktopFilesDir, fmt.Sprintf("%s_%s", s.Name(), filepath.Base(df)))
 		content = sanitizeDesktopFile(s, installedDesktopFileName, content)
 		if err := osutil.AtomicWriteFile(installedDesktopFileName, content, 0755, 0); err != nil {
 			return err
@@ -302,24 +232,17 @@ func AddSnapDesktopFiles(s *snap.Info) (err error) {
 
 // RemoveSnapDesktopFiles removes the added desktop files for the applications in the snap.
 func RemoveSnapDesktopFiles(s *snap.Info) error {
-	removedDesktopFiles := make([]string, 0, len(s.Apps))
-
-	desktopFiles, err := filepath.Glob(filepath.Join(dirs.SnapDesktopFilesDir, fmt.Sprintf("%s_*.desktop", desktopPrefix(s))))
+	glob := filepath.Join(dirs.SnapDesktopFilesDir, s.Name()+"_*.desktop")
+	activeDesktopFiles, err := filepath.Glob(glob)
 	if err != nil {
-		return nil
+		return fmt.Errorf("cannot get desktop files for %v: %s", glob, err)
 	}
-	for _, df := range desktopFiles {
-		if err := os.Remove(df); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		} else {
-			removedDesktopFiles = append(removedDesktopFiles, df)
-		}
+	for _, f := range activeDesktopFiles {
+		os.Remove(f)
 	}
 
 	// updates mime info etc
-	if err := updateDesktopDatabase(removedDesktopFiles); err != nil {
+	if err := updateDesktopDatabase(activeDesktopFiles); err != nil {
 		return err
 	}
 

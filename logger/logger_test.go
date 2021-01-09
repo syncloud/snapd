@@ -21,9 +21,7 @@ package logger_test
 
 import (
 	"bytes"
-	"log"
 	"os"
-	"runtime"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -51,35 +49,14 @@ func (s *LogSuite) TearDownTest(c *C) {
 }
 
 func (s *LogSuite) TestDefault(c *C) {
-	// env shenanigans
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	oldTerm, hadTerm := os.LookupEnv("TERM")
-	defer func() {
-		if hadTerm {
-			os.Setenv("TERM", oldTerm)
-		} else {
-			os.Unsetenv("TERM")
-		}
-	}()
-
 	if logger.GetLogger() != nil {
 		logger.SetLogger(nil)
 	}
 	c.Check(logger.GetLogger(), IsNil)
 
-	os.Setenv("TERM", "dumb")
 	err := logger.SimpleSetup()
-	c.Assert(err, IsNil)
+	c.Check(err, IsNil)
 	c.Check(logger.GetLogger(), NotNil)
-	c.Check(logger.GetLoggerFlags(), Equals, logger.DefaultFlags)
-
-	os.Unsetenv("TERM")
-	err = logger.SimpleSetup()
-	c.Assert(err, IsNil)
-	c.Check(logger.GetLogger(), NotNil)
-	c.Check(logger.GetLoggerFlags(), Equals, log.Lshortfile)
 }
 
 func (s *LogSuite) TestNew(c *C) {
@@ -110,15 +87,4 @@ func (s *LogSuite) TestNoticef(c *C) {
 func (s *LogSuite) TestPanicf(c *C) {
 	c.Check(func() { logger.Panicf("xyzzy") }, Panics, "xyzzy")
 	c.Check(s.logbuf.String(), Matches, `(?m).*logger_test\.go:\d+: PANIC xyzzy`)
-}
-
-func (s *LogSuite) TestWithLoggerLock(c *C) {
-	logger.Noticef("xyzzy")
-
-	called := false
-	logger.WithLoggerLock(func() {
-		called = true
-		c.Check(s.logbuf.String(), Matches, `(?m).*logger_test\.go:\d+: xyzzy`)
-	})
-	c.Check(called, Equals, true)
 }

@@ -20,11 +20,8 @@
 package main_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
-	"strings"
 	"time"
 
 	"gopkg.in/check.v1"
@@ -35,6 +32,8 @@ import (
 
 type appOpSuite struct {
 	BaseSnapSuite
+
+	restoreAll func()
 }
 
 var _ = check.Suite(&appOpSuite{})
@@ -42,13 +41,16 @@ var _ = check.Suite(&appOpSuite{})
 func (s *appOpSuite) SetUpTest(c *check.C) {
 	s.BaseSnapSuite.SetUpTest(c)
 
-	restoreClientRetry := client.MockDoTimings(time.Millisecond, 100*time.Millisecond)
+	restoreClientRetry := client.MockDoRetry(time.Millisecond, 10*time.Millisecond)
 	restorePollTime := snap.MockPollTime(time.Millisecond)
-	s.AddCleanup(restoreClientRetry)
-	s.AddCleanup(restorePollTime)
+	s.restoreAll = func() {
+		restoreClientRetry()
+		restorePollTime()
+	}
 }
 
 func (s *appOpSuite) TearDownTest(c *check.C) {
+	s.restoreAll()
 	s.BaseSnapSuite.TearDownTest(c)
 }
 
@@ -81,7 +83,7 @@ func (s *appOpSuite) args(op string, names []string, extra []string, noWait bool
 
 func (s *appOpSuite) testOpNoArgs(c *check.C, op string) {
 	s.RedirectClientToTestServer(nil)
-	_, err := snap.Parser(snap.Client()).ParseArgs([]string{op})
+	_, err := snap.Parser().ParseArgs([]string{op})
 	c.Assert(err, check.ErrorMatches, `.* required argument .* not provided`)
 }
 
@@ -103,7 +105,7 @@ func (s *appOpSuite) testOpErrorResponse(c *check.C, op string, names []string, 
 		n++
 	})
 
-	_, err := snap.Parser(snap.Client()).ParseArgs(s.args(op, names, extra, noWait))
+	_, err := snap.Parser().ParseArgs(s.args(op, names, extra, noWait))
 	c.Assert(err, check.ErrorMatches, "error")
 	c.Check(n, check.Equals, 1)
 }
@@ -133,7 +135,7 @@ func (s *appOpSuite) testOp(c *check.C, op, summary string, names []string, extr
 
 		n++
 	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs(s.args(op, names, extra, noWait))
+	rest, err := snap.Parser().ParseArgs(s.args(op, names, extra, noWait))
 	c.Assert(err, check.IsNil)
 	c.Assert(rest, check.HasLen, 0)
 	c.Check(s.Stderr(), check.Equals, "")
@@ -166,131 +168,4 @@ func (s *appOpSuite) TestAppOps(c *check.C) {
 			}
 		}
 	}
-}
-
-func (s *appOpSuite) TestAppStatus(c *check.C) {
-	n := 0
-	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		switch n {
-		case 0:
-			c.Check(r.URL.Path, check.Equals, "/v2/apps")
-			c.Check(r.URL.Query(), check.HasLen, 1)
-			c.Check(r.URL.Query().Get("select"), check.Equals, "service")
-			c.Check(r.Method, check.Equals, "GET")
-			w.WriteHeader(200)
-			enc := json.NewEncoder(w)
-			enc.Encode(map[string]interface{}{
-				"type": "sync",
-				"result": []map[string]interface{}{
-					{"snap": "foo", "name": "bar", "daemon": "oneshot",
-						"active": false, "enabled": true,
-						"activators": []map[string]interface{}{
-							{"name": "bar", "type": "timer", "active": true, "enabled": true},
-						},
-					}, {"snap": "foo", "name": "baz", "daemon": "oneshot",
-						"active": false, "enabled": true,
-						"activators": []map[string]interface{}{
-							{"name": "baz-sock1", "type": "socket", "active": true, "enabled": true},
-							{"name": "baz-sock2", "type": "socket", "active": false, "enabled": true},
-						},
-					}, {"snap": "foo", "name": "zed",
-						"active": true, "enabled": true,
-					},
-				},
-				"status":      "OK",
-				"status-code": 200,
-			})
-		default:
-			c.Fatalf("expected to get 1 requests, now on %d", n+1)
-		}
-
-		n++
-	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"services"})
-	c.Assert(err, check.IsNil)
-	c.Assert(rest, check.HasLen, 0)
-	c.Check(s.Stderr(), check.Equals, "")
-	c.Check(s.Stdout(), check.Equals, `Service  Startup  Current   Notes
-foo.bar  enabled  inactive  timer-activated
-foo.baz  enabled  inactive  socket-activated
-foo.zed  enabled  active    -
-`)
-	// ensure that the fake server api was actually hit
-	c.Check(n, check.Equals, 1)
-}
-
-func (s *appOpSuite) TestServiceCompletion(c *check.C) {
-	n := 0
-	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.URL.Path, check.Equals, "/v2/apps")
-		c.Check(r.URL.Query(), check.HasLen, 1)
-		c.Check(r.URL.Query().Get("select"), check.Equals, "service")
-		c.Check(r.Method, check.Equals, "GET")
-		w.WriteHeader(200)
-		enc := json.NewEncoder(w)
-		enc.Encode(map[string]interface{}{
-			"type": "sync",
-			"result": []map[string]interface{}{
-				{"snap": "a-snap", "name": "foo", "daemon": "simple"},
-				{"snap": "a-snap", "name": "bar", "daemon": "simple"},
-				{"snap": "b-snap", "name": "baz", "daemon": "simple"},
-			},
-			"status":      "OK",
-			"status-code": 200,
-		})
-
-		n++
-	})
-
-	var comp = func(s string) string {
-		comps := snap.ServiceName("").Complete(s)
-		as := make([]string, len(comps))
-		for i := range comps {
-			as[i] = comps[i].Item
-		}
-		sort.Strings(as)
-		return strings.Join(as, "  ")
-	}
-
-	c.Check(comp(""), check.Equals, "a-snap  a-snap.bar  a-snap.foo  b-snap.baz")
-	c.Check(comp("a"), check.Equals, "a-snap  a-snap.bar  a-snap.foo")
-	c.Check(comp("a-snap"), check.Equals, "a-snap  a-snap.bar  a-snap.foo")
-	c.Check(comp("a-snap."), check.Equals, "a-snap.bar  a-snap.foo")
-	c.Check(comp("a-snap.b"), check.Equals, "a-snap.bar")
-	c.Check(comp("b"), check.Equals, "b-snap.baz")
-	c.Check(comp("c"), check.Equals, "")
-
-	// ensure that the fake server api was actually hit
-	c.Check(n, check.Equals, 7)
-}
-
-func (s *appOpSuite) TestAppStatusNoServices(c *check.C) {
-	n := 0
-	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		switch n {
-		case 0:
-			c.Check(r.URL.Path, check.Equals, "/v2/apps")
-			c.Check(r.URL.Query(), check.HasLen, 1)
-			c.Check(r.URL.Query().Get("select"), check.Equals, "service")
-			c.Check(r.Method, check.Equals, "GET")
-			w.WriteHeader(200)
-			enc := json.NewEncoder(w)
-			enc.Encode(map[string]interface{}{
-				"type":        "sync",
-				"result":      []map[string]interface{}{},
-				"status":      "OK",
-				"status-code": 200,
-			})
-		default:
-			c.Fatalf("expected to get 1 requests, now on %d", n+1)
-		}
-		n++
-	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"services"})
-	c.Assert(err, check.IsNil)
-	c.Assert(rest, check.HasLen, 0)
-	c.Check(s.Stdout(), check.Equals, "")
-	c.Check(s.Stderr(), check.Equals, "There are no services provided by installed snaps.\n")
-	// ensure that the fake server api was actually hit
-	c.Check(n, check.Equals, 1)
 }

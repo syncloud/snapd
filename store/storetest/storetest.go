@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2014-2018 Canonical Ltd
+ * Copyright (C) 2014-2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,11 +20,11 @@
 package storetest
 
 import (
-	"context"
 	"io"
 
+	"golang.org/x/net/context"
+
 	"github.com/snapcore/snapd/asserts"
-	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/progress"
@@ -41,35 +41,31 @@ type Store struct{}
 // ensure we conform
 var _ snapstate.StoreService = Store{}
 
-func (Store) EnsureDeviceSession() (*auth.DeviceState, error) {
-	panic("Store.EnsureDeviceSession not expected")
-}
-
-func (Store) SnapInfo(context.Context, store.SnapSpec, *auth.UserState) (*snap.Info, error) {
+func (Store) SnapInfo(store.SnapSpec, *auth.UserState) (*snap.Info, error) {
 	panic("Store.SnapInfo not expected")
 }
 
-func (Store) Find(context.Context, *store.Search, *auth.UserState) ([]*snap.Info, error) {
+func (Store) Find(*store.Search, *auth.UserState) ([]*snap.Info, error) {
 	panic("Store.Find not expected")
 }
 
-func (Store) SnapAction(context.Context, []*store.CurrentSnap, []*store.SnapAction, *auth.UserState, *store.RefreshOptions) ([]*snap.Info, error) {
-	panic("Store.SnapAction not expected")
+func (Store) LookupRefresh(*store.RefreshCandidate, *auth.UserState) (*snap.Info, error) {
+	panic("Store.LookupRefresh not expected")
 }
 
-func (Store) Download(context.Context, string, string, *snap.DownloadInfo, progress.Meter, *auth.UserState, *store.DownloadOptions) error {
+func (Store) ListRefresh([]*store.RefreshCandidate, *auth.UserState, *store.RefreshOptions) ([]*snap.Info, error) {
+	panic("Store.ListRefresh not expected")
+}
+
+func (Store) Download(context.Context, string, string, *snap.DownloadInfo, progress.Meter, *auth.UserState) error {
 	panic("Store.Download not expected")
-}
-
-func (Store) DownloadStream(ctx context.Context, name string, downloadInfo *snap.DownloadInfo, user *auth.UserState) (io.ReadCloser, error) {
-	panic("Store.DownloadStream not expected")
 }
 
 func (Store) SuggestedCurrency() string {
 	panic("Store.SuggestedCurrency not expected")
 }
 
-func (Store) Buy(*client.BuyOptions, *auth.UserState) (*client.BuyResult, error) {
+func (Store) Buy(*store.BuyOptions, *auth.UserState) (*store.BuyResult, error) {
 	panic("Store.Buy not expected")
 }
 
@@ -77,7 +73,7 @@ func (Store) ReadyToBuy(*auth.UserState) error {
 	panic("Store.ReadyToBuy not expected")
 }
 
-func (Store) Sections(context.Context, *auth.UserState) ([]string, error) {
+func (Store) Sections(*auth.UserState) ([]string, error) {
 	panic("Store.Sections not expected")
 }
 
@@ -85,22 +81,6 @@ func (Store) Assertion(*asserts.AssertionType, []string, *auth.UserState) (asser
 	panic("Store.Assertion not expected")
 }
 
-func (Store) WriteCatalogs(context.Context, io.Writer, store.SnapAdder) error {
+func (Store) WriteCatalogs(io.Writer, store.SnapAdder) error {
 	panic("fakeStore.WriteCatalogs not expected")
-}
-
-func (Store) ConnectivityCheck() (map[string]bool, error) {
-	panic("ConnectivityCheck not expected")
-}
-
-func (Store) CreateCohorts(context.Context, []string) (map[string]string, error) {
-	panic("CreateCohort not expected")
-}
-
-func (Store) LoginUser(username, password, otp string) (string, string, error) {
-	panic("LoginUser not expected")
-}
-
-func (Store) UserInfo(email string) (userinfo *store.User, err error) {
-	panic("UserInfo not expected")
 }

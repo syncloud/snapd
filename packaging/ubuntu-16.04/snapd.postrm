@@ -2,11 +2,6 @@
 
 set -e
 
-# "powerpc" is not supported unfortunately, do nothing here# 
-if [ "$DPKG_MAINTSCRIPT_ARCH" = powerpc ]; then
-    exit 0
-fi
-
 systemctl_stop() {
     unit="$1"
 
@@ -24,14 +19,11 @@ systemctl_stop() {
 }
 
 if [ "$1" = "purge" ]; then
-    # Undo any bind mounts to /snap and /var/snap that resulted from parallel
-    # installs for classic snaps or LP:#1668659 (for /snap only, that bug can't
-    # happen in trusty -- and doing this would mess up snap.mount.service there)
-    for mp in /snap /var/snap; do
-        if grep -q " $mp $mp" /proc/self/mountinfo; then
-            umount -l "$mp" || true
-        fi
-    done
+    # undo any bind mount to /snap that resulted from LP:#1668659
+    # (that bug can't happen in trusty -- and doing this would mess up snap.mount.service there)
+    if grep -q "/snap /snap" /proc/self/mountinfo; then
+        umount -l /snap || true
+    fi
 
     units=$(systemctl list-unit-files --full | grep '^snap[-.]' | cut -f1 -d ' ' | grep -vF snap.mount.service || true)
     mounts=$(echo "$units" | grep '^snap[-.].*\.mount$' || true)
@@ -76,17 +68,6 @@ if [ "$1" = "purge" ]; then
                     rmdir --ignore-fail-on-non-empty "$d" || true
                 fi
             done
-            # udev rules
-            find /etc/udev/rules.d -name "*-snap.${snap}.rules" -execdir rm -f "{}" \;
-            # dbus policy files
-            if [ -d /etc/dbus-1/system.d ]; then
-                find /etc/dbus-1/system.d -name "snap.${snap}.*.conf" -execdir rm -f "{}" \;
-            fi
-            # timer and socket units
-            find /etc/systemd/system -name "snap.${snap}.*.timer" -o -name "snap.${snap}.*.socket" | while read -r f; do
-                systemctl_stop "$(basename "$f")"
-                rm -f "$f"
-            done
         fi
 
         echo "Removing $unit"
@@ -109,13 +90,17 @@ if [ "$1" = "purge" ]; then
     echo "Discarding preserved snap namespaces"
     # opportunistic as those might not be actually mounted
     if [ -d /run/snapd/ns ]; then
-        if [ "$(find /run/snapd/ns/ -name "*.mnt" | wc -l)" -gt 0 ]; then
+        if [ $(ls /run/snapd/ns/*.mnt | wc -l) -gt 0 ]; then
             for mnt in /run/snapd/ns/*.mnt; do
                 umount -l "$mnt" || true
                 rm -f "$mnt"
             done
         fi
-        find /run/snapd/ns/ \( -name '*.fstab' -o -name '*.user-fstab' -o -name '*.info' \) -delete
+        if [ $(ls /run/snapd/ns/*.fstab | wc -l) -gt 0 ]; then
+            for fstab in /run/snapd/ns/*.fstab; do
+                rm -f "$fstab"
+            done
+        fi
         umount -l /run/snapd/ns/ || true
     fi
 
@@ -123,7 +108,7 @@ if [ "$1" = "purge" ]; then
     rm -f /etc/apparmor.d/snap.core.*.usr.lib.snapd.snap-confine
 
     echo "Removing snapd cache"
-    rm -rf /var/cache/snapd/*
+    rm -f /var/cache/snapd/*
 
     echo "Removing snapd state"
     rm -rf /var/lib/snapd

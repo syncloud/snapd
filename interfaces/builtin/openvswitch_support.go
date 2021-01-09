@@ -44,5 +44,6 @@ func init() {
 		baseDeclarationSlots:     openvswitchSupportBaseDeclarationSlots,
 		connectedPlugKModModules: openvswitchSupportConnectedPlugKmod,
 		connectedPlugAppArmor:    openvswitchSupportConnectedPlugAppArmor,
+		reservedForOS:            true,
 	})
 }

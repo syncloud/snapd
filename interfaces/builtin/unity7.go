@@ -96,6 +96,7 @@ owner @{HOME}/.local/share/fonts/{,**} r,
 # interface.
 /usr/bin/xdg-open ixr,
 /usr/share/applications/{,*} r,
+/usr/bin/dbus-send ixr,
 
 # This allow access to the first version of the snapd-xdg-open
 # version which was shipped outside of snapd
@@ -111,11 +112,12 @@ dbus (send)
     bus=session
     path=/io/snapcraft/Launcher
     interface=io.snapcraft.Launcher
-    member={OpenURL,OpenFile}
+    member=OpenURL
     peer=(label=unconfined),
 
 # Allow use of snapd's internal 'xdg-settings'
 /usr/bin/xdg-settings ixr,
+/usr/bin/dbus-send ixr,
 dbus (send)
     bus=session
     path=/io/snapcraft/Settings
@@ -482,10 +484,7 @@ dbus (receive)
 # this leaks the names of snaps with desktop files
 /var/lib/snapd/desktop/applications/ r,
 /var/lib/snapd/desktop/applications/mimeinfo.cache r,
-# Support BAMF_DESKTOP_FILE_HINT by allowing reading our desktop files
-# parallel-installs: when @{SNAP_INSTANCE_NAME} == @{SNAP_NAME},
-# this leaks read access to desktop files of parallel installs of the snap
-/var/lib/snapd/desktop/applications/@{SNAP_INSTANCE_NAME}_*.desktop r,
+/var/lib/snapd/desktop/applications/@{SNAP_NAME}_*.desktop r,
 
 # then allow talking to Unity DBus service
 dbus (send)
@@ -502,8 +501,6 @@ dbus (send)
     member={Register,Unregister}Application
     peer=(label=unconfined),
 
-# When @{SNAP_NAME} == @{SNAP_INSTANCE_NAME}, this rule
-# allows the snap to access parallel installs of this snap.
 dbus (receive)
     bus=session
     interface=org.freedesktop.DBus.Properties
@@ -511,8 +508,6 @@ dbus (receive)
     member=GetAll
     peer=(label=unconfined),
 
-# When @{SNAP_NAME} == @{SNAP_INSTANCE_NAME}, this rule
-# allows the snap to access parallel installs of this snap.
 dbus (receive, send)
     bus=session
     interface=com.canonical.indicator.messages.application
@@ -646,11 +641,7 @@ func (iface *unity7Interface) AppArmorConnectedPlug(spec *apparmor.Specification
 	// but we don't care about that here because the rule above already
 	// does that) to '_'. Since we know that the desktop filename starts
 	// with the snap name, perform this conversion on the snap name.
-	//
-	// parallel-installs: UNITY_SNAP_NAME is used in the context of dbus
-	// mediation, this unintentionally opens access to dbus paths of keyed
-	// instances of @{SNAP_NAME} to @{SNAP_NAME} snap
-	new := strings.Replace(plug.Snap().InstanceName(), "-", "_", -1)
+	new := strings.Replace(plug.Snap().Name(), "-", "_", -1)
 	old := "###UNITY_SNAP_NAME###"
 	snippet := strings.Replace(unity7ConnectedPlugAppArmor, old, new, -1)
 	spec.AddSnippet(snippet)
@@ -662,7 +653,11 @@ func (iface *unity7Interface) SecCompConnectedPlug(spec *seccomp.Specification, 
 	return nil
 }
 
-func (iface *unity7Interface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *unity7Interface) BeforePrepareSlot(slot *snap.SlotInfo) error {
+	return sanitizeSlotReservedForOS(iface, slot)
+}
+
+func (iface *unity7Interface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

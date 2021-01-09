@@ -20,120 +20,45 @@
 package testutil
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
-	"path/filepath"
 
-	"gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
 type mockCommandSuite struct{}
 
-var _ = check.Suite(&mockCommandSuite{})
+var _ = Suite(&mockCommandSuite{})
 
-const (
-	UmountNoFollow = umountNoFollow
-)
-
-func (s *mockCommandSuite) TestMockCommand(c *check.C) {
+func (s *mockCommandSuite) TestMockCommand(c *C) {
 	mock := MockCommand(c, "cmd", "true")
 	defer mock.Restore()
 	err := exec.Command("cmd", "first-run", "--arg1", "arg2", "a space").Run()
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 	err = exec.Command("cmd", "second-run", "--arg1", "arg2", "a %s").Run()
-	c.Assert(err, check.IsNil)
-	c.Assert(mock.Calls(), check.DeepEquals, [][]string{
+	c.Assert(err, IsNil)
+	c.Assert(mock.Calls(), DeepEquals, [][]string{
 		{"cmd", "first-run", "--arg1", "arg2", "a space"},
 		{"cmd", "second-run", "--arg1", "arg2", "a %s"},
 	})
 }
 
-func (s *mockCommandSuite) TestMockCommandAlso(c *check.C) {
+func (s *mockCommandSuite) TestMockCommandAlso(c *C) {
 	mock := MockCommand(c, "fst", "")
 	also := mock.Also("snd", "")
 	defer mock.Restore()
 
-	c.Assert(exec.Command("fst").Run(), check.IsNil)
-	c.Assert(exec.Command("snd").Run(), check.IsNil)
-	c.Check(mock.Calls(), check.DeepEquals, [][]string{{"fst"}, {"snd"}})
-	c.Check(mock.Calls(), check.DeepEquals, also.Calls())
+	c.Assert(exec.Command("fst").Run(), IsNil)
+	c.Assert(exec.Command("snd").Run(), IsNil)
+	c.Check(mock.Calls(), DeepEquals, [][]string{{"fst"}, {"snd"}})
+	c.Check(mock.Calls(), DeepEquals, also.Calls())
 }
 
-func (s *mockCommandSuite) TestMockCommandConflictEcho(c *check.C) {
+func (s *mockCommandSuite) TestMockCommandConflictEcho(c *C) {
 	mock := MockCommand(c, "do-not-swallow-echo-args", "")
 	defer mock.Restore()
 
-	c.Assert(exec.Command("do-not-swallow-echo-args", "-E", "-n", "-e").Run(), check.IsNil)
-	c.Assert(mock.Calls(), check.DeepEquals, [][]string{
+	c.Assert(exec.Command("do-not-swallow-echo-args", "-E", "-n", "-e").Run(), IsNil)
+	c.Assert(mock.Calls(), DeepEquals, [][]string{
 		{"do-not-swallow-echo-args", "-E", "-n", "-e"},
 	})
-}
-
-func (s *mockCommandSuite) TestMockShellchecksWhenAvailable(c *check.C) {
-	tmpDir := c.MkDir()
-	mockShellcheck := MockCommand(c, "shellcheck", fmt.Sprintf(`cat > %s/input`, tmpDir))
-	defer mockShellcheck.Restore()
-
-	restore := MockShellcheckPath(mockShellcheck.Exe())
-	defer restore()
-
-	mock := MockCommand(c, "some-command", "echo some-command")
-
-	c.Assert(exec.Command("some-command").Run(), check.IsNil)
-
-	c.Assert(mock.Calls(), check.DeepEquals, [][]string{
-		{"some-command"},
-	})
-	c.Assert(mockShellcheck.Calls(), check.DeepEquals, [][]string{
-		{"shellcheck", "-s", "bash", "-"},
-	})
-
-	scriptData, err := ioutil.ReadFile(mock.Exe())
-	c.Assert(err, check.IsNil)
-	c.Assert(string(scriptData), Contains, "\necho some-command\n")
-
-	data, err := ioutil.ReadFile(filepath.Join(tmpDir, "input"))
-	c.Assert(err, check.IsNil)
-	c.Assert(data, check.DeepEquals, scriptData)
-}
-
-func (s *mockCommandSuite) TestMockNoShellchecksWhenNotAvailable(c *check.C) {
-	mockShellcheck := MockCommand(c, "shellcheck", `echo "i am not called"; exit 1`)
-	defer mockShellcheck.Restore()
-
-	restore := MockShellcheckPath("")
-	defer restore()
-
-	// This would fail with proper shellcheck due to SC2086: Double quote to
-	// prevent globbing and word splitting.
-	mock := MockCommand(c, "some-command", "echo $1")
-
-	c.Assert(exec.Command("some-command").Run(), check.IsNil)
-
-	c.Assert(mock.Calls(), check.DeepEquals, [][]string{
-		{"some-command"},
-	})
-	c.Assert(mockShellcheck.Calls(), check.HasLen, 0)
-}
-
-func (s *mockCommandSuite) TestMockCreateAbsPathDir(c *check.C) {
-	// this is an absolute path
-	dir := c.MkDir()
-
-	absPath := filepath.Join(dir, "this/is/nested/command")
-	mock := MockCommand(c, absPath, "")
-
-	c.Assert(exec.Command(absPath).Run(), check.IsNil)
-	c.Assert(mock.Calls(), check.DeepEquals, [][]string{
-		{"command"},
-	})
-
-	binDirRo := filepath.Join(dir, "ro")
-	err := os.MkdirAll(binDirRo, 0000)
-	c.Assert(err, check.IsNil)
-	absPathBad := filepath.Join(binDirRo, "this/fails/command")
-	exp := fmt.Sprintf(`cannot create the directory for mocked command "%[1]s/ro/this/fails/command": mkdir %[1]s/ro/this: permission denied`, dir)
-	c.Assert(func() { MockCommand(c, absPathBad, "") }, check.Panics, exp)
 }

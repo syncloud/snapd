@@ -18,7 +18,6 @@
 #include "cookie-support.h"
 #include "cookie-support.c"
 
-#include "../libsnap-confine-private/cleanup-funcs.h"
 #include "../libsnap-confine-private/test-utils.h"
 
 #include <glib.h>
@@ -65,8 +64,8 @@ static void create_dumy_cookie_file(const char *snap_name,
 
 static void test_cookie_get_from_snapd__successful(void)
 {
-	struct sc_error *err SC_CLEANUP(sc_cleanup_error) = NULL;
-	char *cookie SC_CLEANUP(sc_cleanup_string) = NULL;
+	struct sc_error *err = NULL;
+	char *cookie;
 
 	char *dummy = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijmnopqrst";
 
@@ -82,8 +81,8 @@ static void test_cookie_get_from_snapd__successful(void)
 
 static void test_cookie_get_from_snapd__nofile(void)
 {
-	struct sc_error *err SC_CLEANUP(sc_cleanup_error) = NULL;
-	char *cookie SC_CLEANUP(sc_cleanup_string) = NULL;
+	struct sc_error *err = NULL;
+	char *cookie;
 
 	set_fake_cookie_dir();
 
@@ -94,7 +93,7 @@ static void test_cookie_get_from_snapd__nofile(void)
 	g_assert_null(cookie);
 }
 
-static void __attribute__((constructor)) init(void)
+static void __attribute__ ((constructor)) init(void)
 {
 	g_test_add_func("/snap-cookie/cookie_get_from_snapd/successful",
 			test_cookie_get_from_snapd__successful);

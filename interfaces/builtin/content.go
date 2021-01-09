@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/mount"
@@ -168,22 +169,28 @@ func (iface *contentInterface) path(attrs interfaces.Attrer, name string) []stri
 // $SNAP_COMMON. If there are no variables then $SNAP is implicitly assumed
 // (this is the behavior that was used before the variables were supporter).
 func resolveSpecialVariable(path string, snapInfo *snap.Info) string {
-	// Content cannot be mounted at arbitrary locations, validate the path
-	// for extra safety.
-	if err := snap.ValidatePathVariables(path); err == nil && strings.HasPrefix(path, "$") {
-		// The path starts with $ and ValidatePathVariables() ensures
-		// path contains only $SNAP, $SNAP_DATA, $SNAP_COMMON, and no
-		// other $VARs are present. It is ok to use
-		// ExpandSnapVariables() since it only expands $SNAP, $SNAP_DATA
-		// and $SNAP_COMMON
-		return snapInfo.ExpandSnapVariables(path)
+	if strings.HasPrefix(path, "$SNAP/") || path == "$SNAP" {
+		// NOTE: We use dirs.CoreSnapMountDir here as the path used will be always
+		// inside the mount namespace snap-confine creates and there we will
+		// always have a /snap directory available regardless if the system
+		// we're running on supports this or not.
+		return strings.Replace(path, "$SNAP", filepath.Join(dirs.CoreSnapMountDir, snapInfo.Name(), snapInfo.Revision.String()), 1)
 	}
-	// Always prefix with $SNAP if nothing else is provided or the path
-	// contains invalid variables.
-	return snapInfo.ExpandSnapVariables(filepath.Join("$SNAP", path))
+	if strings.HasPrefix(path, "$SNAP_DATA/") || path == "$SNAP_DATA" {
+		return strings.Replace(path, "$SNAP_DATA", snapInfo.DataDir(), 1)
+	}
+	if strings.HasPrefix(path, "$SNAP_COMMON/") || path == "$SNAP_COMMON" {
+		return strings.Replace(path, "$SNAP_COMMON", snapInfo.CommonDataDir(), 1)
+	}
+	// NOTE: assume $SNAP by default if nothing else is provided, for compatibility
+	return filepath.Join(filepath.Join(dirs.CoreSnapMountDir, snapInfo.Name(), snapInfo.Revision.String()), path)
 }
 
-func sourceTarget(plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot, relSrc string) (string, string) {
+func mountEntry(plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot, relSrc string, extraOptions ...string) osutil.MountEntry {
+	options := make([]string, 0, len(extraOptions)+1)
+	options = append(options, "bind")
+	options = append(options, extraOptions...)
+
 	var target string
 	// The 'target' attribute has already been verified in BeforePreparePlug.
 	_ = plug.Attr("target", &target)
@@ -196,14 +203,7 @@ func sourceTarget(plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot
 		_, sourceName := filepath.Split(source)
 		target = filepath.Join(target, sourceName)
 	}
-	return source, target
-}
 
-func mountEntry(plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot, relSrc string, extraOptions ...string) osutil.MountEntry {
-	options := make([]string, 0, len(extraOptions)+1)
-	options = append(options, "bind")
-	options = append(options, extraOptions...)
-	source, target := sourceTarget(plug, slot, relSrc)
 	return osutil.MountEntry{
 		Name:    source,
 		Dir:     target,
@@ -214,7 +214,6 @@ func mountEntry(plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot, 
 func (iface *contentInterface) AppArmorConnectedPlug(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
 	contentSnippet := bytes.NewBuffer(nil)
 	writePaths := iface.path(slot, "write")
-	emit := spec.AddUpdateNSf
 	if len(writePaths) > 0 {
 		fmt.Fprintf(contentSnippet, `
 # In addition to the bind mount, add any AppArmor rules so that
@@ -223,21 +222,9 @@ func (iface *contentInterface) AppArmorConnectedPlug(spec *apparmor.Specificatio
 # are needed for using named sockets within the exported
 # directory.
 `)
-		for i, w := range writePaths {
+		for _, w := range writePaths {
 			fmt.Fprintf(contentSnippet, "%s/** mrwklix,\n",
 				resolveSpecialVariable(w, slot.Snap()))
-			source, target := sourceTarget(plug, slot, w)
-			emit("  # Read-write content sharing %s -> %s (w#%d)\n", plug.Ref(), slot.Ref(), i)
-			emit("  mount options=(bind, rw) %s/ -> %s{,-[0-9]*}/,\n", source, target)
-			emit("  mount options=(rprivate) -> %s{,-[0-9]*}/,\n", target)
-			emit("  umount %s{,-[0-9]*}/,\n", target)
-			// TODO: The assumed prefix depth could be optimized to be more
-			// precise since content sharing can only take place in a fixed
-			// list of places with well-known paths (well, constrained set of
-			// paths). This can be done when the prefix is actually consumed.
-			apparmor.GenWritableProfile(emit, source, 1)
-			apparmor.GenWritableProfile(emit, target, 1)
-			apparmor.GenWritableProfile(emit, fmt.Sprintf("%s-[0-9]*", target), 1)
 		}
 	}
 
@@ -248,20 +235,9 @@ func (iface *contentInterface) AppArmorConnectedPlug(spec *apparmor.Specificatio
 # snaps may directly access the slot implementation's files
 # read-only.
 `)
-		for i, r := range readPaths {
+		for _, r := range readPaths {
 			fmt.Fprintf(contentSnippet, "%s/** mrkix,\n",
 				resolveSpecialVariable(r, slot.Snap()))
-
-			source, target := sourceTarget(plug, slot, r)
-			emit("  # Read-only content sharing %s -> %s (r#%d)\n", plug.Ref(), slot.Ref(), i)
-			emit("  mount options=(bind) %s/ -> %s{,-[0-9]*}/,\n", source, target)
-			emit("  remount options=(bind, ro) %s{,-[0-9]*}/,\n", target)
-			emit("  mount options=(rprivate) -> %s{,-[0-9]*}/,\n", target)
-			emit("  umount %s{,-[0-9]*}/,\n", target)
-			// Look at the TODO comment above.
-			apparmor.GenWritableProfile(emit, source, 1)
-			apparmor.GenWritableProfile(emit, target, 1)
-			apparmor.GenWritableProfile(emit, fmt.Sprintf("%s-[0-9]*", target), 1)
 		}
 	}
 
@@ -269,28 +245,7 @@ func (iface *contentInterface) AppArmorConnectedPlug(spec *apparmor.Specificatio
 	return nil
 }
 
-func (iface *contentInterface) AppArmorConnectedSlot(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	contentSnippet := bytes.NewBuffer(nil)
-	writePaths := iface.path(slot, "write")
-	if len(writePaths) > 0 {
-		fmt.Fprintf(contentSnippet, `
-# When the content interface is writable, allow this slot
-# implementation to access the slot's exported files at the plugging
-# snap's mountpoint to accommodate software where the plugging app
-# tells the slotting app about files to share.
-`)
-		for _, w := range writePaths {
-			_, target := sourceTarget(plug, slot, w)
-			fmt.Fprintf(contentSnippet, "%s/** mrwklix,\n",
-				target)
-		}
-	}
-
-	spec.AddSnippet(contentSnippet.String())
-	return nil
-}
-
-func (iface *contentInterface) AutoConnect(plug *snap.PlugInfo, slot *snap.SlotInfo) bool {
+func (iface *contentInterface) AutoConnect(plug *interfaces.Plug, slot *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

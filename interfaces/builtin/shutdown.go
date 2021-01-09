@@ -45,21 +45,23 @@ dbus (send)
     bus=system
     path=/org/freedesktop/login1
     interface=org.freedesktop.login1.Manager
-    member={PowerOff,Reboot,Suspend,Hibernate,HybridSleep,CanPowerOff,CanReboot,CanSuspend,CanHibernate,CanHybridSleep,ScheduleShutdown,CancelScheduledShutdown,SetWallMessage}
+    member={PowerOff,Reboot,Suspend,Hibernate,HybridSleep,CanPowerOff,CanReboot,CanSuspend,CanHibernate,CanHybridSleep,ScheduleShutdown,CancelScheduledShutdown}
     peer=(label=unconfined),
 
 # Allow clients to introspect
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/systemd1
     interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
+    member=Introspect
+    peer=(label=unconfined),
+
 dbus (send)
     bus=system
     path=/org/freedesktop/login1
     interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
+    member=Introspect
+    peer=(label=unconfined),
 `
 
 func init() {
@@ -70,5 +72,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  shutdownBaseDeclarationSlots,
 		connectedPlugAppArmor: shutdownConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

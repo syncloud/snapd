@@ -59,10 +59,10 @@ func (s *DockerInterfaceSuite) SetUpTest(c *C) {
 		Name:      "docker-daemon",
 		Interface: "docker",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, dockerMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["docker"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *DockerInterfaceSuite) TestName(c *C) {

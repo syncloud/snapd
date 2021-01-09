@@ -20,5 +20,7 @@
 package pack
 
 var (
-	DebArchitecture = debArchitecture
+	CopyToBuildDir       = copyToBuildDir
+	ShouldExcludeDynamic = shouldExcludeDynamic
+	DebArchitecture      = debArchitecture
 )

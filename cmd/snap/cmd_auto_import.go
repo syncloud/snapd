@@ -127,7 +127,7 @@ func queueFile(src string) error {
 	return osutil.CopyFile(src, dst, osutil.CopyFlagOverwrite)
 }
 
-func autoImportFromSpool(cli *client.Client) (added int, err error) {
+func autoImportFromSpool() (added int, err error) {
 	files, err := ioutil.ReadDir(dirs.SnapAssertsSpoolDir)
 	if os.IsNotExist(err) {
 		return 0, nil
@@ -138,7 +138,7 @@ func autoImportFromSpool(cli *client.Client) (added int, err error) {
 
 	for _, fi := range files {
 		cand := filepath.Join(dirs.SnapAssertsSpoolDir, fi.Name())
-		if err := ackFile(cli, cand); err != nil {
+		if err := ackFile(cand); err != nil {
 			logger.Noticef("error: cannot import %s: %s", cand, err)
 			continue
 		} else {
@@ -154,7 +154,7 @@ func autoImportFromSpool(cli *client.Client) (added int, err error) {
 	return added, nil
 }
 
-func autoImportFromAllMounts(cli *client.Client) (int, error) {
+func autoImportFromAllMounts() (int, error) {
 	cands, err := autoImportCandidates()
 	if err != nil {
 		return 0, err
@@ -162,7 +162,7 @@ func autoImportFromAllMounts(cli *client.Client) (int, error) {
 
 	added := 0
 	for _, cand := range cands {
-		err := ackFile(cli, cand)
+		err := ackFile(cand)
 		// the server is not ready yet
 		if _, ok := err.(client.ConnectionError); ok {
 			logger.Noticef("queuing for later %s", cand)
@@ -214,24 +214,23 @@ func doUmount(mp string) error {
 }
 
 type cmdAutoImport struct {
-	clientMixin
 	Mount []string `long:"mount" arg-name:"<device path>"`
 
 	ForceClassic bool `long:"force-classic"`
 }
 
-var shortAutoImportHelp = i18n.G("Inspect devices for actionable information")
+var shortAutoImportHelp = i18n.G("Inspects devices for actionable information")
 
 var longAutoImportHelp = i18n.G(`
 The auto-import command searches available mounted devices looking for
 assertions that are signed by trusted authorities, and potentially
 performs system changes based on them.
 
-If one or more device paths are provided via --mount, these are temporarily
+If one or more device paths are provided via --mount, these are temporariy
 mounted to be inspected as well. Even in that case the command will still
 consider all available mounted devices for inspection.
 
-Assertions to be imported must be made available in the auto-import.assert file
+Imported assertions must be made available in the auto-import.assert file
 in the root of the filesystem.
 `)
 
@@ -242,19 +241,15 @@ func init() {
 		func() flags.Commander {
 			return &cmdAutoImport{}
 		}, map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"mount": i18n.G("Temporarily mount device before inspecting"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+			"mount":         i18n.G("Temporarily mount device before inspecting"),
 			"force-classic": i18n.G("Force import on classic systems"),
 		}, nil)
 	cmd.hidden = true
 }
 
-func (x *cmdAutoImport) autoAddUsers() error {
+func autoAddUsers() error {
 	cmd := cmdCreateUser{
-		clientMixin: x.clientMixin,
-		Known:       true,
-		Sudoer:      true,
+		Known: true, Sudoer: true,
 	}
 	return cmd.Execute(nil)
 }
@@ -287,18 +282,18 @@ func (x *cmdAutoImport) Execute(args []string) error {
 		defer doUmount(mp)
 	}
 
-	added1, err := autoImportFromSpool(x.client)
+	added1, err := autoImportFromSpool()
 	if err != nil {
 		return err
 	}
 
-	added2, err := autoImportFromAllMounts(x.client)
+	added2, err := autoImportFromAllMounts()
 	if err != nil {
 		return err
 	}
 
 	if added1+added2 > 0 {
-		return x.autoAddUsers()
+		return autoAddUsers()
 	}
 
 	return nil

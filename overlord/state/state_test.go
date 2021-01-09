@@ -693,9 +693,6 @@ func (ss *stateSuite) TestMethodEntrance(c *C) {
 		func() { st.NewTask("download", "...") },
 		func() { st.UnmarshalJSON(nil) },
 		func() { st.NewLane() },
-		func() { st.Warnf("hello") },
-		func() { st.OkayWarnings(time.Time{}) },
-		func() { st.UnshowAllWarnings() },
 	}
 
 	reads := []func(){
@@ -709,9 +706,6 @@ func (ss *stateSuite) TestMethodEntrance(c *C) {
 		func() { st.MarshalJSON() },
 		func() { st.Prune(time.Hour, time.Hour, 100) },
 		func() { st.TaskCount() },
-		func() { st.AllWarnings() },
-		func() { st.PendingWarnings() },
-		func() { st.WarningsSummary() },
 	}
 
 	for i, f := range reads {
@@ -769,10 +763,6 @@ func (ss *stateSuite) TestPrune(c *C) {
 	c.Check(st.Task(t5.ID()), IsNil)
 	state.MockTaskTimes(t5, now.Add(-pruneWait), now.Add(-pruneWait))
 
-	// two warnings, one expired
-	st.AddWarning("hello", now, never, time.Nanosecond, state.DefaultRepeatAfter)
-	st.Warnf("hello again")
-
 	st.Prune(pruneWait, abortWait, 100)
 
 	c.Assert(st.Change(chg1.ID()), Equals, chg1)
@@ -794,8 +784,6 @@ func (ss *stateSuite) TestPrune(c *C) {
 	c.Assert(t4.Status(), Equals, state.DoStatus)
 
 	c.Check(st.TaskCount(), Equals, 3)
-
-	c.Check(st.AllWarnings(), HasLen, 1)
 }
 
 func (ss *stateSuite) TestPruneEmptyChange(c *C) {
@@ -929,60 +917,13 @@ func (ss *stateSuite) TestRequestRestart(c *C) {
 	b := new(fakeStateBackend)
 	st := state.New(b)
 
-	ok, t := st.Restarting()
-	c.Check(ok, Equals, false)
-	c.Check(t, Equals, state.RestartUnset)
+	c.Check(st.Restarting(), Equals, false)
 
 	st.RequestRestart(state.RestartDaemon)
 
 	c.Check(b.restartRequested, Equals, true)
 
-	ok, t = st.Restarting()
-	c.Check(ok, Equals, true)
-	c.Check(t, Equals, state.RestartDaemon)
-}
-
-func (ss *stateSuite) TestRequestRestartSystemAndVerifyReboot(c *C) {
-	b := new(fakeStateBackend)
-	st := state.New(b)
-
-	st.Lock()
-	err := st.VerifyReboot("boot-id-1")
-	st.Unlock()
-	c.Assert(err, IsNil)
-
-	ok, t := st.Restarting()
-	c.Check(ok, Equals, false)
-	c.Check(t, Equals, state.RestartUnset)
-
-	st.Lock()
-	st.RequestRestart(state.RestartSystem)
-	st.Unlock()
-
-	c.Check(b.restartRequested, Equals, true)
-
-	ok, t = st.Restarting()
-	c.Check(ok, Equals, true)
-	c.Check(t, Equals, state.RestartSystem)
-
-	var fromBootID string
-	st.Lock()
-	c.Check(st.Get("system-restart-from-boot-id", &fromBootID), IsNil)
-	st.Unlock()
-	c.Check(fromBootID, Equals, "boot-id-1")
-
-	st.Lock()
-	err = st.VerifyReboot("boot-id-1")
-	st.Unlock()
-	c.Check(err, Equals, state.ErrExpectedReboot)
-
-	st.Lock()
-	err = st.VerifyReboot("boot-id-2")
-	st.Unlock()
-	c.Assert(err, IsNil)
-	st.Lock()
-	c.Check(st.Get("system-restart-from-boot-id", &fromBootID), Equals, state.ErrNoState)
-	st.Unlock()
+	c.Check(st.Restarting(), Equals, true)
 }
 
 func (ss *stateSuite) TestReadStateInitsCache(c *C) {

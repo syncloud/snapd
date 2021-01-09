@@ -79,9 +79,9 @@ slots:
         interface: test
 `, nil)
 	s.plugInfo = info1.Plugs["name"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 	s.slotInfo = info2.Slots["name"]
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 }
 
 func (s *specSuite) SetUpTest(c *C) {
@@ -137,10 +137,4 @@ func (s *specSuite) TestSpecificationIface(c *C) {
 	c.Assert(r.AddPermanentPlug(s.iface, s.plugInfo), IsNil)
 	c.Assert(r.AddPermanentSlot(s.iface, s.slotInfo), IsNil)
 	c.Assert(s.spec.Snippets(), DeepEquals, []string{"connected-plug", "connected-slot", "permanent-plug", "permanent-slot"})
-}
-
-func (s *specSuite) TestControlsDeviceCgroup(c *C) {
-	c.Assert(s.spec.ControlsDeviceCgroup(), Equals, false)
-	s.spec.SetControlsDeviceCgroup()
-	c.Assert(s.spec.ControlsDeviceCgroup(), Equals, true)
 }

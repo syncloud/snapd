@@ -5,9 +5,6 @@ STORE_CONFIG=/etc/systemd/system/snapd.service.d/store.conf
 # shellcheck source=tests/lib/systemd.sh
 . "$TESTSLIB/systemd.sh"
 
-# shellcheck source=tests/lib/journalctl.sh
-. "$TESTSLIB/journalctl.sh"
-
 _configure_store_backends(){
     systemctl stop snapd.service snapd.socket
     mkdir -p "$(dirname $STORE_CONFIG)"
@@ -36,41 +33,21 @@ init_fake_refreshes(){
     local dir="$1"
     shift
 
-    fakestore make-refreshable --dir "$dir" "$@"
+    fakestore make-refreshable --dir "$dir" "$@" 
 }
 
 make_snap_installable(){
     local dir="$1"
     local snap_path="$2"
 
-    new_snap_declaration "$dir" "$snap_path"
-    new_snap_revision "$dir" "$snap_path"
-}
-
-new_snap_declaration(){
-    local dir="$1"
-    local snap_path="$2"
-    shift 2
-
     cp -a "$snap_path" "$dir"
-    p=$(fakestore new-snap-declaration --dir "$dir" "$@" "${snap_path}" )
+    p=$(fakestore new-snap-declaration --dir "$dir" "${snap_path}")
+    snap ack "$p"
+    p=$(fakestore new-snap-revision --dir "$dir" "${snap_path}")
     snap ack "$p"
 }
-
-new_snap_revision(){
-    local dir="$1"
-    local snap_path="$2"
-    shift 2
-
-    p=$(fakestore new-snap-revision --dir "$dir" "$@" "${snap_path}")
-    snap ack "$p"
-}
-
 
 setup_fake_store(){
-    # before switching make sure we have a session macaroon
-    snap find test-snapd-tools
-
     local top_dir=$1
 
     mkdir -p "$top_dir/asserts"
@@ -81,23 +58,22 @@ setup_fake_store(){
     https_proxy=${https_proxy:-}
     http_proxy=${http_proxy:-}
 
-    echo "Create fakestore at the given port"
-    PORT="11028"
-    systemd_create_and_start_unit fakestore "$(command -v fakestore) run --dir $top_dir --addr localhost:$PORT --https-proxy=${https_proxy} --http-proxy=${http_proxy} --assert-fallback" "SNAPD_DEBUG=1 SNAPD_DEBUG_HTTP=7 SNAPPY_TESTING=1 SNAPPY_USE_STAGING_STORE=$SNAPPY_USE_STAGING_STORE"
+    systemd_create_and_start_unit fakestore "$(which fakestore) run --dir $top_dir --addr localhost:11028 --https-proxy=${https_proxy} --http-proxy=${http_proxy} --assert-fallback" "SNAPD_DEBUG=1 SNAPD_DEBUG_HTTP=7 SNAPPY_TESTING=1 SNAPPY_USE_STAGING_STORE=$SNAPPY_USE_STAGING_STORE"
 
     echo "And snapd is configured to use the controlled store"
-    _configure_store_backends "SNAPPY_FORCE_API_URL=http://localhost:$PORT" "SNAPPY_USE_STAGING_STORE=$SNAPPY_USE_STAGING_STORE"
+    _configure_store_backends "SNAPPY_FORCE_API_URL=http://localhost:11028" "SNAPPY_USE_STAGING_STORE=$SNAPPY_USE_STAGING_STORE"
 
     echo "Wait until fake store is ready"
-    # shellcheck source=tests/lib/network.sh
-    . "$TESTSLIB"/network.sh
-    if wait_listen_port "$PORT"; then
-        return 0
-    fi
+    for _ in $(seq 15); do
+        if netstat -ntlp | MATCH "127.0.0.1:11028*.*LISTEN"; then
+            return 0
+        fi
+        sleep 1
+    done
 
     echo "fakestore service not started properly"
-    ss -ntlp | grep "127.0.0.1:$PORT" || true
-    get_journalctl_log -u fakestore || true
+    netstat -ntlp | grep "127.0.0.1:11028" || true
+    journalctl -u fakestore || true
     systemctl status fakestore || true
     exit 1
 }

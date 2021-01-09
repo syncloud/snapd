@@ -4,29 +4,32 @@ details: |
     This task checks the behavior of snap-confine when it is started from
     a directory that doesn't exist in the execution environment (chroot).
 
-#ubuntu-core: this test only applies to classic systems
-#debian, fedora, opensuse, arch, amazon-linux-2, centos: just available for systems with confinement (AppArmor, Seccomp)
-systems: [-ubuntu-core-*, -debian-*, -fedora-*, -opensuse-*, -arch-*, -amazon-*, -centos-*]
+systems:
+    # This test only applies to classic systems
+    - -ubuntu-core-16-*
+    # No confinement (AppArmor, Seccomp) available on these systems
+    - -debian-*
+    - -fedora-*
+    - -opensuse-*
 
 prepare: |
     echo "Having installed the test snap"
-    #shellcheck source=tests/lib/snaps.sh
     . "$TESTSLIB/snaps.sh"
-    install_local test-snapd-sh
+    install_local test-snapd-tools
     echo "Hanving created a directory not present in the core snap"
     mkdir -p "/foo"
+
+execute: |
+    echo "We can go to a location that is available in all snaps (/tmp)"
+    echo "We can run the 'pwd' tool and it reports /tmp"
+    [ "$(cd /tmp && test-snapd-tools.cmd pwd)" = "/tmp" ]
+    echo "But if we go to a location that is not available to snaps (e.g. /foo)"
+    echo "Then snap-confine moves us to /var/lib/snapd/void"
+    [ "$(cd /foo && test-snapd-tools.cmd pwd)" = "/var/lib/snapd/void" ]
+    echo "And that directory is not readable or writable"
+    [ "$(cd /foo && test-snapd-tools.cmd ls 2>&1)" = "ls: cannot open directory '.': Permission denied" ];
 
 restore: |
     rm -f -d /foo
     # NOTE: the snap is blocked by apparmor from reading /var/lib/snapd/void
     dmesg -c
-
-execute: |
-    echo "We can go to a location that is available in all snaps (/tmp)"
-    echo "We can run the 'pwd' tool and it reports /tmp"
-    [ "$(cd /tmp && test-snapd-sh.sh -c 'pwd')" = "/tmp" ]
-    echo "But if we go to a location that is not available to snaps (e.g. /foo)"
-    echo "Then snap-confine moves us to /var/lib/snapd/void"
-    [ "$(cd /foo && test-snapd-sh.sh -c 'pwd')" = "/var/lib/snapd/void" ]
-    echo "And that directory is not readable or writable"
-    [ "$(cd /foo && test-snapd-sh.sh -c 'ls' 2>&1)" = "ls: cannot open directory '.': Permission denied" ];

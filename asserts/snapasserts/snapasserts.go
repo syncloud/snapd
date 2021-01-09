@@ -26,6 +26,8 @@ import (
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
+	"github.com/snapcore/snapd/logger"
+
 )
 
 type Finder interface {
@@ -53,34 +55,35 @@ func findSnapDeclaration(snapID, name string, db Finder) (*asserts.SnapDeclarati
 	return snapDecl, nil
 }
 
-// CrossCheck tries to cross check the instance name, hash digest and size of a snap plus its metadata in a SideInfo with the relevant snap assertions in a database that should have been populated with them.
-func CrossCheck(instanceName, snapSHA3_384 string, snapSize uint64, si *snap.SideInfo, db Finder) error {
+// CrossCheck tries to cross check the name, hash digest and size of a snap plus its metadata in a SideInfo with the relevant snap assertions in a database that should have been populated with them.
+func CrossCheck(name, snapSHA3_384 string, snapSize uint64, si *snap.SideInfo, db Finder) error {
 	// get relevant assertions and do cross checks
 	a, err := db.Find(asserts.SnapRevisionType, map[string]string{
 		"snap-sha3-384": snapSHA3_384,
 	})
 	if err != nil {
-		return fmt.Errorf("internal error: cannot find pre-populated snap-revision assertion for %q: %s", instanceName, snapSHA3_384)
+		return fmt.Errorf("internal error: cannot find pre-populated snap-revision assertion for %q: %s", name, snapSHA3_384)
 	}
 	snapRev := a.(*asserts.SnapRevision)
 
 	if snapRev.SnapSize() != snapSize {
-		return fmt.Errorf("snap %q file does not have expected size according to signatures (download is broken or tampered): %d != %d", instanceName, snapSize, snapRev.SnapSize())
+		//return fmt.Errorf("snap %q file does not have expected size according to signatures (download is broken or tampered): %d != %d", name, snapSize, snapRev.SnapSize())
+		logger.Noticef("Syncloud hack: snap %q file does not have expected size according to signatures (download is broken or tampered): %d != %d", name, snapSize, snapRev.SnapSize())
 	}
 
 	snapID := si.SnapID
 
 	if snapRev.SnapID() != snapID || snapRev.SnapRevision() != si.Revision.N {
-		return fmt.Errorf("snap %q does not have expected ID or revision according to assertions (metadata is broken or tampered): %s / %s != %d / %s", instanceName, si.Revision, snapID, snapRev.SnapRevision(), snapRev.SnapID())
+		return fmt.Errorf("snap %q does not have expected ID or revision according to assertions (metadata is broken or tampered): %s / %s != %d / %s", name, si.Revision, snapID, snapRev.SnapRevision(), snapRev.SnapID())
 	}
 
-	snapDecl, err := findSnapDeclaration(snapID, instanceName, db)
+	snapDecl, err := findSnapDeclaration(snapID, name, db)
 	if err != nil {
 		return err
 	}
 
-	if snapDecl.SnapName() != snap.InstanceSnap(instanceName) {
-		return fmt.Errorf("cannot install %q, snap %q is undergoing a rename to %q", instanceName, snap.InstanceSnap(instanceName), snapDecl.SnapName())
+	if snapDecl.SnapName() != name {
+		return fmt.Errorf("cannot install snap %q that is undergoing a rename to %q", name, snapDecl.SnapName())
 	}
 
 	return nil
@@ -114,16 +117,13 @@ func DeriveSideInfo(snapPath string, db Finder) (*snap.SideInfo, error) {
 		return nil, err
 	}
 
-	return SideInfoFromSnapAssertions(snapDecl, snapRev), nil
-}
+	name := snapDecl.SnapName()
 
-// SideInfoFromSnapAssertions returns a *snap.SideInfo reflecting the given snap assertions.
-func SideInfoFromSnapAssertions(snapDecl *asserts.SnapDeclaration, snapRev *asserts.SnapRevision) *snap.SideInfo {
 	return &snap.SideInfo{
-		RealName: snapDecl.SnapName(),
-		SnapID:   snapDecl.SnapID(),
+		RealName: name,
+		SnapID:   snapID,
 		Revision: snap.R(snapRev.SnapRevision()),
-	}
+	}, nil
 }
 
 // FetchSnapAssertions fetches the assertions matching the snap file digest using the given fetcher.
@@ -142,16 +142,6 @@ func FetchSnapDeclaration(f asserts.Fetcher, snapID string) error {
 	ref := &asserts.Ref{
 		Type:       asserts.SnapDeclarationType,
 		PrimaryKey: []string{release.Series, snapID},
-	}
-
-	return f.Fetch(ref)
-}
-
-// FetchStore fetches the store assertion and its prerequisites for the given store id using the given fetcher.
-func FetchStore(f asserts.Fetcher, storeID string) error {
-	ref := &asserts.Ref{
-		Type:       asserts.StoreType,
-		PrimaryKey: []string{storeID},
 	}
 
 	return f.Fetch(ref)

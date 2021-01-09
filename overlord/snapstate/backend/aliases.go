@@ -68,7 +68,8 @@ func (b Backend) UpdateAliases(add []*Alias, remove []*Alias) error {
 			return fmt.Errorf("cannot create alias symlink: %v", err)
 		}
 
-		if dirs.IsCompleteShSymlink(filepath.Join(dirs.CompletersDir, alias.Target)) {
+		target, err := os.Readlink(filepath.Join(dirs.CompletersDir, alias.Target))
+		if err == nil && target == dirs.CompleteSh {
 			os.Symlink(alias.Target, filepath.Join(dirs.CompletersDir, alias.Name))
 		}
 	}

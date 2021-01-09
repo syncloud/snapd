@@ -10,7 +10,7 @@ internal tool for confining snappy applications
 :Date:   2017-09-18
 :Copyright: Canonical Ltd.
 :Version: 2.28
-:Manual section: 8
+:Manual section: 1
 :Manual group: snappy
 
 SYNOPSIS
@@ -92,6 +92,18 @@ options prefixed with `x-snapd-`.
 
 As a security precaution only `bind` mounts are supported at this time.
 
+Quirks
+------
+
+`snap-confine` contains a quirk system that emulates some or the behavior of
+the older versions of snap-confine that certain snaps (still in devmode but
+useful and important) have grown to rely on. This section documents the list of
+quirks:
+
+- The `/var/lib/lxd` directory, if it exists on the host, is made available in
+  the execution environment. This allows various snaps, while running in
+  devmode, to access the LXD socket. LP: #1613845
+
 Sharing of the mount namespace
 ------------------------------
 
@@ -112,6 +124,9 @@ The following variables are only used when `snap-confine` is not setuid root.
 This is only applicable when testing the program itself.
 
 `SNAPPY_LAUNCHER_INSIDE_TESTS`:
+	Internal variable that should not be relied upon.
+
+`SNAP_CONFINE_NO_ROOT`:
 	Internal variable that should not be relied upon.
 
 `SNAPPY_LAUNCHER_SECCOMP_PROFILE_DIR`:

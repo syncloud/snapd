@@ -27,20 +27,11 @@ import (
 var (
 	// services
 	GenerateSnapServiceFile = generateSnapServiceFile
-	GenerateSnapSocketFiles = generateSnapSocketFiles
-	GenerateSnapTimerFile   = generateSnapTimerFile
 
 	// desktop
 	SanitizeDesktopFile    = sanitizeDesktopFile
 	RewriteExecLine        = rewriteExecLine
-	RewriteIconLine        = rewriteIconLine
 	IsValidDesktopFileLine = isValidDesktopFileLine
-
-	// timers
-	GenerateOnCalendarSchedules = generateOnCalendarSchedules
-
-	// icons
-	FindIconFiles = findIconFiles
 )
 
 func MockKillWait(wait time.Duration) (restore func()) {

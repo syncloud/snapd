@@ -35,20 +35,16 @@ type cmdDeleteKey struct {
 func init() {
 	cmd := addCommand("delete-key",
 		i18n.G("Delete cryptographic key pair"),
-		i18n.G(`
-The delete-key command deletes the local cryptographic key pair with
-the given name.
-`),
+		i18n.G("Delete the local cryptographic key pair with the given name."),
 		func() flags.Commander {
 			return &cmdDeleteKey{}
 		}, nil, []argDesc{{
-			// TRANSLATORS: This needs to begin with < and end with >
+			// TRANSLATORS: This needs to be wrapped in <>s.
 			name: i18n.G("<key-name>"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+			// TRANSLATORS: This should probably not start with a lowercase letter.
 			desc: i18n.G("Name of key to delete"),
 		}})
 	cmd.hidden = true
-	cmd.completeHidden = true
 }
 
 func (x *cmdDeleteKey) Execute(args []string) error {

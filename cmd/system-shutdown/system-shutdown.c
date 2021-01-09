@@ -32,32 +32,10 @@
 #include <sys/syscall.h>	// SYS_reboot
 
 #include "system-shutdown-utils.h"
-#include "../libsnap-confine-private/panic.h"
 #include "../libsnap-confine-private/string-utils.h"
-#include "../libsnap-confine-private/utils.h"
-
-static void show_error(const char *fmt, va_list ap, int errno_copy)
-{
-	fprintf(stderr, "snapd system-shutdown helper: ");
-	fprintf(stderr, "*** ");
-	vfprintf(stderr, fmt, ap);
-	if (errno_copy != 0) {
-		fprintf(stderr, ": %s", strerror(errno_copy));
-	}
-	fprintf(stderr, "\n");
-}
-
-static void sync_and_halt(void)
-{
-	sync();
-	reboot(RB_HALT_SYSTEM);
-}
 
 int main(int argc, char *argv[])
 {
-	sc_set_panic_msg_fn(show_error);
-	sc_set_panic_exit_fn(sync_and_halt);
-
 	// 256 should be more than enough...
 	char reboot_arg[256] = { 0 };
 
@@ -87,10 +65,10 @@ int main(int argc, char *argv[])
 	   before doing whatever we were told to do, in which case there's
 	   nothing left to sync.
 
-	   1) ... apart from the third way that we never talk about: we somehow
-	   are unable to umount everything cleanly, but go ahead with the
-	   reboot anyway because no error was returned. That's the only path
-	   we need to sync on explicitly.
+           1) ... apart from the third way that we never talk about: we somehow
+	      are unable to umount everything cleanly, but go ahead with the
+	      reboot anyway because no error was returned. That's the only path
+	      we need to sync on explicitly.
 	 */
 
 	if (mkdir("/writable", 0755) < 0) {
@@ -109,12 +87,12 @@ int main(int argc, char *argv[])
 			die("cannot move writable out of the way");
 		}
 
-		if (umount_all()) {
-			kmsg("- was able to unmount writable cleanly");
-		} else {
-			kmsg("* was *NOT* able to unmount writable cleanly");
-			sync();	// we don't know what happened but we're going ahead
-		}
+                if (umount_all()) {
+                        kmsg("- was able to unmount writable cleanly");
+                } else {
+                        kmsg("* was *NOT* able to unmount writable cleanly");
+                        sync(); // we don't know what happened but we're going ahead
+                }
 	}
 
 	// argv[1] can be one of at least: halt, reboot, poweroff.

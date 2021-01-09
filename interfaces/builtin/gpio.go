@@ -40,6 +40,7 @@ const gpioBaseDeclarationSlots = `
 `
 
 var gpioSysfsGpioBase = "/sys/class/gpio/gpio"
+var gpioSysfsExport = "/sys/class/gpio/export"
 
 // gpioInterface type
 type gpioInterface struct{}
@@ -63,6 +64,10 @@ func (iface *gpioInterface) StaticInfo() interfaces.StaticInfo {
 
 // BeforePrepareSlot checks the slot definition is valid
 func (iface *gpioInterface) BeforePrepareSlot(slot *snap.SlotInfo) error {
+	if err := sanitizeSlotReservedForOSOrGadget(iface, slot); err != nil {
+		return err
+	}
+
 	// Must have a GPIO number
 	number, ok := slot.Attrs["number"]
 	if !ok {
@@ -103,7 +108,7 @@ func (iface *gpioInterface) SystemdConnectedSlot(spec *systemd.Specification, pl
 		return err
 	}
 
-	serviceName := interfaces.InterfaceServiceName(slot.Snap().InstanceName(), fmt.Sprintf("gpio-%d", gpioNum))
+	serviceName := interfaces.InterfaceServiceName(slot.Snap().Name(), fmt.Sprintf("gpio-%d", gpioNum))
 	service := &systemd.Service{
 		Type:            "oneshot",
 		RemainAfterExit: true,
@@ -113,7 +118,7 @@ func (iface *gpioInterface) SystemdConnectedSlot(spec *systemd.Specification, pl
 	return spec.AddService(serviceName, service)
 }
 
-func (iface *gpioInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *gpioInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

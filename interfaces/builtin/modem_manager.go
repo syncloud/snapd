@@ -67,9 +67,7 @@ capability sys_admin,
 
 # For {mbim,qmi}-proxy
 unix (bind, listen) type=stream addr="@{mbim,qmi}-proxy",
-/sys/devices/**/usb**/{descriptors,manufacturer,product} r,
-# See https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net-qmi
-/sys/devices/**/net/*/qmi/* rw,
+/sys/devices/**/usb**/descriptors r,
 
 include <abstractions/nameservice>
 /run/systemd/resolve/stub-resolv.conf r,
@@ -127,12 +125,12 @@ dbus (receive)
     interface=org.freedesktop.login1.Manager
     member={PrepareForSleep,SessionNew,SessionRemoved}
     peer=(label=unconfined),
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/login1
     interface=org.freedesktop.login1.Manager
-    member=Inhibit,
+    member=Inhibit
+    peer=(label=unconfined),
 `
 
 const modemManagerConnectedSlotAppArmor = `
@@ -184,18 +182,6 @@ dbus (receive, send)
     path=/org/freedesktop/ModemManager1{,/**}
     interface=org.freedesktop.DBus.*
     peer=(label=unconfined),
-
-# do not use peer=(label=unconfined) here since this is DBus activated
-dbus (send)
-    bus=system
-    path=/org/freedesktop/ModemManager1{,/**}
-    interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
-dbus (send)
-    bus=system
-    path=/org/freedesktop/ModemManager1{,/**}
-    interface=org.freedesktop.DBus.Properties
-    member="Get{,All}",
 `
 
 const modemManagerPermanentSlotSecComp = `
@@ -1261,7 +1247,7 @@ func (iface *modemManagerInterface) DBusPermanentSlot(spec *dbus.Specification, 
 
 func (iface *modemManagerInterface) UDevPermanentSlot(spec *udev.Specification, slot *snap.SlotInfo) error {
 	spec.AddSnippet(modemManagerPermanentSlotUDev)
-	spec.TagDevice(`KERNEL=="tty[a-zA-Z]*[0-9]*|cdc-wdm[0-9]*"`)
+	spec.TagDevice(`KERNEL=="tty[A-Z]*[0-9]*|cdc-wdm[0-9]*"`)
 	return nil
 }
 
@@ -1278,7 +1264,7 @@ func (iface *modemManagerInterface) SecCompPermanentSlot(spec *seccomp.Specifica
 	return nil
 }
 
-func (iface *modemManagerInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *modemManagerInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

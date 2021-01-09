@@ -23,7 +23,6 @@ import (
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
-	"github.com/snapcore/snapd/interfaces/hotplug"
 	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/mount"
 	"github.com/snapcore/snapd/interfaces/seccomp"
@@ -39,14 +38,14 @@ type TestInterface struct {
 	InterfaceName       string
 	InterfaceStaticInfo interfaces.StaticInfo
 	// AutoConnectCallback is the callback invoked inside AutoConnect
-	AutoConnectCallback func(*snap.PlugInfo, *snap.SlotInfo) bool
+	AutoConnectCallback func(*interfaces.Plug, *interfaces.Slot) bool
 	// BeforePreparePlugCallback is the callback invoked inside BeforePreparePlug()
 	BeforePreparePlugCallback func(plug *snap.PlugInfo) error
 	// BeforePrepareSlotCallback is the callback invoked inside BeforePrepareSlot()
 	BeforePrepareSlotCallback func(slot *snap.SlotInfo) error
 
-	BeforeConnectPlugCallback func(plug *interfaces.ConnectedPlug) error
-	BeforeConnectSlotCallback func(slot *interfaces.ConnectedSlot) error
+	ValidatePlugCallback func(plug *interfaces.Plug, attrs map[string]interface{}) error
+	ValidateSlotCallback func(slot *interfaces.Slot, attrs map[string]interface{}) error
 
 	// Support for interacting with the test backend.
 
@@ -105,18 +104,6 @@ type TestInterface struct {
 	SystemdPermanentSlotCallback func(spec *systemd.Specification, slot *snap.SlotInfo) error
 }
 
-// TestHotplugInterface is an interface for various kinds of tests
-// needing a hotplug-aware interface.  It is public so that it can be
-// consumed from other packages.
-type TestHotplugInterface struct {
-	TestInterface
-
-	// Support for interacting with hotplug subsystem.
-	HotplugKeyCallback            func(deviceInfo *hotplug.HotplugDeviceInfo) (snap.HotplugKey, error)
-	HandledByGadgetCallback       func(deviceInfo *hotplug.HotplugDeviceInfo, slot *snap.SlotInfo) bool
-	HotplugDeviceDetectedCallback func(deviceInfo *hotplug.HotplugDeviceInfo) (*hotplug.ProposedSlot, error)
-}
-
 // String() returns the same value as Name().
 func (t *TestInterface) String() string {
 	return t.Name()
@@ -147,16 +134,16 @@ func (t *TestInterface) BeforePrepareSlot(slot *snap.SlotInfo) error {
 	return nil
 }
 
-func (t *TestInterface) BeforeConnectPlug(plug *interfaces.ConnectedPlug) error {
-	if t.BeforeConnectPlugCallback != nil {
-		return t.BeforeConnectPlugCallback(plug)
+func (t *TestInterface) ValidatePlug(plug *interfaces.Plug, attrs map[string]interface{}) error {
+	if t.ValidatePlugCallback != nil {
+		return t.ValidatePlugCallback(plug, attrs)
 	}
 	return nil
 }
 
-func (t *TestInterface) BeforeConnectSlot(slot *interfaces.ConnectedSlot) error {
-	if t.BeforeConnectSlotCallback != nil {
-		return t.BeforeConnectSlotCallback(slot)
+func (t *TestInterface) ValidateSlot(slot *interfaces.Slot, attrs map[string]interface{}) error {
+	if t.ValidateSlotCallback != nil {
+		return t.ValidateSlotCallback(slot, attrs)
 	}
 	return nil
 }
@@ -164,7 +151,7 @@ func (t *TestInterface) BeforeConnectSlot(slot *interfaces.ConnectedSlot) error 
 // AutoConnect returns whether plug and slot should be implicitly
 // auto-connected assuming they will be an unambiguous connection
 // candidate.
-func (t *TestInterface) AutoConnect(plug *snap.PlugInfo, slot *snap.SlotInfo) bool {
+func (t *TestInterface) AutoConnect(plug *interfaces.Plug, slot *interfaces.Slot) bool {
 	if t.AutoConnectCallback != nil {
 		return t.AutoConnectCallback(plug, slot)
 	}
@@ -410,27 +397,4 @@ func (t *TestInterface) SystemdPermanentPlug(spec *systemd.Specification, plug *
 		return t.SystemdPermanentPlugCallback(spec, plug)
 	}
 	return nil
-}
-
-// Support for interacting with hotplug subsystem.
-
-func (t *TestHotplugInterface) HotplugKey(deviceInfo *hotplug.HotplugDeviceInfo) (snap.HotplugKey, error) {
-	if t.HotplugKeyCallback != nil {
-		return t.HotplugKeyCallback(deviceInfo)
-	}
-	return "", nil
-}
-
-func (t *TestHotplugInterface) HotplugDeviceDetected(deviceInfo *hotplug.HotplugDeviceInfo) (*hotplug.ProposedSlot, error) {
-	if t.HotplugDeviceDetectedCallback != nil {
-		return t.HotplugDeviceDetectedCallback(deviceInfo)
-	}
-	return nil, nil
-}
-
-func (t *TestHotplugInterface) HandledByGadget(deviceInfo *hotplug.HotplugDeviceInfo, slot *snap.SlotInfo) bool {
-	if t.HandledByGadgetCallback != nil {
-		return t.HandledByGadgetCallback(deviceInfo, slot)
-	}
-	return false
 }

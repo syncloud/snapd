@@ -21,7 +21,6 @@ package overlord_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,27 +32,20 @@ import (
 	. "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/snapcore/snapd/cmd"
 	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/overlord"
 	"github.com/snapcore/snapd/overlord/auth"
-	"github.com/snapcore/snapd/overlord/devicestate/devicestatetest"
 	"github.com/snapcore/snapd/overlord/hookstate"
-	"github.com/snapcore/snapd/overlord/ifacestate"
 	"github.com/snapcore/snapd/overlord/patch"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
-	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
 	"github.com/snapcore/snapd/testutil"
 )
 
 func TestOverlord(t *testing.T) { TestingT(t) }
 
-type overlordSuite struct {
-	restoreBackends func()
-}
+type overlordSuite struct{}
 
 var _ = Suite(&overlordSuite{})
 
@@ -62,40 +54,32 @@ func (ovs *overlordSuite) SetUpTest(c *C) {
 	dirs.SetRootDir(tmpdir)
 	dirs.SnapStateFile = filepath.Join(tmpdir, "test.json")
 	snapstate.CanAutoRefresh = nil
-	ovs.restoreBackends = ifacestate.MockSecurityBackends(nil)
 }
 
 func (ovs *overlordSuite) TearDownTest(c *C) {
 	dirs.SetRootDir("/")
-	ovs.restoreBackends()
 }
 
 func (ovs *overlordSuite) TestNew(c *C) {
-	restore := patch.Mock(42, 2, nil)
+	restore := patch.Mock(42, nil)
 	defer restore()
 
 	var configstateInitCalled bool
-	overlord.MockConfigstateInit(func(*state.State, *hookstate.HookManager) error {
+	overlord.MockConfigstateInit(func(*hookstate.HookManager) {
 		configstateInitCalled = true
-		return nil
 	})
 
-	o, err := overlord.New(nil)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
 	c.Check(o, NotNil)
 
-	c.Check(o.StateEngine(), NotNil)
-	c.Check(o.TaskRunner(), NotNil)
 	c.Check(o.SnapManager(), NotNil)
 	c.Check(o.AssertManager(), NotNil)
 	c.Check(o.InterfaceManager(), NotNil)
 	c.Check(o.HookManager(), NotNil)
 	c.Check(o.DeviceManager(), NotNil)
 	c.Check(o.CommandManager(), NotNil)
-	c.Check(o.SnapshotManager(), NotNil)
 	c.Check(configstateInitCalled, Equals, true)
-
-	o.InterfaceManager().DisableUDevMonitor()
 
 	s := o.State()
 	c.Check(s, NotNil)
@@ -103,40 +87,22 @@ func (ovs *overlordSuite) TestNew(c *C) {
 
 	s.Lock()
 	defer s.Unlock()
-	var patchLevel, patchSublevel int
+	var patchLevel int
 	s.Get("patch-level", &patchLevel)
 	c.Check(patchLevel, Equals, 42)
-	s.Get("patch-sublevel", &patchSublevel)
-	c.Check(patchSublevel, Equals, 2)
-	var refreshPrivacyKey string
-	s.Get("refresh-privacy-key", &refreshPrivacyKey)
-	c.Check(refreshPrivacyKey, HasLen, 16)
 
 	// store is setup
-	sto := snapstate.Store(s, nil)
-	c.Check(sto, FitsTypeOf, &store.Store{})
-	c.Check(sto.(*store.Store).CacheDownloads(), Equals, 5)
-}
-
-func (ovs *overlordSuite) TestNewStore(c *C) {
-	// this is a shallow test, the deep testing happens in the
-	// remodeling tests in managers_test.go
-	o, err := overlord.New(nil)
-	c.Assert(err, IsNil)
-
-	devBE := o.DeviceManager().StoreContextBackend()
-
-	sto := o.NewStore(devBE)
+	sto := snapstate.Store(s)
 	c.Check(sto, FitsTypeOf, &store.Store{})
 	c.Check(sto.(*store.Store).CacheDownloads(), Equals, 5)
 }
 
 func (ovs *overlordSuite) TestNewWithGoodState(c *C) {
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"patch-sublevel":%d,"patch-sublevel-last-version":%q,"some":"data","refresh-privacy-key":"0123456789ABCDEF"},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level, patch.Sublevel, cmd.Version))
+	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"some":"data"},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level))
 	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
 	c.Assert(err, IsNil)
 
-	o, err := overlord.New(nil)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
 
 	state := o.State()
@@ -153,28 +119,7 @@ func (ovs *overlordSuite) TestNewWithGoodState(c *C) {
 	err = json.Unmarshal(fakeState, &expected)
 	c.Assert(err, IsNil)
 
-	data, _ := got["data"].(map[string]interface{})
-	c.Assert(data, NotNil)
-
 	c.Check(got, DeepEquals, expected)
-}
-
-func (ovs *overlordSuite) TestNewWithStateSnapmgrUpdate(c *C) {
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"some":"data"},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level))
-	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
-	c.Assert(err, IsNil)
-
-	o, err := overlord.New(nil)
-	c.Assert(err, IsNil)
-
-	state := o.State()
-	c.Assert(err, IsNil)
-	state.Lock()
-	defer state.Unlock()
-
-	var refreshPrivacyKey string
-	state.Get("refresh-privacy-key", &refreshPrivacyKey)
-	c.Check(refreshPrivacyKey, HasLen, 16)
 }
 
 func (ovs *overlordSuite) TestNewWithInvalidState(c *C) {
@@ -182,8 +127,8 @@ func (ovs *overlordSuite) TestNewWithInvalidState(c *C) {
 	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
 	c.Assert(err, IsNil)
 
-	_, err = overlord.New(nil)
-	c.Assert(err, ErrorMatches, "cannot read state: EOF")
+	_, err = overlord.New()
+	c.Assert(err, ErrorMatches, "EOF")
 }
 
 func (ovs *overlordSuite) TestNewWithPatches(c *C) {
@@ -191,17 +136,13 @@ func (ovs *overlordSuite) TestNewWithPatches(c *C) {
 		s.Set("patched", true)
 		return nil
 	}
-	sp := func(s *state.State) error {
-		s.Set("patched2", true)
-		return nil
-	}
-	patch.Mock(1, 1, map[int][]patch.PatchFunc{1: {p, sp}})
+	patch.Mock(1, map[int]func(*state.State) error{1: p})
 
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":0, "patch-sublevel":0}}`))
+	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":0}}`))
 	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
 	c.Assert(err, IsNil)
 
-	o, err := overlord.New(nil)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
 
 	state := o.State()
@@ -214,34 +155,10 @@ func (ovs *overlordSuite) TestNewWithPatches(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(level, Equals, 1)
 
-	var sublevel int
-	c.Assert(state.Get("patch-sublevel", &sublevel), IsNil)
-	c.Check(sublevel, Equals, 1)
-
 	var b bool
 	err = state.Get("patched", &b)
 	c.Assert(err, IsNil)
 	c.Check(b, Equals, true)
-
-	c.Assert(state.Get("patched2", &b), IsNil)
-	c.Check(b, Equals, true)
-}
-
-func (ovs *overlordSuite) TestNewFailedConfigstate(c *C) {
-	restore := patch.Mock(42, 2, nil)
-	defer restore()
-
-	var configstateInitCalled bool
-	restore = overlord.MockConfigstateInit(func(*state.State, *hookstate.HookManager) error {
-		configstateInitCalled = true
-		return fmt.Errorf("bad bad")
-	})
-	defer restore()
-
-	o, err := overlord.New(nil)
-	c.Assert(err, ErrorMatches, "bad bad")
-	c.Check(o, IsNil)
-	c.Check(configstateInitCalled, Equals, true)
 }
 
 type witnessManager struct {
@@ -249,12 +166,10 @@ type witnessManager struct {
 	expectedEnsure int
 	ensureCalled   chan struct{}
 	ensureCallback func(s *state.State) error
-	startedUp      int
 }
 
-func (wm *witnessManager) StartUp() error {
-	wm.startedUp++
-	return nil
+func (m *witnessManager) KnownTaskKinds() []string {
+	return []string{"foo"}
 }
 
 func (wm *witnessManager) Ensure() error {
@@ -268,12 +183,18 @@ func (wm *witnessManager) Ensure() error {
 	return nil
 }
 
+func (wm *witnessManager) Stop() {
+}
+
+func (wm *witnessManager) Wait() {
+}
+
 // markSeeded flags the state under the overlord as seeded to avoid running the seeding code in these tests
 func markSeeded(o *overlord.Overlord) {
 	st := o.State()
 	st.Lock()
 	st.Set("seeded", true)
-	devicestatetest.SetDevice(st, &auth.DeviceState{
+	auth.SetDevice(st, &auth.DeviceState{
 		Brand:  "canonical",
 		Model:  "pc",
 		Serial: "serialserial",
@@ -282,45 +203,14 @@ func markSeeded(o *overlord.Overlord) {
 }
 
 func (ovs *overlordSuite) TestTrivialRunAndStop(c *C) {
-	o, err := overlord.New(nil)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
 
 	markSeeded(o)
-	// make sure we don't try to talk to the store
-	snapstate.CanAutoRefresh = nil
-
-	err = o.StartUp()
-	c.Assert(err, IsNil)
-
 	o.Loop()
 
 	err = o.Stop()
 	c.Assert(err, IsNil)
-}
-
-func (ovs *overlordSuite) TestUnknownTasks(c *C) {
-	o, err := overlord.New(nil)
-	c.Assert(err, IsNil)
-	o.InterfaceManager().DisableUDevMonitor()
-
-	markSeeded(o)
-	// make sure we don't try to talk to the store
-	snapstate.CanAutoRefresh = nil
-
-	// unknown tasks are ignored and succeed
-	st := o.State()
-	st.Lock()
-	defer st.Unlock()
-	t := st.NewTask("unknown", "...")
-	chg := st.NewChange("change-w-unknown", "...")
-	chg.AddTask(t)
-
-	st.Unlock()
-	err = o.Settle(1 * time.Second)
-	st.Lock()
-	c.Assert(err, IsNil)
-
-	c.Check(chg.Status(), Equals, state.DoneStatus)
 }
 
 func (ovs *overlordSuite) TestEnsureLoopRunAndStop(c *C) {
@@ -335,9 +225,6 @@ func (ovs *overlordSuite) TestEnsureLoopRunAndStop(c *C) {
 	}
 	o.AddManager(witness)
 
-	err := o.StartUp()
-	c.Assert(err, IsNil)
-
 	o.Loop()
 	defer o.Stop()
 
@@ -349,10 +236,8 @@ func (ovs *overlordSuite) TestEnsureLoopRunAndStop(c *C) {
 	}
 	c.Check(time.Since(t0) >= 10*time.Millisecond, Equals, true)
 
-	err = o.Stop()
+	err := o.Stop()
 	c.Assert(err, IsNil)
-
-	c.Check(witness.startedUp, Equals, 1)
 }
 
 func (ovs *overlordSuite) TestEnsureLoopMediatedEnsureBeforeImmediate(c *C) {
@@ -372,8 +257,6 @@ func (ovs *overlordSuite) TestEnsureLoopMediatedEnsureBeforeImmediate(c *C) {
 		ensureCallback: ensure,
 	}
 	o.AddManager(witness)
-
-	c.Assert(o.StartUp(), IsNil)
 
 	o.Loop()
 	defer o.Stop()
@@ -402,8 +285,6 @@ func (ovs *overlordSuite) TestEnsureLoopMediatedEnsureBefore(c *C) {
 		ensureCallback: ensure,
 	}
 	o.AddManager(witness)
-
-	c.Assert(o.StartUp(), IsNil)
 
 	o.Loop()
 	defer o.Stop()
@@ -434,39 +315,6 @@ func (ovs *overlordSuite) TestEnsureBeforeSleepy(c *C) {
 	}
 	o.AddManager(witness)
 
-	c.Assert(o.StartUp(), IsNil)
-
-	o.Loop()
-	defer o.Stop()
-
-	select {
-	case <-witness.ensureCalled:
-	case <-time.After(2 * time.Second):
-		c.Fatal("Ensure calls not happening")
-	}
-}
-
-func (ovs *overlordSuite) TestEnsureBeforeLater(c *C) {
-	restoreIntv := overlord.MockEnsureInterval(10 * time.Minute)
-	defer restoreIntv()
-	o := overlord.Mock()
-
-	ensure := func(s *state.State) error {
-		overlord.MockEnsureNext(o, time.Now().Add(-10*time.Hour))
-		s.EnsureBefore(time.Second * 5)
-		return nil
-	}
-
-	witness := &witnessManager{
-		state:          o.State(),
-		expectedEnsure: 2,
-		ensureCalled:   make(chan struct{}),
-		ensureCallback: ensure,
-	}
-	o.AddManager(witness)
-
-	c.Assert(o.StartUp(), IsNil)
-
 	o.Loop()
 	defer o.Stop()
 
@@ -495,8 +343,6 @@ func (ovs *overlordSuite) TestEnsureLoopMediatedEnsureBeforeOutsideEnsure(c *C) 
 		ensureCallback: ensure,
 	}
 	o.AddManager(witness)
-
-	c.Assert(o.StartUp(), IsNil)
 
 	o.Loop()
 	defer o.Stop()
@@ -554,8 +400,6 @@ func (ovs *overlordSuite) TestEnsureLoopPrune(c *C) {
 	}
 	o.AddManager(witness)
 
-	c.Assert(o.StartUp(), IsNil)
-
 	o.Loop()
 
 	select {
@@ -580,6 +424,7 @@ func (ovs *overlordSuite) TestEnsureLoopPruneRunsMultipleTimes(c *C) {
 	restoreIntv := overlord.MockPruneInterval(100*time.Millisecond, 1000*time.Millisecond, 1*time.Hour)
 	defer restoreIntv()
 	o := overlord.Mock()
+	o.UnknownTaskManager().Ignore([]string{"foo"})
 
 	// create two changes, one that can be pruned now, one in progress
 	st := o.State()
@@ -622,7 +467,7 @@ func (ovs *overlordSuite) TestCheckpoint(c *C) {
 	oldUmask := syscall.Umask(0)
 	defer syscall.Umask(oldUmask)
 
-	o, err := overlord.New(nil)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
 
 	s := o.State()
@@ -637,49 +482,52 @@ func (ovs *overlordSuite) TestCheckpoint(c *C) {
 	c.Check(dirs.SnapStateFile, testutil.FileContains, `"mark":1`)
 }
 
-type sampleManager struct {
+type runnerManager struct {
+	runner         *state.TaskRunner
 	ensureCallback func()
 }
 
-func newSampleManager(s *state.State, runner *state.TaskRunner) *sampleManager {
-	sm := &sampleManager{}
+func newRunnerManager(s *state.State) *runnerManager {
+	rm := &runnerManager{
+		runner: state.NewTaskRunner(s),
+	}
 
-	runner.AddHandler("runMgr1", func(t *state.Task, _ *tomb.Tomb) error {
+	rm.runner.AddHandler("runMgr1", func(t *state.Task, _ *tomb.Tomb) error {
 		s := t.State()
 		s.Lock()
 		defer s.Unlock()
 		s.Set("runMgr1Mark", 1)
 		return nil
 	}, nil)
-	runner.AddHandler("runMgr2", func(t *state.Task, _ *tomb.Tomb) error {
+	rm.runner.AddHandler("runMgr2", func(t *state.Task, _ *tomb.Tomb) error {
 		s := t.State()
 		s.Lock()
 		defer s.Unlock()
 		s.Set("runMgr2Mark", 1)
 		return nil
 	}, nil)
-	runner.AddHandler("runMgrEnsureBefore", func(t *state.Task, _ *tomb.Tomb) error {
+	rm.runner.AddHandler("runMgrEnsureBefore", func(t *state.Task, _ *tomb.Tomb) error {
 		s := t.State()
 		s.Lock()
 		defer s.Unlock()
 		s.EnsureBefore(20 * time.Millisecond)
 		return nil
 	}, nil)
-	runner.AddHandler("runMgrForever", func(t *state.Task, _ *tomb.Tomb) error {
+	rm.runner.AddHandler("runMgrForever", func(t *state.Task, _ *tomb.Tomb) error {
 		s := t.State()
 		s.Lock()
 		defer s.Unlock()
 		s.EnsureBefore(20 * time.Millisecond)
 		return &state.Retry{}
 	}, nil)
-	runner.AddHandler("runMgrWCleanup", func(t *state.Task, _ *tomb.Tomb) error {
+	rm.runner.AddHandler("runMgrWCleanup", func(t *state.Task, _ *tomb.Tomb) error {
 		s := t.State()
 		s.Lock()
 		defer s.Unlock()
 		s.Set("runMgrWCleanupMark", 1)
 		return nil
 	}, nil)
-	runner.AddCleanup("runMgrWCleanup", func(t *state.Task, _ *tomb.Tomb) error {
+	rm.runner.AddCleanup("runMgrWCleanup", func(t *state.Task, _ *tomb.Tomb) error {
 		s := t.State()
 		s.Lock()
 		defer s.Unlock()
@@ -687,14 +535,27 @@ func newSampleManager(s *state.State, runner *state.TaskRunner) *sampleManager {
 		return nil
 	})
 
-	return sm
+	return rm
 }
 
-func (sm *sampleManager) Ensure() error {
-	if sm.ensureCallback != nil {
-		sm.ensureCallback()
+func (rm *runnerManager) KnownTaskKinds() []string {
+	return rm.runner.KnownTaskKinds()
+}
+
+func (rm *runnerManager) Ensure() error {
+	if rm.ensureCallback != nil {
+		rm.ensureCallback()
 	}
+	rm.runner.Ensure()
 	return nil
+}
+
+func (rm *runnerManager) Stop() {
+	rm.runner.Stop()
+}
+
+func (rm *runnerManager) Wait() {
+	rm.runner.Wait()
 }
 
 func (ovs *overlordSuite) TestTrivialSettle(c *C) {
@@ -703,9 +564,8 @@ func (ovs *overlordSuite) TestTrivialSettle(c *C) {
 	o := overlord.Mock()
 
 	s := o.State()
-	sm1 := newSampleManager(s, o.TaskRunner())
-	o.AddManager(sm1)
-	o.AddManager(o.TaskRunner())
+	rm1 := newRunnerManager(s)
+	o.AddManager(rm1)
 
 	defer o.Engine().Stop()
 
@@ -732,9 +592,8 @@ func (ovs *overlordSuite) TestSettleNotConverging(c *C) {
 	o := overlord.Mock()
 
 	s := o.State()
-	sm1 := newSampleManager(s, o.TaskRunner())
-	o.AddManager(sm1)
-	o.AddManager(o.TaskRunner())
+	rm1 := newRunnerManager(s)
+	o.AddManager(rm1)
 
 	defer o.Engine().Stop()
 
@@ -759,9 +618,8 @@ func (ovs *overlordSuite) TestSettleChain(c *C) {
 	o := overlord.Mock()
 
 	s := o.State()
-	sm1 := newSampleManager(s, o.TaskRunner())
-	o.AddManager(sm1)
-	o.AddManager(o.TaskRunner())
+	rm1 := newRunnerManager(s)
+	o.AddManager(rm1)
 
 	defer o.Engine().Stop()
 
@@ -793,9 +651,8 @@ func (ovs *overlordSuite) TestSettleChainWCleanup(c *C) {
 	o := overlord.Mock()
 
 	s := o.State()
-	sm1 := newSampleManager(s, o.TaskRunner())
-	o.AddManager(sm1)
-	o.AddManager(o.TaskRunner())
+	rm1 := newRunnerManager(s)
+	o.AddManager(rm1)
 
 	defer o.Engine().Stop()
 
@@ -830,8 +687,8 @@ func (ovs *overlordSuite) TestSettleExplicitEnsureBefore(c *C) {
 	o := overlord.Mock()
 
 	s := o.State()
-	sm1 := newSampleManager(s, o.TaskRunner())
-	sm1.ensureCallback = func() {
+	rm1 := newRunnerManager(s)
+	rm1.ensureCallback = func() {
 		s.Lock()
 		defer s.Unlock()
 		v := 0
@@ -839,8 +696,7 @@ func (ovs *overlordSuite) TestSettleExplicitEnsureBefore(c *C) {
 		s.Set("ensureCount", v+1)
 	}
 
-	o.AddManager(sm1)
-	o.AddManager(o.TaskRunner())
+	o.AddManager(rm1)
 
 	defer o.Engine().Stop()
 
@@ -863,179 +719,23 @@ func (ovs *overlordSuite) TestSettleExplicitEnsureBefore(c *C) {
 }
 
 func (ovs *overlordSuite) TestRequestRestartNoHandler(c *C) {
-	o, err := overlord.New(nil)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
 
 	o.State().RequestRestart(state.RestartDaemon)
-}
-
-type testRestartBehavior struct {
-	restartRequested  state.RestartType
-	rebootState       string
-	rebootVerifiedErr error
-}
-
-func (rb *testRestartBehavior) HandleRestart(t state.RestartType) {
-	rb.restartRequested = t
-}
-
-func (rb *testRestartBehavior) RebootAsExpected(_ *state.State) error {
-	rb.rebootState = "as-expected"
-	return rb.rebootVerifiedErr
-}
-
-func (rb *testRestartBehavior) RebootDidNotHappen(_ *state.State) error {
-	rb.rebootState = "did-not-happen"
-	return rb.rebootVerifiedErr
 }
 
 func (ovs *overlordSuite) TestRequestRestartHandler(c *C) {
-	rb := &testRestartBehavior{}
-
-	o, err := overlord.New(rb)
+	o, err := overlord.New()
 	c.Assert(err, IsNil)
+
+	restartRequested := false
+
+	o.SetRestartHandler(func(t state.RestartType) {
+		restartRequested = true
+	})
 
 	o.State().RequestRestart(state.RestartDaemon)
 
-	c.Check(rb.restartRequested, Equals, state.RestartDaemon)
-}
-
-func (ovs *overlordSuite) TestVerifyRebootNoPendingReboot(c *C) {
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"patch-sublevel":%d,"some":"data","refresh-privacy-key":"0123456789ABCDEF"},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level, patch.Sublevel))
-	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
-	c.Assert(err, IsNil)
-
-	rb := &testRestartBehavior{}
-
-	_, err = overlord.New(rb)
-	c.Assert(err, IsNil)
-
-	c.Check(rb.rebootState, Equals, "as-expected")
-}
-
-func (ovs *overlordSuite) TestVerifyRebootOK(c *C) {
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"patch-sublevel":%d,"some":"data","refresh-privacy-key":"0123456789ABCDEF","system-restart-from-boot-id":%q},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level, patch.Sublevel, "boot-id-prev"))
-	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
-	c.Assert(err, IsNil)
-
-	rb := &testRestartBehavior{}
-
-	_, err = overlord.New(rb)
-	c.Assert(err, IsNil)
-
-	c.Check(rb.rebootState, Equals, "as-expected")
-}
-
-func (ovs *overlordSuite) TestVerifyRebootOKButError(c *C) {
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"patch-sublevel":%d,"some":"data","refresh-privacy-key":"0123456789ABCDEF","system-restart-from-boot-id":%q},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level, patch.Sublevel, "boot-id-prev"))
-	err := ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
-	c.Assert(err, IsNil)
-
-	e := errors.New("boom")
-	rb := &testRestartBehavior{rebootVerifiedErr: e}
-
-	_, err = overlord.New(rb)
-	c.Assert(err, Equals, e)
-
-	c.Check(rb.rebootState, Equals, "as-expected")
-}
-
-func (ovs *overlordSuite) TestVerifyRebootDidNotHappen(c *C) {
-	curBootID, err := osutil.BootID()
-	c.Assert(err, IsNil)
-
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"patch-sublevel":%d,"some":"data","refresh-privacy-key":"0123456789ABCDEF","system-restart-from-boot-id":%q},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level, patch.Sublevel, curBootID))
-	err = ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
-	c.Assert(err, IsNil)
-
-	rb := &testRestartBehavior{}
-
-	_, err = overlord.New(rb)
-	c.Assert(err, IsNil)
-
-	c.Check(rb.rebootState, Equals, "did-not-happen")
-}
-
-func (ovs *overlordSuite) TestVerifyRebootDidNotHappenError(c *C) {
-	curBootID, err := osutil.BootID()
-	c.Assert(err, IsNil)
-
-	fakeState := []byte(fmt.Sprintf(`{"data":{"patch-level":%d,"patch-sublevel":%d,"some":"data","refresh-privacy-key":"0123456789ABCDEF","system-restart-from-boot-id":%q},"changes":null,"tasks":null,"last-change-id":0,"last-task-id":0,"last-lane-id":0}`, patch.Level, patch.Sublevel, curBootID))
-	err = ioutil.WriteFile(dirs.SnapStateFile, fakeState, 0600)
-	c.Assert(err, IsNil)
-
-	e := errors.New("boom")
-	rb := &testRestartBehavior{rebootVerifiedErr: e}
-
-	_, err = overlord.New(rb)
-	c.Assert(err, Equals, e)
-
-	c.Check(rb.rebootState, Equals, "did-not-happen")
-}
-
-func (ovs *overlordSuite) TestOverlordCanStandby(c *C) {
-	restoreIntv := overlord.MockEnsureInterval(10 * time.Millisecond)
-	defer restoreIntv()
-	o := overlord.Mock()
-	witness := &witnessManager{
-		state:          o.State(),
-		expectedEnsure: 3,
-		ensureCalled:   make(chan struct{}),
-	}
-	o.AddManager(witness)
-
-	c.Assert(o.StartUp(), IsNil)
-
-	// can only standby after loop ran once
-	c.Assert(o.CanStandby(), Equals, false)
-
-	o.Loop()
-	defer o.Stop()
-
-	select {
-	case <-witness.ensureCalled:
-	case <-time.After(2 * time.Second):
-		c.Fatal("Ensure calls not happening")
-	}
-
-	c.Assert(o.CanStandby(), Equals, true)
-}
-
-func (ovs *overlordSuite) TestStartupTimeout(c *C) {
-	o, err := overlord.New(nil)
-	c.Assert(err, IsNil)
-
-	to, _, err := o.StartupTimeout()
-	c.Assert(err, IsNil)
-	c.Check(to, Equals, 30*time.Second)
-
-	st := o.State()
-	st.Lock()
-	defer st.Unlock()
-
-	// have two snaps
-	snapstate.Set(st, "core18", &snapstate.SnapState{
-		Active: true,
-		Sequence: []*snap.SideInfo{
-			{RealName: "core18", Revision: snap.R(1)},
-		},
-		Current:  snap.R(1),
-		SnapType: "base",
-	})
-	snapstate.Set(st, "foo", &snapstate.SnapState{
-		Active: true,
-		Sequence: []*snap.SideInfo{
-			{RealName: "foo", Revision: snap.R(1)},
-		},
-		Current:  snap.R(1),
-		SnapType: "app",
-	})
-
-	st.Unlock()
-	to, reasoning, err := o.StartupTimeout()
-	st.Lock()
-	c.Assert(err, IsNil)
-
-	c.Check(to, Equals, (30+5+5)*time.Second)
-	c.Check(reasoning, Equals, "pessimistic estimate of 30s plus 5s per snap")
+	c.Check(restartRequested, Equals, true)
 }

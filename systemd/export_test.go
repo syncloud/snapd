@@ -21,11 +21,23 @@ package systemd
 
 import (
 	"io"
+	"time"
 )
 
 var (
 	Jctl = jctl
 )
+
+func MockStopDelays(checkDelay, notifyDelay time.Duration) func() {
+	oldCheckDelay := stopCheckDelay
+	oldNotifyDelay := stopNotifyDelay
+	stopCheckDelay = checkDelay
+	stopNotifyDelay = notifyDelay
+	return func() {
+		stopCheckDelay = oldCheckDelay
+		stopNotifyDelay = oldNotifyDelay
+	}
+}
 
 func MockOsGetenv(f func(string) string) func() {
 	oldOsGetenv := osGetenv
@@ -37,20 +49,4 @@ func MockOsutilStreamCommand(f func(string, ...string) (io.ReadCloser, error)) f
 	old := osutilStreamCommand
 	osutilStreamCommand = f
 	return func() { osutilStreamCommand = old }
-}
-
-func MockJournalStdoutPath(path string) func() {
-	oldPath := journalStdoutPath
-	journalStdoutPath = path
-	return func() {
-		journalStdoutPath = oldPath
-	}
-}
-
-func (e *Error) SetExitCode(i int) {
-	e.exitCode = i
-}
-
-func (e *Error) SetMsg(msg []byte) {
-	e.msg = msg
 }

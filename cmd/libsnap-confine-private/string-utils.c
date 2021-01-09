@@ -56,38 +56,6 @@ bool sc_endswith(const char *str, const char *suffix)
 	return strncmp(str - xlen + slen, suffix, xlen) == 0;
 }
 
-bool sc_startswith(const char *str, const char *prefix)
-{
-	if (!str || !prefix) {
-		return false;
-	}
-
-	size_t xlen = strlen(prefix);
-	size_t slen = strlen(str);
-
-	if (slen < xlen) {
-		return false;
-	}
-
-	return strncmp(str, prefix, xlen) == 0;
-}
-
-char *sc_strdup(const char *str)
-{
-	size_t len;
-	char *copy;
-	if (str == NULL) {
-		die("cannot duplicate NULL string");
-	}
-	len = strlen(str);
-	copy = malloc(len + 1);
-	if (copy == NULL) {
-		die("cannot allocate string copy (len: %zd)", len);
-	}
-	memcpy(copy, str, len + 1);
-	return copy;
-}
-
 int sc_must_snprintf(char *str, size_t size, const char *format, ...)
 {
 	int n;
@@ -97,7 +65,7 @@ int sc_must_snprintf(char *str, size_t size, const char *format, ...)
 	n = vsnprintf(str, size, format, va);
 	va_end(va);
 
-	if (n < 0 || (size_t)n >= size)
+	if (n < 0 || (size_t) n >= size)
 		die("cannot format string: %s", str);
 
 	return n;

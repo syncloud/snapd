@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2017-2018 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,6 +24,7 @@ import (
 	"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/udev"
+	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 
 	"strings"
@@ -52,21 +53,13 @@ capability sys_tty_config,
 /dev/tty[0-9]* rw,
 
 # Create the Wayland socket and lock file
-owner /run/user/[0-9]*/wayland-[0-9]* rwk,
+owner /run/user/[0-9]*/wayland-[0-9]* rw,
 # Allow access to common client Wayland sockets from non-snap clients
-/run/user/[0-9]*/{mesa,mutter,sdl,wayland-cursor,weston,xwayland}-shared-* rw,
-# Some Wayland based toolkits (Qt, GTK3, SDL2) create shm files to pass cursor images
-# to the server. Although they are passed by FD we still need rw access to the file.
-/run/user/[0-9]*/snap.*/wayland-cursor-shared-* rw,
+/run/user/[0-9]*/wayland-shared-* rw,
+/run/user/[0-9]*/wayland-cursor-shared-* rw,
+/run/user/[0-9]*/xwayland-shared-* rw,
 
-# Allow reading an Xwayland Xauth file
-# (see https://gitlab.gnome.org/GNOME/mutter/merge_requests/626)
-/run/user/[0-9]*/.mutter-Xwaylandauth.* r,
-/run/user/[0-9]*/mutter/Xauthority r,
-
-# Allow write access to create /run/user/* to create XDG_RUNTIME_DIR (until
-# lp:1738197 is fixed). Note this is not needed if creating a session using
-# logind (as provided by the login-session-control snapd interface).
+# Allow write access to create /run/user/* to create XDG_RUNTIME_DIR (until lp:1738197 is fixed)
 /run/user/[0-9]*/ w,
 
 # Needed for mode setting via drmSetMaster() and drmDropMaster()
@@ -83,9 +76,6 @@ network netlink raw,
 /run/udev/data/c13:[0-9]* r,
 /run/udev/data/+input:input[0-9]* r,
 /run/udev/data/+platform:* r,
-
-# MESA reads this dri config file
-/etc/drirc r,
 `
 
 const waylandPermanentSlotSecComp = `
@@ -103,14 +93,16 @@ socket AF_NETLINK - NETLINK_KOBJECT_UEVENT
 
 const waylandConnectedSlotAppArmor = `
 # Allow access to common client Wayland sockets for connected snaps
-owner /run/user/[0-9]*/###PLUG_SECURITY_TAGS###/{mesa,mutter,sdl,wayland-cursor,weston,xwayland}-shared-* rw,
+owner /run/user/[0-9]*/###PLUG_SECURITY_TAGS###/wayland-shared-* rw,
+owner /run/user/[0-9]*/###PLUG_SECURITY_TAGS###/wayland-cursor-shared-* rw,
+owner /run/user/[0-9]*/###PLUG_SECURITY_TAGS###/xwayland-shared-* rw,
 `
 
 const waylandConnectedPlugAppArmor = `
 # Allow access to the Wayland compositor server socket
 owner /run/user/[0-9]*/wayland-[0-9]* rw,
 
-# Needed when using QT_QPA_PLATFORM=wayland-egl (MESA dri config)
+# Needed when using QT_QPA_PLATFORM=wayland-egl
 /etc/drirc r,
 `
 
@@ -134,34 +126,41 @@ func (iface *waylandInterface) AppArmorConnectedPlug(spec *apparmor.Specificatio
 }
 
 func (iface *waylandInterface) AppArmorConnectedSlot(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	old := "###PLUG_SECURITY_TAGS###"
-	new := "snap." + plug.Snap().InstanceName() // forms the snap-instance-specific subdirectory name of /run/user/*/ used for XDG_RUNTIME_DIR
-	snippet := strings.Replace(waylandConnectedSlotAppArmor, old, new, -1)
-	spec.AddSnippet(snippet)
+	if !release.OnClassic {
+		old := "###PLUG_SECURITY_TAGS###"
+		new := "snap." + plug.Snap().Name() // forms the snap-specific subdirectory name of /run/user/*/ used for XDG_RUNTIME_DIR
+		snippet := strings.Replace(waylandConnectedSlotAppArmor, old, new, -1)
+		spec.AddSnippet(snippet)
+	}
 	return nil
 }
 
 func (iface *waylandInterface) SecCompPermanentSlot(spec *seccomp.Specification, slot *snap.SlotInfo) error {
-	spec.AddSnippet(waylandPermanentSlotSecComp)
+	if !release.OnClassic {
+		spec.AddSnippet(waylandPermanentSlotSecComp)
+	}
 	return nil
 }
 
 func (iface *waylandInterface) AppArmorPermanentSlot(spec *apparmor.Specification, slot *snap.SlotInfo) error {
-	spec.AddSnippet(waylandPermanentSlotAppArmor)
+	if !release.OnClassic {
+		spec.AddSnippet(waylandPermanentSlotAppArmor)
+	}
 	return nil
 }
 
 func (iface *waylandInterface) UDevPermanentSlot(spec *udev.Specification, slot *snap.SlotInfo) error {
-	spec.TriggerSubsystem("input")
-	spec.TagDevice(`KERNEL=="tty[0-9]*"`)
-	spec.TagDevice(`KERNEL=="mice"`)
-	spec.TagDevice(`KERNEL=="mouse[0-9]*"`)
-	spec.TagDevice(`KERNEL=="event[0-9]*"`)
-	spec.TagDevice(`KERNEL=="ts[0-9]*"`)
+	if !release.OnClassic {
+		spec.TagDevice(`KERNEL=="tty[0-9]*"`)
+		spec.TagDevice(`KERNEL=="mice"`)
+		spec.TagDevice(`KERNEL=="mouse[0-9]*"`)
+		spec.TagDevice(`KERNEL=="event[0-9]*"`)
+		spec.TagDevice(`KERNEL=="ts[0-9]*"`)
+	}
 	return nil
 }
 
-func (iface *waylandInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *waylandInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

@@ -22,27 +22,30 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/jessevdk/go-flags"
 
 	"github.com/snapcore/snapd/i18n"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-var shortGetHelp = i18n.G("Print configuration options")
+var shortGetHelp = i18n.G("Prints configuration options")
 var longGetHelp = i18n.G(`
 The get command prints configuration options for the provided snap.
 
     $ snap get snap-name username
     frank
 
-If multiple option names are provided, the corresponding values are returned:
+If multiple option names are provided, a document is returned:
 
     $ snap get snap-name username password
-    Key       Value
-    username  frank
-    password  ...
+    {
+        "username": "frank",
+        "password": "..."
+    }
 
 Nested values may be retrieved via a dotted path:
 
@@ -51,7 +54,6 @@ Nested values may be retrieved via a dotted path:
 `)
 
 type cmdGet struct {
-	clientMixin
 	Positional struct {
 		Snap installedSnapName `required:"yes"`
 		Keys []string
@@ -65,22 +67,19 @@ type cmdGet struct {
 func init() {
 	addCommand("get", shortGetHelp, longGetHelp, func() flags.Commander { return &cmdGet{} },
 		map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
 			"d": i18n.G("Always return document, even with single key"),
-			// TRANSLATORS: This should not start with a lowercase letter.
 			"l": i18n.G("Always return list, even with single key"),
-			// TRANSLATORS: This should not start with a lowercase letter.
 			"t": i18n.G("Strict typing with nulls and quoted strings"),
 		}, []argDesc{
 			{
 				name: "<snap>",
-				// TRANSLATORS: This should not start with a lowercase letter.
+				// TRANSLATORS: This should probably not start with a lowercase letter.
 				desc: i18n.G("The snap whose conf is being requested"),
 			},
 			{
-				// TRANSLATORS: This needs to begin with < and end with >
+				// TRANSLATORS: This needs to be wrapped in <>s.
 				name: i18n.G("<key>"),
-				// TRANSLATORS: This should not start with a lowercase letter.
+				// TRANSLATORS: This should probably not start with a lowercase letter.
 				desc: i18n.G("Key of interest within the configuration"),
 			},
 		})
@@ -177,6 +176,10 @@ func (x *cmdGet) outputList(conf map[string]interface{}) error {
 	return nil
 }
 
+var isTerminal = func() bool {
+	return terminal.IsTerminal(int(os.Stdin.Fd()))
+}
+
 // outputDefault will be used when no commandline switch to override the
 // output where used. The output follows the following rules:
 // - a single key with a string value is printed directly
@@ -201,13 +204,13 @@ func (x *cmdGet) outputDefault(conf map[string]interface{}, snapName string, con
 
 	// conf looks like a map
 	if cfg, ok := confToPrint.(map[string]interface{}); ok {
-		if isStdinTTY {
+		if isTerminal() {
 			return x.outputList(cfg)
 		}
 
 		// TODO: remove this conditional and the warning below
 		// after a transition period.
-		fmt.Fprintf(Stderr, i18n.G(`WARNING: The output of 'snap get' will become a list with columns - use -d or -l to force the output format.\n`))
+		fmt.Fprintf(Stderr, i18n.G(`WARNING: The output of "snap get" will become a list with columns - use -d or -l to force the output format.\n`))
 		return x.outputJson(confToPrint)
 	}
 
@@ -242,7 +245,8 @@ func (x *cmdGet) Execute(args []string) error {
 	snapName := string(x.Positional.Snap)
 	confKeys := x.Positional.Keys
 
-	conf, err := x.client.Conf(snapName, confKeys)
+	cli := Client()
+	conf, err := cli.Conf(snapName, confKeys)
 	if err != nil {
 		return err
 	}

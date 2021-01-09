@@ -20,9 +20,7 @@
 package osutil
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -30,11 +28,6 @@ import (
 	"time"
 
 	"github.com/snapcore/snapd/osutil/sys"
-)
-
-var (
-	StreamsEqualChunked  = streamsEqualChunked
-	FilesAreEqualChunked = filesAreEqualChunked
 )
 
 func MockUserLookup(mock func(name string) (*user.User, error)) func() {
@@ -112,83 +105,4 @@ func MockOsReadlink(f func(string) (string, error)) func() {
 	osReadlink = f
 
 	return func() { osReadlink = realOsReadlink }
-}
-
-//MockMountInfo mocks content of /proc/self/mountinfo read by IsHomeUsingNFS
-func MockMountInfo(text string) (restore func()) {
-	old := procSelfMountInfo
-	f, err := ioutil.TempFile("", "mountinfo")
-	if err != nil {
-		panic(fmt.Errorf("cannot open temporary file: %s", err))
-	}
-	if err := ioutil.WriteFile(f.Name(), []byte(text), 0644); err != nil {
-		panic(fmt.Errorf("cannot write mock mountinfo file: %s", err))
-	}
-	procSelfMountInfo = f.Name()
-	return func() {
-		os.Remove(procSelfMountInfo)
-		procSelfMountInfo = old
-	}
-}
-
-// MockEtcFstab mocks content of /etc/fstab read by IsHomeUsingNFS
-func MockEtcFstab(text string) (restore func()) {
-	old := etcFstab
-	f, err := ioutil.TempFile("", "fstab")
-	if err != nil {
-		panic(fmt.Errorf("cannot open temporary file: %s", err))
-	}
-	if err := ioutil.WriteFile(f.Name(), []byte(text), 0644); err != nil {
-		panic(fmt.Errorf("cannot write mock fstab file: %s", err))
-	}
-	etcFstab = f.Name()
-	return func() {
-		if etcFstab == "/etc/fstab" {
-			panic("respectfully refusing to remove /etc/fstab")
-		}
-		os.Remove(etcFstab)
-		etcFstab = old
-	}
-}
-
-// MockUname mocks syscall.Uname as used by MachineName and KernelVersion
-func MockUname(f func(*syscall.Utsname) error) (restore func()) {
-	old := syscallUname
-	syscallUname = f
-
-	return func() {
-		syscallUname = old
-	}
-}
-
-var (
-	FindUidNoGetentFallback = findUidNoGetentFallback
-	FindGidNoGetentFallback = findGidNoGetentFallback
-
-	FindUidWithGetentFallback = findUidWithGetentFallback
-	FindGidWithGetentFallback = findGidWithGetentFallback
-)
-
-func MockFindUidNoFallback(mock func(name string) (uint64, error)) (restore func()) {
-	old := findUidNoGetentFallback
-	findUidNoGetentFallback = mock
-	return func() { findUidNoGetentFallback = old }
-}
-
-func MockFindGidNoFallback(mock func(name string) (uint64, error)) (restore func()) {
-	old := findGidNoGetentFallback
-	findGidNoGetentFallback = mock
-	return func() { findGidNoGetentFallback = old }
-}
-
-func MockFindUid(mock func(name string) (uint64, error)) (restore func()) {
-	old := findUid
-	findUid = mock
-	return func() { findUid = old }
-}
-
-func MockFindGid(mock func(name string) (uint64, error)) (restore func()) {
-	old := findGid
-	findGid = mock
-	return func() { findGid = old }
 }

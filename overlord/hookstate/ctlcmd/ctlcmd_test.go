@@ -20,16 +20,13 @@
 package ctlcmd_test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/jessevdk/go-flags"
 	"github.com/snapcore/snapd/overlord/hookstate"
 	"github.com/snapcore/snapd/overlord/hookstate/ctlcmd"
 	"github.com/snapcore/snapd/overlord/hookstate/hooktest"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/testutil"
 
 	. "gopkg.in/check.v1"
 )
@@ -58,7 +55,7 @@ func (s *ctlcmdSuite) SetUpTest(c *C) {
 }
 
 func (s *ctlcmdSuite) TestNonExistingCommand(c *C) {
-	stdout, stderr, err := ctlcmd.Run(s.mockContext, []string{"foo"}, 0)
+	stdout, stderr, err := ctlcmd.Run(s.mockContext, []string{"foo"})
 	c.Check(string(stdout), Equals, "")
 	c.Check(string(stderr), Equals, "")
 	c.Check(err, ErrorMatches, ".*[Uu]nknown command.*")
@@ -71,42 +68,9 @@ func (s *ctlcmdSuite) TestCommandOutput(c *C) {
 	mockCommand.FakeStdout = "test stdout"
 	mockCommand.FakeStderr = "test stderr"
 
-	stdout, stderr, err := ctlcmd.Run(s.mockContext, []string{"mock", "foo"}, 0)
+	stdout, stderr, err := ctlcmd.Run(s.mockContext, []string{"mock", "foo"})
 	c.Check(err, IsNil)
 	c.Check(string(stdout), Equals, "test stdout")
 	c.Check(string(stderr), Equals, "test stderr")
 	c.Check(mockCommand.Args, DeepEquals, []string{"foo"})
-}
-
-func taskKinds(tasks []*state.Task) []string {
-	kinds := make([]string, len(tasks))
-	for i, task := range tasks {
-		k := task.Kind()
-		if k == "run-hook" {
-			var hooksup hookstate.HookSetup
-			if err := task.Get("hook-setup", &hooksup); err != nil {
-				panic(err)
-			}
-			k = fmt.Sprintf("%s[%s]", k, hooksup.Hook)
-		}
-		kinds[i] = k
-	}
-	return kinds
-}
-
-func (s *ctlcmdSuite) TestHiddenCommand(c *C) {
-	ctlcmd.AddHiddenMockCommand("mock-hidden")
-	ctlcmd.AddMockCommand("mock-shown")
-	defer ctlcmd.RemoveCommand("mock-hidden")
-	defer ctlcmd.RemoveCommand("mock-shown")
-
-	_, _, err := ctlcmd.Run(s.mockContext, []string{"--help"}, 0)
-	// help message output is returned as *flags.Error with
-	// Type as flags.ErrHelp
-	c.Assert(err, FitsTypeOf, &flags.Error{})
-	c.Check(err.(*flags.Error).Type, Equals, flags.ErrHelp)
-	// mock-shown is in the help message
-	c.Check(err.Error(), testutil.Contains, "  mock-shown\n")
-	// mock-hidden is not in the help message
-	c.Check(err.Error(), Not(testutil.Contains), "  mock-hidden\n")
 }

@@ -6,25 +6,23 @@ environment:
     PLUG: network
 
 prepare: |
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB/snaps.sh"
-
     echo "Given a snap with the $PLUG plug is installed"
-    install_local "$SNAP_NAME"
+    snap pack $TESTSLIB/snaps/$SNAP_NAME
+    snap install --dangerous $SNAP_FILE
+
+restore: |
+    rm -f $SNAP_FILE
 
 execute: |
-    expected="(?s)Slot +Plug\\n\
-    :$PLUG .*$SNAP_NAME"
+    expected="(?s)Slot +Plug\n\
+    :$PLUG +$SNAP_NAME"
 
     echo "When the interfaces list is restricted by slot"
     echo "Then only the requested slots are shown"
-    snap interfaces -i "$PLUG" | grep -Pzq "$expected"
+    snap interfaces -i $PLUG | grep -Pzq "$expected"
+
+    echo "==============================================="
 
     echo "When the interfaces list is restricted by slot and snap"
     echo "Then only the requested slots are shown"
-    snap interfaces -i "$PLUG" "$SNAP_NAME" | grep -Pzq "$expected"
-
-    echo "Implicit slots are exposed by a snap holding the nickname 'system'"
-    echo "but for compatibility they can also be listed when asking for 'core'"
-    snap interfaces -i network system | MATCH '^:network .*'
-    snap interfaces -i network core | MATCH '^:network .*'
+    snap interfaces -i $PLUG $SNAP_NAME | grep -Pzq "$expected"

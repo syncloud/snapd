@@ -87,5 +87,6 @@ func init() {
 		baseDeclarationSlots:  networkBaseDeclarationSlots,
 		connectedPlugAppArmor: networkConnectedPlugAppArmor,
 		connectedPlugSecComp:  networkConnectedPlugSecComp,
+		reservedForOS:         true,
 	})
 }

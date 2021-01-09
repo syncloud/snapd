@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2019 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,40 +20,22 @@
 package main
 
 var (
-	Compile           = compile
-	SeccompResolver   = seccompResolver
-	VersionInfo       = versionInfo
-	GoSeccompFeatures = goSeccompFeatures
+	Compile         = compile
+	SeccompResolver = seccompResolver
 )
 
-func MockArchDpkgArchitecture(f func() string) (restore func()) {
-	realArchDpkgArchitecture := archDpkgArchitecture
-	archDpkgArchitecture = f
+func MockArchUbuntuArchitecture(f func() string) (restore func()) {
+	realArchUbuntuArchitecture := archUbuntuArchitecture
+	archUbuntuArchitecture = f
 	return func() {
-		archDpkgArchitecture = realArchDpkgArchitecture
+		archUbuntuArchitecture = realArchUbuntuArchitecture
 	}
 }
 
-func MockArchDpkgKernelArchitecture(f func() string) (restore func()) {
-	realArchDpkgKernelArchitecture := archDpkgKernelArchitecture
-	archDpkgKernelArchitecture = f
+func MockArchUbuntuKernelArchitecture(f func() string) (restore func()) {
+	realArchUbuntuKernelArchitecture := archUbuntuKernelArchitecture
+	archUbuntuKernelArchitecture = f
 	return func() {
-		archDpkgKernelArchitecture = realArchDpkgKernelArchitecture
-	}
-}
-
-func MockErrnoOnDenial(i int16) (retore func()) {
-	origErrnoOnDenial := errnoOnDenial
-	errnoOnDenial = i
-	return func() {
-		errnoOnDenial = origErrnoOnDenial
-	}
-}
-
-func MockSeccompSyscalls(syscalls []string) (resture func()) {
-	old := seccompSyscalls
-	seccompSyscalls = syscalls
-	return func() {
-		seccompSyscalls = old
+		archUbuntuKernelArchitecture = realArchUbuntuKernelArchitecture
 	}
 }

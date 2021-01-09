@@ -23,13 +23,13 @@ import (
 	"bytes"
 	"crypto"
 	"fmt"
+	"regexp"
 	"time"
 
 	_ "golang.org/x/crypto/sha3" // expected for digests
 
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/release"
-	"github.com/snapcore/snapd/snap/naming"
 )
 
 // SnapDeclaration holds a snap-declaration assertion, declaring a
@@ -152,13 +152,7 @@ func snapDeclarationFormatAnalyze(headers map[string]interface{}, body []byte) (
 	if !(plugsOk || slotsOk) {
 		return 0, nil
 	}
-
 	formatnum = 1
-	setFormatNum := func(num int) {
-		if num > formatnum {
-			formatnum = num
-		}
-	}
 
 	plugs, err := checkMap(headers, "plugs")
 	if err != nil {
@@ -166,10 +160,7 @@ func snapDeclarationFormatAnalyze(headers map[string]interface{}, body []byte) (
 	}
 	err = compilePlugRules(plugs, func(_ string, rule *PlugRule) {
 		if rule.feature(dollarAttrConstraintsFeature) {
-			setFormatNum(2)
-		}
-		if rule.feature(deviceScopeConstraintsFeature) {
-			setFormatNum(3)
+			formatnum = 2
 		}
 	})
 	if err != nil {
@@ -182,10 +173,7 @@ func snapDeclarationFormatAnalyze(headers map[string]interface{}, body []byte) (
 	}
 	err = compileSlotRules(slots, func(_ string, rule *SlotRule) {
 		if rule.feature(dollarAttrConstraintsFeature) {
-			setFormatNum(2)
-		}
-		if rule.feature(deviceScopeConstraintsFeature) {
-			setFormatNum(3)
+			formatnum = 2
 		}
 	})
 	if err != nil {
@@ -194,6 +182,11 @@ func snapDeclarationFormatAnalyze(headers map[string]interface{}, body []byte) (
 
 	return formatnum, nil
 }
+
+var (
+	validAlias   = regexp.MustCompile("^[a-zA-Z0-9][-_.a-zA-Z0-9]*$")
+	validAppName = regexp.MustCompile("^[a-zA-Z0-9](?:-?[a-zA-Z0-9])*$")
+)
 
 func checkAliases(headers map[string]interface{}) (map[string]string, error) {
 	value, ok := headers["aliases"]
@@ -216,13 +209,13 @@ func checkAliases(headers map[string]interface{}) (map[string]string, error) {
 		}
 
 		what := fmt.Sprintf(`in "aliases" item %d`, i+1)
-		name, err := checkStringMatchesWhat(aliasItem, "name", what, naming.ValidAlias)
+		name, err := checkStringMatchesWhat(aliasItem, "name", what, validAlias)
 		if err != nil {
 			return nil, err
 		}
 
 		what = fmt.Sprintf(`for alias %q`, name)
-		target, err := checkStringMatchesWhat(aliasItem, "target", what, naming.ValidApp)
+		target, err := checkStringMatchesWhat(aliasItem, "target", what, validAppName)
 		if err != nil {
 			return nil, err
 		}
@@ -291,7 +284,7 @@ func assembleSnapDeclaration(assert assertionBase) (Assertion, error) {
 	}
 
 	// XXX: depracated, will go away later
-	autoAliases, err := checkStringListMatches(assert.headers, "auto-aliases", naming.ValidAlias)
+	autoAliases, err := checkStringListMatches(assert.headers, "auto-aliases", validAlias)
 	if err != nil {
 		return nil, err
 	}

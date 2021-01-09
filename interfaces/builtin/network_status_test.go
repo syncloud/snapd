@@ -53,7 +53,7 @@ apps:
 `
 	providerInfo := snaptest.MockInfo(c, providerYaml, nil)
 	s.slotInfo = providerInfo.Slots["network-status"]
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 
 	const consumerYaml = `name: consumer
 version: 1.0
@@ -64,7 +64,7 @@ apps:
 `
 	consumerInfo := snaptest.MockInfo(c, consumerYaml, nil)
 	s.plugInfo = consumerInfo.Plugs["network-status"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *NetworkStatusSuite) TestName(c *C) {
@@ -76,7 +76,7 @@ func (s *NetworkStatusSuite) TestAppArmorConnectedPlug(c *C) {
 	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
 	c.Assert(spec.SecurityTags(), DeepEquals, []string{"snap.consumer.app"})
 	c.Assert(spec.SnippetForTag("snap.consumer.app"), testutil.Contains, `peer=(label="snap.provider.app"`)
-	c.Assert(spec.SnippetForTag("snap.consumer.app"), testutil.Contains, "interface=com.ubuntu.connectivity1.NetworkingStatus{,*}")
+	c.Assert(spec.SnippetForTag("snap.consumer.app"), testutil.Contains, "interface=com.ubuntu.connectivity1.NetworkingStatus{,/**}")
 }
 
 func (s *NetworkStatusSuite) TestAppArmorConnectedSlot(c *C) {

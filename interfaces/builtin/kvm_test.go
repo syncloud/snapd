@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2017-2019 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,31 +20,22 @@
 package builtin_test
 
 import (
-	"io/ioutil"
-	"path/filepath"
-
 	. "gopkg.in/check.v1"
 
-	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/builtin"
-	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/udev"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/testutil"
 )
 
 type kvmInterfaceSuite struct {
-	testutil.BaseTest
-
 	iface    interfaces.Interface
 	slotInfo *snap.SlotInfo
 	slot     *interfaces.ConnectedSlot
 	plugInfo *snap.PlugInfo
 	plug     *interfaces.ConnectedPlug
-
-	tmpdir string
 }
 
 var _ = Suite(&kvmInterfaceSuite{
@@ -66,25 +57,8 @@ slots:
 `
 
 func (s *kvmInterfaceSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-
 	s.plug, s.plugInfo = MockConnectedPlug(c, kvmConsumerYaml, nil, "kvm")
 	s.slot, s.slotInfo = MockConnectedSlot(c, kvmCoreYaml, nil, "kvm")
-
-	// Need to Mock output of /proc/cpuinfo
-	s.tmpdir = c.MkDir()
-	dirs.SetRootDir(s.tmpdir)
-	s.AddCleanup(func() { dirs.SetRootDir("/") })
-
-	mockCpuinfo := filepath.Join(s.tmpdir, "cpuinfo")
-	c.Assert(ioutil.WriteFile(mockCpuinfo, []byte(`
-processor       : 0
-flags		: cpuflags without kvm support
-
-processor	: 42
-flags		: another cpu also without kvm support
-`[1:]), 0644), IsNil)
-	s.AddCleanup(builtin.MockProcCpuinfo(mockCpuinfo))
 }
 
 func (s *kvmInterfaceSuite) TestName(c *C) {
@@ -93,6 +67,13 @@ func (s *kvmInterfaceSuite) TestName(c *C) {
 
 func (s *kvmInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "kvm",
+		Interface: "kvm",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"kvm slots are reserved for the core snap")
 }
 
 func (s *kvmInterfaceSuite) TestSanitizePlug(c *C) {
@@ -129,73 +110,10 @@ func (s *kvmInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *kvmInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *kvmInterfaceSuite) TestInterfaces(c *C) {
 	c.Check(builtin.Interfaces(), testutil.DeepContains, s.iface)
-}
-
-func (s *kvmInterfaceSuite) TestKModSpecWithUnknownCpu(c *C) {
-	spec := &kmod.Specification{}
-	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
-	c.Assert(spec.Modules(), DeepEquals, map[string]bool{
-		"kvm": true,
-	})
-}
-
-func (s *kvmInterfaceSuite) TestKModSpecWithIntel(c *C) {
-	mockCpuinfo := filepath.Join(s.tmpdir, "cpuinfo")
-	c.Assert(ioutil.WriteFile(mockCpuinfo, []byte(`
-processor       : 0
-flags           : stuff vmx other
-`[1:]), 0644), IsNil)
-
-	spec := &kmod.Specification{}
-	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
-	c.Assert(spec.Modules(), DeepEquals, map[string]bool{
-		"kvm_intel": true,
-	})
-}
-
-func (s *kvmInterfaceSuite) TestKModSpecWithAMD(c *C) {
-	mockCpuinfo := filepath.Join(s.tmpdir, "cpuinfo")
-	c.Assert(ioutil.WriteFile(mockCpuinfo, []byte(`
-processor       : 0
-flags           : stuff svm other
-`[1:]), 0644), IsNil)
-
-	s.AddCleanup(builtin.MockProcCpuinfo(mockCpuinfo))
-
-	spec := &kmod.Specification{}
-	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
-	c.Assert(spec.Modules(), DeepEquals, map[string]bool{
-		"kvm_amd": true,
-	})
-}
-
-func (s *kvmInterfaceSuite) TestKModSpecWithEmptyCpuinfo(c *C) {
-	mockCpuinfo := filepath.Join(s.tmpdir, "cpuinfo")
-	c.Assert(ioutil.WriteFile(mockCpuinfo, []byte(`
-`[1:]), 0644), IsNil)
-
-	s.AddCleanup(builtin.MockProcCpuinfo(mockCpuinfo))
-
-	spec := &kmod.Specification{}
-	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
-	c.Assert(spec.Modules(), DeepEquals, map[string]bool{
-		"kvm": true,
-	})
-}
-
-func (s *kvmInterfaceSuite) TestKModSpecWithMissingCpuinfo(c *C) {
-	mockCpuinfo := filepath.Join(s.tmpdir, "non-existent-cpuinfo")
-
-	s.AddCleanup(builtin.MockProcCpuinfo(mockCpuinfo))
-
-	spec := &kmod.Specification{}
-	c.Assert(spec.AddConnectedPlug(s.iface, s.plug, s.slot), IsNil)
-	c.Assert(spec.Modules(), DeepEquals, map[string]bool{
-		"kvm": true,
-	})
 }

@@ -20,16 +20,12 @@
 package advisor
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/snapcore/bolt"
 
 	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/strutil"
 )
 
 var (
@@ -38,7 +34,6 @@ var (
 )
 
 type writer struct {
-	fn        string
 	db        *bolt.DB
 	tx        *bolt.Tx
 	cmdBucket *bolt.Bucket
@@ -48,7 +43,7 @@ type writer struct {
 type CommandDB interface {
 	// AddSnap adds the entries for commands pointing to the given
 	// snap name to the commands database.
-	AddSnap(snapName, version, summary string, commands []string) error
+	AddSnap(snapName, summary string, commands []string) error
 	// Commit persist the changes, and closes the database. If the
 	// database has already been committed/rollbacked, does nothing.
 	Commit() error
@@ -64,24 +59,32 @@ type CommandDB interface {
 // these closes the database again.
 func Create() (CommandDB, error) {
 	var err error
-	t := &writer{
-		fn: dirs.SnapCommandsDB + "." + strutil.MakeRandomString(12) + "~",
-	}
+	t := &writer{}
 
-	t.db, err = bolt.Open(t.fn, 0644, &bolt.Options{Timeout: 1 * time.Second})
+	t.db, err = bolt.Open(dirs.SnapCommandsDB, 0644, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return nil, err
 	}
 
 	t.tx, err = t.db.Begin(true)
 	if err == nil {
-		t.cmdBucket, err = t.tx.CreateBucket(cmdBucketKey)
-		if err == nil {
-			t.pkgBucket, err = t.tx.CreateBucket(pkgBucketKey)
+		err := t.tx.DeleteBucket(cmdBucketKey)
+		if err == nil || err == bolt.ErrBucketNotFound {
+			t.cmdBucket, err = t.tx.CreateBucket(cmdBucketKey)
 		}
-
 		if err != nil {
 			t.tx.Rollback()
+
+		}
+
+		if err == nil {
+			err := t.tx.DeleteBucket(pkgBucketKey)
+			if err == nil || err == bolt.ErrBucketNotFound {
+				t.pkgBucket, err = t.tx.CreateBucket(pkgBucketKey)
+			}
+			if err != nil {
+				t.tx.Rollback()
+			}
 		}
 	}
 
@@ -93,38 +96,23 @@ func Create() (CommandDB, error) {
 	return t, nil
 }
 
-func (t *writer) AddSnap(snapName, version, summary string, commands []string) error {
-	for _, cmd := range commands {
-		var sil []Package
+func (t *writer) AddSnap(snapName, summary string, commands []string) error {
+	bname := []byte(snapName)
 
+	for _, cmd := range commands {
 		bcmd := []byte(cmd)
 		row := t.cmdBucket.Get(bcmd)
-		if row != nil {
-			if err := json.Unmarshal(row, &sil); err != nil {
-				return err
-			}
-		}
-		// For the mapping of command->snap we do not need the summary, nothing is using that.
-		sil = append(sil, Package{Snap: snapName, Version: version})
-		row, err := json.Marshal(sil)
-		if err != nil {
-			return err
+		if row == nil {
+			row = bname
+		} else {
+			row = append(append(row, ','), bname...)
 		}
 		if err := t.cmdBucket.Put(bcmd, row); err != nil {
 			return err
 		}
 	}
 
-	// TODO: use json here as well and put the version information here
-	bj, err := json.Marshal(Package{
-		Snap:    snapName,
-		Version: version,
-		Summary: summary,
-	})
-	if err != nil {
-		return err
-	}
-	if err := t.pkgBucket.Put([]byte(snapName), bj); err != nil {
+	if err := t.pkgBucket.Put([]byte(snapName), []byte(summary)); err != nil {
 		return err
 	}
 
@@ -132,35 +120,11 @@ func (t *writer) AddSnap(snapName, version, summary string, commands []string) e
 }
 
 func (t *writer) Commit() error {
-	// either everything worked, and therefore this will fail, or something
-	// will fail, and that error is more important than this one if this one
-	// then fails as well. So, ignore the error.
-	defer os.Remove(t.fn)
-
-	if err := t.done(true); err != nil {
-		return err
-	}
-
-	dir, err := os.Open(filepath.Dir(dirs.SnapCommandsDB))
-	if err != nil {
-		return err
-	}
-	defer dir.Close()
-
-	if err := os.Rename(t.fn, dirs.SnapCommandsDB); err != nil {
-		return err
-	}
-
-	return dir.Sync()
+	return t.done(true)
 }
 
 func (t *writer) Rollback() error {
-	e1 := t.done(false)
-	e2 := os.Remove(t.fn)
-	if e1 == nil {
-		return e2
-	}
-	return e1
+	return t.done(false)
 }
 
 func (t *writer) done(commit bool) error {
@@ -188,7 +152,7 @@ func (t *writer) done(commit bool) error {
 
 // DumpCommands returns the whole database as a map. For use in
 // testing and debugging.
-func DumpCommands() (map[string]string, error) {
+func DumpCommands() (map[string][]string, error) {
 	db, err := bolt.Open(dirs.SnapCommandsDB, 0644, &bolt.Options{
 		ReadOnly: true,
 		Timeout:  1 * time.Second,
@@ -209,28 +173,21 @@ func DumpCommands() (map[string]string, error) {
 		return nil, nil
 	}
 
-	m := map[string]string{}
+	m := map[string][]string{}
 	c := b.Cursor()
 	for k, v := c.First(); k != nil; k, v = c.Next() {
-		m[string(k)] = string(v)
+		m[string(k)] = strings.Split(string(v), ",")
 	}
 
 	return m, nil
 }
 
 type boltFinder struct {
-	*bolt.DB
+	bolt.DB
 }
 
 // Open the database for reading.
 func Open() (Finder, error) {
-	// Check for missing file manually to workaround bug in bolt.
-	// bolt.Open() is using os.OpenFile(.., os.O_RDONLY |
-	// os.O_CREATE) even if ReadOnly mode is used. So we would get
-	// a misleading "permission denied" error without this check.
-	if !osutil.FileExists(dirs.SnapCommandsDB) {
-		return nil, os.ErrNotExist
-	}
 	db, err := bolt.Open(dirs.SnapCommandsDB, 0644, &bolt.Options{
 		ReadOnly: true,
 		Timeout:  1 * time.Second,
@@ -239,7 +196,7 @@ func Open() (Finder, error) {
 		return nil, err
 	}
 
-	return &boltFinder{db}, nil
+	return &boltFinder{*db}, nil
 }
 
 func (f *boltFinder) FindCommand(command string) ([]Command, error) {
@@ -258,15 +215,12 @@ func (f *boltFinder) FindCommand(command string) ([]Command, error) {
 	if buf == nil {
 		return nil, nil
 	}
-	var sil []Package
-	if err := json.Unmarshal(buf, &sil); err != nil {
-		return nil, err
-	}
-	cmds := make([]Command, len(sil))
-	for i, si := range sil {
+
+	snaps := strings.Split(string(buf), ",")
+	cmds := make([]Command, len(snaps))
+	for i, snap := range snaps {
 		cmds[i] = Command{
-			Snap:    si.Snap,
-			Version: si.Version,
+			Snap:    snap,
 			Command: command,
 		}
 	}
@@ -286,15 +240,10 @@ func (f *boltFinder) FindPackage(pkgName string) (*Package, error) {
 		return nil, nil
 	}
 
-	bj := b.Get([]byte(pkgName))
-	if bj == nil {
+	bsummary := b.Get([]byte(pkgName))
+	if bsummary == nil {
 		return nil, nil
 	}
-	var si Package
-	err = json.Unmarshal(bj, &si)
-	if err != nil {
-		return nil, err
-	}
 
-	return &Package{Snap: pkgName, Version: si.Version, Summary: si.Summary}, nil
+	return &Package{Snap: pkgName, Summary: string(bsummary)}, nil
 }

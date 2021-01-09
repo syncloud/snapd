@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+# -*- bash -*-
 #
 #  Copyright (C) 2017 Canonical Ltd
 #
@@ -116,7 +116,7 @@ else
     _complete_from_snap_maybe() {
         local etel=snap/core/current/usr/lib/snapd/etelpmoc.sh
         # catch /snap/bin and /var/lib/snapd/snap/bin
-        if [[ "$(command -v "$1")" =~ ^(/var/lib/snapd)?/snap/bin/ && ( -e "/var/lib/snapd/$etel" || -e "/$etel" )  ]]; then
+        if [[ "$(which "$1")" =~ /snap/bin/ && ( -e "/var/lib/snapd/$etel" || -e "/$etel" ) ]]; then
             complete -F _complete_from_snap "$1"
             return 124
         fi

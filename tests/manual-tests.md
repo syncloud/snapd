@@ -169,8 +169,7 @@
    git://git.launchpad.net/~snappy-hwe-team/snappy-hwe-snaps/+git/examples
 2. $ cd examples/simple-pulseaudio
 3. Ensure that the 'pulseaudio' interface is connected to paplay
-   $ sudo snap connect simple-pulseaudio:pulseaudio
-   $ sudo snap connections simple-pulseaudio
+   $ sudo snap interfaces
 4. Use /snap/bin/simple-pulseaudio.pactl stat and verify that you see
    valid output status from pulseaudio
 5. Use /snap/bin/simple-pulseaudio.paplay $SNAP/usr/share/sounds/alsa/Noise.wav and verify

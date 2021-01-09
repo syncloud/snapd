@@ -26,17 +26,13 @@ import (
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/snap/snaptest"
-	"github.com/snapcore/snapd/timings"
 )
 
 type BackendSuite struct {
-	Backend         interfaces.SecurityBackend
-	Repo            *interfaces.Repository
-	Iface           *TestInterface
-	RootDir         string
-	restoreSanitize func()
-
-	meas *timings.Span
+	Backend interfaces.SecurityBackend
+	Repo    *interfaces.Repository
+	Iface   *TestInterface
+	RootDir string
 }
 
 func (s *BackendSuite) SetUpTest(c *C) {
@@ -48,16 +44,10 @@ func (s *BackendSuite) SetUpTest(c *C) {
 	s.Iface = &TestInterface{InterfaceName: "iface"}
 	err := s.Repo.AddInterface(s.Iface)
 	c.Assert(err, IsNil)
-
-	perf := timings.New(nil)
-	s.meas = perf.StartSpan("", "")
-
-	s.restoreSanitize = snap.MockSanitizePlugsSlots(func(snapInfo *snap.Info) {})
 }
 
 func (s *BackendSuite) TearDownTest(c *C) {
 	dirs.SetRootDir("/")
-	s.restoreSanitize()
 }
 
 // Tests for Setup() and Remove()
@@ -150,30 +140,15 @@ slots:
         interface: iface
 `
 
-const SomeSnapYamlV1 = `
-name: some-snap
-version: 1
-developer: acme
-apps:
-    someapp:
-`
-
 // Support code for tests
 
 // InstallSnap "installs" a snap from YAML.
-func (s *BackendSuite) InstallSnap(c *C, opts interfaces.ConfinementOptions, instanceName, snapYaml string, revision int) *snap.Info {
+func (s *BackendSuite) InstallSnap(c *C, opts interfaces.ConfinementOptions, snapYaml string, revision int) *snap.Info {
 	snapInfo := snaptest.MockInfo(c, snapYaml, &snap.SideInfo{
 		Revision: snap.R(revision),
 	})
-
-	if instanceName != "" {
-		_, instanceKey := snap.SplitInstanceName(instanceName)
-		snapInfo.InstanceKey = instanceKey
-		c.Assert(snapInfo.InstanceName(), Equals, instanceName)
-	}
-
 	s.addPlugsSlots(c, snapInfo)
-	err := s.Backend.Setup(snapInfo, opts, s.Repo, s.meas)
+	err := s.Backend.Setup(snapInfo, opts, s.Repo)
 	c.Assert(err, IsNil)
 	return snapInfo
 }
@@ -183,17 +158,17 @@ func (s *BackendSuite) UpdateSnap(c *C, oldSnapInfo *snap.Info, opts interfaces.
 	newSnapInfo := snaptest.MockInfo(c, snapYaml, &snap.SideInfo{
 		Revision: snap.R(revision),
 	})
-	c.Assert(newSnapInfo.InstanceName(), Equals, oldSnapInfo.InstanceName())
+	c.Assert(newSnapInfo.Name(), Equals, oldSnapInfo.Name())
 	s.removePlugsSlots(c, oldSnapInfo)
 	s.addPlugsSlots(c, newSnapInfo)
-	err := s.Backend.Setup(newSnapInfo, opts, s.Repo, s.meas)
+	err := s.Backend.Setup(newSnapInfo, opts, s.Repo)
 	c.Assert(err, IsNil)
 	return newSnapInfo
 }
 
 // RemoveSnap "removes" an "installed" snap.
 func (s *BackendSuite) RemoveSnap(c *C, snapInfo *snap.Info) {
-	err := s.Backend.Remove(snapInfo.InstanceName())
+	err := s.Backend.Remove(snapInfo.Name())
 	c.Assert(err, IsNil)
 	s.removePlugsSlots(c, snapInfo)
 }
@@ -210,12 +185,12 @@ func (s *BackendSuite) addPlugsSlots(c *C, snapInfo *snap.Info) {
 }
 
 func (s *BackendSuite) removePlugsSlots(c *C, snapInfo *snap.Info) {
-	for _, plug := range s.Repo.Plugs(snapInfo.InstanceName()) {
-		err := s.Repo.RemovePlug(plug.Snap.InstanceName(), plug.Name)
+	for _, plug := range s.Repo.Plugs(snapInfo.Name()) {
+		err := s.Repo.RemovePlug(plug.Snap.Name(), plug.Name)
 		c.Assert(err, IsNil)
 	}
-	for _, slot := range s.Repo.Slots(snapInfo.InstanceName()) {
-		err := s.Repo.RemoveSlot(slot.Snap.InstanceName(), slot.Name)
+	for _, slot := range s.Repo.Slots(snapInfo.Name()) {
+		err := s.Repo.RemoveSlot(slot.Snap.Name(), slot.Name)
 		c.Assert(err, IsNil)
 	}
 }

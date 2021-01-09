@@ -63,20 +63,16 @@ func checkNotEmptyStringWhat(m map[string]interface{}, name, what string) (strin
 	return s, nil
 }
 
-func checkOptionalStringWhat(headers map[string]interface{}, name, what string) (string, error) {
+func checkOptionalString(headers map[string]interface{}, name string) (string, error) {
 	value, ok := headers[name]
 	if !ok {
 		return "", nil
 	}
 	s, ok := value.(string)
 	if !ok {
-		return "", fmt.Errorf("%q %s must be a string", name, what)
+		return "", fmt.Errorf("%q header must be a string", name)
 	}
 	return s, nil
-}
-
-func checkOptionalString(headers map[string]interface{}, name string) (string, error) {
-	return checkOptionalStringWhat(headers, name, "header")
 }
 
 func checkPrimaryKey(headers map[string]interface{}, primKey string) (string, error) {
@@ -202,10 +198,8 @@ func checkDigest(headers map[string]interface{}, name string, h crypto.Hash) ([]
 	return b, nil
 }
 
-// checkStringListInMap returns the `name` entry in the `m` map as a (possibly nil) `[]string`
-// if `m` has an entry for `name` and it isn't a `[]string`, an error is returned
-// if pattern is not nil, all the strings must match that pattern, otherwise an error is returned
-// `what` is a descriptor, used for error messages
+var anyString = regexp.MustCompile("")
+
 func checkStringListInMap(m map[string]interface{}, name, what string, pattern *regexp.Regexp) ([]string, error) {
 	value, ok := m[name]
 	if !ok {
@@ -224,7 +218,7 @@ func checkStringListInMap(m map[string]interface{}, name, what string, pattern *
 		if !ok {
 			return nil, fmt.Errorf("%s must be a list of strings", what)
 		}
-		if pattern != nil && !pattern.MatchString(s) {
+		if !pattern.MatchString(s) {
 			return nil, fmt.Errorf("%s contains an invalid element: %q", what, s)
 		}
 		res[i] = s
@@ -233,7 +227,7 @@ func checkStringListInMap(m map[string]interface{}, name, what string, pattern *
 }
 
 func checkStringList(headers map[string]interface{}, name string) ([]string, error) {
-	return checkStringListMatches(headers, name, nil)
+	return checkStringListMatches(headers, name, anyString)
 }
 
 func checkStringListMatches(headers map[string]interface{}, name string, pattern *regexp.Regexp) ([]string, error) {

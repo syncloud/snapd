@@ -5,8 +5,6 @@ description: Test policy app for non-implicitOnCore slots
 confinement: strict
 
 slots:
-  audio-playback: null
-  audio-record: null
   avahi-control: null
   avahi-observe: null
   bluez: null
@@ -33,7 +31,6 @@ slots:
   mir: null
   modem-manager: null
   network-manager: null
-  network-manager-observe: null
   network-status: null
   ofono: null
   online-accounts-service: null
@@ -46,16 +43,8 @@ slots:
   unity8-calendar: null
   unity8-contacts: null
   upower-observe: null
-  wayland: null
-  x11: null
 
 apps:
-  audio-playback:
-    command: bin/run
-    slots: [ audio-playback ]
-  audio-record:
-    command: bin/run
-    slots: [ audio-record ]
   avahi-control:
     command: bin/run
     slots: [ avahi-control ]
@@ -104,9 +93,6 @@ apps:
   network-manager:
     command: bin/run
     slots: [ network-manager ]
-  network-manager-observe:
-    command: bin/run
-    slots: [ network-manager-observe ]
   network-status:
     command: bin/run
     slots: [ network-status ]
@@ -143,9 +129,3 @@ apps:
   upower-observe:
     command: bin/run
     slots: [ upower-observe ]
-  wayland:
-    command: bin/run
-    slots: [ wayland ]
-  x11:
-    command: bin/run
-    slots: [ x11 ]

@@ -62,19 +62,19 @@ apps:
   plugs: [unity8-calendar]
 `
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "unity8-calendar",
 		Interface: "unity8-calendar",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 
 	plugSnap := snaptest.MockInfo(c, mockPlugSnapInfo, nil)
 	s.plugInfo = plugSnap.Plugs["unity8-calendar"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 
 	slotSnap := snaptest.MockInfo(c, mockCoreSlotInfoYaml, nil)
 	s.coreSlotInfo = slotSnap.Slots["unity8-calendar"]
-	s.coreSlot = interfaces.NewConnectedSlot(s.coreSlotInfo, nil, nil)
+	s.coreSlot = interfaces.NewConnectedSlot(s.coreSlotInfo, nil)
 }
 
 func (s *Unity8CalendarInterfaceSuite) TestName(c *C) {
@@ -105,8 +105,7 @@ func (s *Unity8CalendarInterfaceSuite) TestConnectedPlugSnippetUsesSlotLabelAll(
 		Name:      "unity8-calendar",
 		Interface: "unity8-calendar",
 		Apps:      map[string]*snap.AppInfo{"app1": app1, "app2": app2},
-	}, nil, nil)
-
+	}, nil)
 	release.OnClassic = false
 
 	apparmorSpec := &apparmor.Specification{}
@@ -129,8 +128,7 @@ func (s *Unity8CalendarInterfaceSuite) TestConnectedPlugSnippetUsesSlotLabelSome
 		Name:      "unity8-calendar",
 		Interface: "unity8-calendar",
 		Apps:      map[string]*snap.AppInfo{"app1": app1, "app2": app2},
-	}, nil, nil)
-
+	}, nil)
 	release.OnClassic = false
 
 	apparmorSpec := &apparmor.Specification{}
@@ -151,8 +149,7 @@ func (s *Unity8CalendarInterfaceSuite) TestConnectedPlugSnippetUsesSlotLabelOne(
 		Name:      "unity8-calendar",
 		Interface: "unity8-calendar",
 		Apps:      map[string]*snap.AppInfo{"app": app},
-	}, nil, nil)
-
+	}, nil)
 	release.OnClassic = false
 
 	apparmorSpec := &apparmor.Specification{}

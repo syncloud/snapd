@@ -34,7 +34,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func TestT(t *testing.T) { TestingT(t) }
+func Test(t *testing.T) { TestingT(t) }
 
 type snapctlSuite struct {
 	server            *httptest.Server
@@ -47,8 +47,6 @@ var _ = Suite(&snapctlSuite{})
 
 func (s *snapctlSuite) SetUpTest(c *C) {
 	os.Setenv("SNAP_COOKIE", "snap-context-test")
-	// don't use SNAP_CONTEXT, in case other tests accidentally leak this
-	os.Unsetenv("SNAP_CONTEXT")
 	n := 0
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch n {

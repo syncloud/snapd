@@ -36,18 +36,11 @@ type cmdKeys struct {
 func init() {
 	cmd := addCommand("keys",
 		i18n.G("List cryptographic keys"),
-		i18n.G(`
-The keys command lists cryptographic keys that can be used for signing
-assertions.
-`),
+		i18n.G("List cryptographic keys that can be used for signing assertions."),
 		func() flags.Commander {
 			return &cmdKeys{}
-		}, map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"json": i18n.G("Output results in JSON format"),
-		}, nil)
+		}, map[string]string{"json": i18n.G("Output results in JSON format")}, nil)
 	cmd.hidden = true
-	cmd.completeHidden = true
 }
 
 // Key represents a key that can be used for signing assertions.
@@ -67,7 +60,7 @@ func outputJSON(keys []Key) error {
 
 func outputText(keys []Key) error {
 	if len(keys) == 0 {
-		fmt.Fprintf(Stderr, "No keys registered, see `snapcraft create-key`\n")
+		fmt.Fprintf(Stdout, "No keys registered, see `snapcraft create-key`")
 		return nil
 	}
 

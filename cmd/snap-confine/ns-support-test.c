@@ -35,12 +35,6 @@ static void sc_set_ns_dir(const char *dir)
 	sc_ns_dir = dir;
 }
 
-// A variant of unsetenv that is compatible with GDestroyNotify
-static void my_unsetenv(const char *k)
-{
-	unsetenv(k);
-}
-
 // Use temporary directory for namespace groups.
 //
 // The directory is automatically reset to the real value at the end of the
@@ -59,7 +53,7 @@ static const char *sc_test_use_fake_ns_dir(void)
 		g_test_queue_free(ns_dir);
 		g_assert_cmpint(setenv("SNAP_CONFINE_NS_DIR", ns_dir, 0), ==,
 				0);
-		g_test_queue_destroy((GDestroyNotify) my_unsetenv,
+		g_test_queue_destroy((GDestroyNotify) unsetenv,
 				     "SNAP_CONFINE_NS_DIR");
 		g_test_queue_destroy((GDestroyNotify) rm_rf_tmp, ns_dir);
 	}
@@ -70,54 +64,112 @@ static const char *sc_test_use_fake_ns_dir(void)
 
 // Check that allocating a namespace group sets up internal data structures to
 // safe values.
-static void test_sc_alloc_mount_ns(void)
+static void test_sc_alloc_ns_group(void)
 {
-	struct sc_mount_ns *group = NULL;
-	group = sc_alloc_mount_ns();
+	struct sc_ns_group *group = NULL;
+	group = sc_alloc_ns_group();
 	g_test_queue_free(group);
 	g_assert_nonnull(group);
 	g_assert_cmpint(group->dir_fd, ==, -1);
-	g_assert_cmpint(group->pipe_master[0], ==, -1);
-	g_assert_cmpint(group->pipe_master[1], ==, -1);
-	g_assert_cmpint(group->pipe_helper[0], ==, -1);
-	g_assert_cmpint(group->pipe_helper[1], ==, -1);
+	g_assert_cmpint(group->event_fd, ==, -1);
 	g_assert_cmpint(group->child, ==, 0);
+	g_assert_cmpint(group->should_populate, ==, false);
 	g_assert_null(group->name);
 }
 
 // Initialize a namespace group.
 //
 // The group is automatically destroyed at the end of the test.
-static struct sc_mount_ns *sc_test_open_mount_ns(const char *group_name)
+static struct sc_ns_group *sc_test_open_ns_group(const char *group_name)
 {
 	// Initialize a namespace group
-	struct sc_mount_ns *group = NULL;
+	struct sc_ns_group *group = NULL;
 	if (group_name == NULL) {
 		group_name = "test-group";
 	}
-	group = sc_open_mount_ns(group_name);
-	g_test_queue_destroy((GDestroyNotify) sc_close_mount_ns, group);
+	group = sc_open_ns_group(group_name, 0);
+	g_test_queue_destroy((GDestroyNotify) sc_close_ns_group, group);
 	// Check if the returned group data looks okay
 	g_assert_nonnull(group);
 	g_assert_cmpint(group->dir_fd, !=, -1);
-	g_assert_cmpint(group->pipe_master[0], ==, -1);
-	g_assert_cmpint(group->pipe_master[1], ==, -1);
-	g_assert_cmpint(group->pipe_helper[0], ==, -1);
-	g_assert_cmpint(group->pipe_helper[1], ==, -1);
+	g_assert_cmpint(group->event_fd, ==, -1);
 	g_assert_cmpint(group->child, ==, 0);
+	g_assert_cmpint(group->should_populate, ==, false);
 	g_assert_cmpstr(group->name, ==, group_name);
 	return group;
 }
 
 // Check that initializing a namespace group creates the appropriate
 // filesystem structure.
-static void test_sc_open_mount_ns(void)
+static void test_sc_open_ns_group(void)
 {
 	const char *ns_dir = sc_test_use_fake_ns_dir();
-	sc_test_open_mount_ns(NULL);
+	sc_test_open_ns_group(NULL);
 	// Check that the group directory exists
 	g_assert_true(g_file_test
 		      (ns_dir, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR));
+}
+
+static void test_sc_open_ns_group_graceful(void)
+{
+	sc_set_ns_dir("/nonexistent");
+	g_test_queue_destroy((GDestroyNotify) sc_set_ns_dir, SC_NS_DIR);
+	struct sc_ns_group *group =
+	    sc_open_ns_group("foo", SC_NS_FAIL_GRACEFULLY);
+	g_assert_null(group);
+}
+
+static void unmount_dir(void *dir)
+{
+	umount(dir);
+}
+
+static void test_sc_is_ns_group_dir_private(void)
+{
+	if (geteuid() != 0) {
+		g_test_skip("this test needs to run as root");
+		return;
+	}
+	const char *ns_dir = sc_test_use_fake_ns_dir();
+	g_test_queue_destroy(unmount_dir, (char *)ns_dir);
+
+	if (g_test_subprocess()) {
+		// The temporary directory should not be private initially
+		g_assert_false(sc_is_ns_group_dir_private());
+
+		/// do what "mount --bind /foo /foo; mount --make-private /foo" does.
+		int err;
+		err = mount(ns_dir, ns_dir, NULL, MS_BIND, NULL);
+		g_assert_cmpint(err, ==, 0);
+		err = mount(NULL, ns_dir, NULL, MS_PRIVATE, NULL);
+		g_assert_cmpint(err, ==, 0);
+
+		// The temporary directory should now be private
+		g_assert_true(sc_is_ns_group_dir_private());
+		return;
+	}
+	g_test_trap_subprocess(NULL, 0, G_TEST_SUBPROCESS_INHERIT_STDERR);
+	g_test_trap_assert_passed();
+}
+
+static void test_sc_initialize_ns_groups(void)
+{
+	if (geteuid() != 0) {
+		g_test_skip("this test needs to run as root");
+		return;
+	}
+	// NOTE: this is g_test_subprocess aware!
+	const char *ns_dir = sc_test_use_fake_ns_dir();
+	g_test_queue_destroy(unmount_dir, (char *)ns_dir);
+	if (g_test_subprocess()) {
+		// Initialize namespace groups using a fake directory.
+		sc_initialize_ns_groups();
+		// Check that the fake directory is now a private mount.
+		g_assert_true(sc_is_ns_group_dir_private());
+		return;
+	}
+	g_test_trap_subprocess(NULL, 0, G_TEST_SUBPROCESS_INHERIT_STDERR);
+	g_test_trap_assert_passed();
 }
 
 // Sanity check, ensure that the namespace filesystem identifier is what we
@@ -146,9 +198,15 @@ static void test_nsfs_fs_id(void)
 	g_assert_cmpint(buf.f_type, ==, NSFS_MAGIC);
 }
 
-static void __attribute__((constructor)) init(void)
+static void __attribute__ ((constructor)) init(void)
 {
-	g_test_add_func("/ns/sc_alloc_mount_ns", test_sc_alloc_mount_ns);
-	g_test_add_func("/ns/sc_open_mount_ns", test_sc_open_mount_ns);
+	g_test_add_func("/ns/sc_alloc_ns_group", test_sc_alloc_ns_group);
+	g_test_add_func("/ns/sc_open_ns_group", test_sc_open_ns_group);
+	g_test_add_func("/ns/sc_open_ns_group/graceful",
+			test_sc_open_ns_group_graceful);
 	g_test_add_func("/ns/nsfs_fs_id", test_nsfs_fs_id);
+	g_test_add_func("/system/ns/sc_is_ns_group_dir_private",
+			test_sc_is_ns_group_dir_private);
+	g_test_add_func("/system/ns/sc_initialize_ns_groups",
+			test_sc_initialize_ns_groups);
 }

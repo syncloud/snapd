@@ -67,6 +67,13 @@ func (s *PhysicalMemoryControlInterfaceSuite) TestName(c *C) {
 
 func (s *PhysicalMemoryControlInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "physical-memory-control",
+		Interface: "physical-memory-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"physical-memory-control slots are reserved for the core snap")
 }
 
 func (s *PhysicalMemoryControlInterfaceSuite) TestSanitizePlug(c *C) {
@@ -98,7 +105,8 @@ func (s *PhysicalMemoryControlInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *PhysicalMemoryControlInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *PhysicalMemoryControlInterfaceSuite) TestInterfaces(c *C) {

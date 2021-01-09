@@ -1,17 +1,10 @@
 summary: Test that snapd reexecs itself into core
 
-# Disable for Fedora, openSUSE and Arch as re-exec is not support there yet
-systems: [-ubuntu-core-*, -fedora-*, -opensuse-*, -arch-*, -amazon-*, -centos-*]
+# Disable for Fedora, openSUSE as re-exec is not support there yet
+systems: [-ubuntu-core-16-*, -fedora-*, -opensuse-*]
 
 restore: |
-    #shellcheck source=tests/lib/dirs.sh
-    . "$TESTSLIB"/dirs.sh
-
-    # Remove the locale revision of core, if we installed one.
-    if [ "$(readlink "$SNAP_MOUNT_DIR/core/current")" = x1 ]; then
-        snap revert core
-        snap remove --revision=x1 core
-    fi
+    . $TESTSLIB/dirs.sh
     # extra cleanup in case something in this test went wrong
     rm -f /etc/systemd/system/snapd.service.d/no-reexec.conf
     systemctl stop snapd.service snapd.socket
@@ -36,10 +29,7 @@ execute: |
     echo "Ensure we re-exec by default"
     /usr/bin/env SNAPD_DEBUG=1 snap list 2>&1 | MATCH "DEBUG: restarting into"
 
-    # shellcheck source=tests/lib/dirs.sh
-    . "$TESTSLIB/dirs.sh"
-    # shellcheck source=tests/lib/journalctl.sh
-    . "$TESTSLIB/journalctl.sh"
+    . $TESTSLIB/dirs.sh
 
     echo "Ensure that we do not re-exec into older versions"
     systemctl stop snapd.service snapd.socket
@@ -48,7 +38,7 @@ execute: |
     mount --bind /tmp/old-info $SNAP_MOUNT_DIR/core/current/usr/lib/snapd/info
     systemctl start snapd.service snapd.socket
     snap list
-    check_journalctl_log 'snap \(at .*\) is older \(.*\) than distribution package'
+    journalctl | MATCH "core snap \(at .*\) is older \(.*\) than distribution package"
 
     echo "Revert back to normal"
     systemctl stop snapd.service snapd.socket
@@ -88,16 +78,16 @@ execute: |
 
     echo "Ensure a core refresh restart snapd"
     prev_core=$(snap list | awk "/^core / {print(\$3)}")
-    snap install --dangerous "/var/lib/snapd/snaps/core_${prev_core}.snap"
+    snap install --dangerous /var/lib/snapd/snaps/core_${prev_core}.snap
     snap change --last=install | MATCH "Requested daemon restart"
 
     echo "Ensure the right snapd (from the new core) is running"
     now_core=$(snap list | awk "/^core / {print(\$3)}")
     if [ "$now_core" = "$prev_core" ]; then
-        echo "Test broken $now_core and $prev_core are the same"
+        echo "Test broken $now_core and $prev_Core are the same"
         exit 1
     fi
-    SNAPD_PATH=$(readlink -f "/proc/$(pidof snapd)/exe")
+    SNAPD_PATH=$(readlink -f /proc/$(pidof snapd)/exe)
     if [ "$SNAPD_PATH" != "/snap/core/${now_core}/usr/lib/snapd/snapd" ]; then
         echo "unexpected $SNAPD_PATH for $now_core snap (previous $prev_core)"
         exit 1

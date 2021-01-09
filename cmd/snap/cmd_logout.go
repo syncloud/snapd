@@ -25,15 +25,11 @@ import (
 	"github.com/snapcore/snapd/i18n"
 )
 
-type cmdLogout struct {
-	clientMixin
-}
+type cmdLogout struct{}
 
-var shortLogoutHelp = i18n.G("Log out of snapd and the store")
+var shortLogoutHelp = i18n.G("Log out of the store")
 
-var longLogoutHelp = i18n.G(`
-The logout command logs the current user out of snapd and the store.
-`)
+var longLogoutHelp = i18n.G("This command logs the current user out of the store")
 
 func init() {
 	addCommand("logout",
@@ -49,5 +45,5 @@ func (cmd *cmdLogout) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	return cmd.client.Logout()
+	return Client().Logout()
 }

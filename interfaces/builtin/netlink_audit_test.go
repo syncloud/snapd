@@ -53,14 +53,14 @@ var _ = Suite(&NetlinkAuditInterfaceSuite{
 
 func (s *NetlinkAuditInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "netlink-audit",
 		Interface: "netlink-audit",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, netlinkAuditMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["netlink-audit"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *NetlinkAuditInterfaceSuite) TestName(c *C) {
@@ -69,6 +69,13 @@ func (s *NetlinkAuditInterfaceSuite) TestName(c *C) {
 
 func (s *NetlinkAuditInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "netlink-audit",
+		Interface: "netlink-audit",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"netlink-audit slots are reserved for the core snap")
 }
 
 func (s *NetlinkAuditInterfaceSuite) TestSanitizePlug(c *C) {

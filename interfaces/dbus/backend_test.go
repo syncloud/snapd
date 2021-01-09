@@ -20,8 +20,6 @@
 package dbus_test
 
 import (
-	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -32,7 +30,6 @@ import (
 	"github.com/snapcore/snapd/interfaces/dbus"
 	"github.com/snapcore/snapd/interfaces/ifacetest"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/snap/snaptest"
 	"github.com/snapcore/snapd/testutil"
 )
 
@@ -76,7 +73,7 @@ func (s *backendSuite) TestInstallingSnapWritesConfigFiles(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.smbd.conf")
 		// file called "snap.sambda.smbd.conf" was created
 		_, err := os.Stat(profile)
@@ -96,7 +93,7 @@ func (s *backendSuite) TestInstallingSnapWithHookWritesConfigFiles(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.HookYaml, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.HookYaml, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.foo.hook.configure.conf")
 
 		// Verify that "snap.foo.hook.configure.conf" was created
@@ -113,7 +110,7 @@ func (s *backendSuite) TestRemovingSnapRemovesConfigFiles(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1, 0)
 		s.RemoveSnap(c, snapInfo)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.smbd.conf")
 		// file called "snap.sambda.smbd.conf" was removed
@@ -133,7 +130,7 @@ func (s *backendSuite) TestRemovingSnapWithHookRemovesConfigFiles(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.HookYaml, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.HookYaml, 0)
 		s.RemoveSnap(c, snapInfo)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.foo.hook.configure.conf")
 
@@ -150,7 +147,7 @@ func (s *backendSuite) TestUpdatingSnapToOneWithMoreApps(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1, 0)
 		snapInfo = s.UpdateSnap(c, snapInfo, opts, ifacetest.SambaYamlV1WithNmbd, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.nmbd.conf")
 		// file called "snap.sambda.nmbd.conf" was created
@@ -171,7 +168,7 @@ func (s *backendSuite) TestUpdatingSnapToOneWithMoreHooks(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1, 0)
 		snapInfo = s.UpdateSnap(c, snapInfo, opts, ifacetest.SambaYamlWithHook, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.hook.configure.conf")
 
@@ -189,7 +186,7 @@ func (s *backendSuite) TestUpdatingSnapToOneWithFewerApps(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1WithNmbd, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1WithNmbd, 0)
 		snapInfo = s.UpdateSnap(c, snapInfo, opts, ifacetest.SambaYamlV1, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.nmbd.conf")
 		// file called "snap.sambda.nmbd.conf" was removed
@@ -210,7 +207,7 @@ func (s *backendSuite) TestUpdatingSnapToOneWithFewerHooks(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlWithHook, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlWithHook, 0)
 		snapInfo = s.UpdateSnap(c, snapInfo, opts, ifacetest.SambaYamlV1, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.hook.configure.conf")
 
@@ -230,7 +227,7 @@ func (s *backendSuite) TestCombineSnippetsWithActualSnippets(c *C) {
 		return nil
 	}
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.smbd.conf")
 		c.Check(profile, testutil.FileEquals, "<?xml>\n<policy>...</policy>\n</xml>")
 		stat, err := os.Stat(profile)
@@ -242,7 +239,7 @@ func (s *backendSuite) TestCombineSnippetsWithActualSnippets(c *C) {
 
 func (s *backendSuite) TestCombineSnippetsWithoutAnySnippets(c *C) {
 	for _, opts := range testedConfinementOpts {
-		snapInfo := s.InstallSnap(c, opts, "", ifacetest.SambaYamlV1, 0)
+		snapInfo := s.InstallSnap(c, opts, ifacetest.SambaYamlV1, 0)
 		profile := filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.smbd.conf")
 		_, err := os.Stat(profile)
 		// Without any snippets, there the .conf file is not created.
@@ -269,86 +266,11 @@ func (s *backendSuite) TestAppBoundIfaces(c *C) {
 	}
 	// Install a snap with two apps, only one of which needs a .conf file
 	// because the interface is app-bound.
-	snapInfo := s.InstallSnap(c, interfaces.ConfinementOptions{}, "", sambaYamlWithIfaceBoundToNmbd, 0)
+	snapInfo := s.InstallSnap(c, interfaces.ConfinementOptions{}, sambaYamlWithIfaceBoundToNmbd, 0)
 	defer s.RemoveSnap(c, snapInfo)
 	// Check that only one of the .conf files is actually created
 	_, err := os.Stat(filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.smbd.conf"))
 	c.Check(os.IsNotExist(err), Equals, true)
 	_, err = os.Stat(filepath.Join(dirs.SnapBusPolicyDir, "snap.samba.nmbd.conf"))
 	c.Check(err, IsNil)
-}
-
-func (s *backendSuite) TestSandboxFeatures(c *C) {
-	c.Assert(s.Backend.SandboxFeatures(), DeepEquals, []string{"mediated-bus-access"})
-}
-
-func makeFakeDbusUserdServiceFiles(c *C, coreOrSnapdSnap *snap.Info) {
-	err := os.MkdirAll(filepath.Join(dirs.GlobalRootDir, "/usr/share/dbus-1/services"), 0755)
-	c.Assert(err, IsNil)
-
-	servicesPath := filepath.Join(coreOrSnapdSnap.MountDir(), "/usr/share/dbus-1/services")
-	err = os.MkdirAll(servicesPath, 0755)
-	c.Assert(err, IsNil)
-
-	for _, fn := range []string{
-		"io.snapcraft.Launcher.service",
-		"io.snapcraft.Settings.service",
-	} {
-		content := fmt.Sprintf("content of %s for snap %s", fn, coreOrSnapdSnap.InstanceName())
-		err = ioutil.WriteFile(filepath.Join(servicesPath, fn), []byte(content), 0644)
-		c.Assert(err, IsNil)
-	}
-}
-
-func (s *backendSuite) testSetupWritesUsedFilesForCoreOrSnapd(c *C, coreOrSnapdYaml string) {
-	coreOrSnapdInfo := snaptest.MockInfo(c, coreOrSnapdYaml, &snap.SideInfo{Revision: snap.R(2)})
-	makeFakeDbusUserdServiceFiles(c, coreOrSnapdInfo)
-
-	err := s.Backend.Setup(coreOrSnapdInfo, interfaces.ConfinementOptions{}, s.Repo, nil)
-	c.Assert(err, IsNil)
-
-	for _, fn := range []string{
-		"io.snapcraft.Launcher.service",
-		"io.snapcraft.Settings.service",
-	} {
-		c.Assert(filepath.Join(dirs.GlobalRootDir, "/usr/share/dbus-1/services/"+fn), testutil.FilePresent)
-	}
-}
-
-var (
-	coreYaml  string = "name: core\nversion: 1\ntype: os"
-	snapdYaml string = "name: snapd\nversion: 1\ntype: snapd"
-)
-
-func (s *backendSuite) TestSetupWritesUsedFilesForCore(c *C) {
-	s.testSetupWritesUsedFilesForCoreOrSnapd(c, coreYaml)
-}
-
-func (s *backendSuite) TestSetupWritesUsedFilesForSnapd(c *C) {
-	s.testSetupWritesUsedFilesForCoreOrSnapd(c, snapdYaml)
-}
-
-func (s *backendSuite) TestSetupWritesUsedFilesBothSnapdAndCoreInstalled(c *C) {
-	err := os.MkdirAll(filepath.Join(dirs.SnapMountDir, "snapd/current"), 0755)
-	c.Assert(err, IsNil)
-
-	coreInfo := snaptest.MockInfo(c, coreYaml, &snap.SideInfo{Revision: snap.R(2)})
-	makeFakeDbusUserdServiceFiles(c, coreInfo)
-	snapdInfo := snaptest.MockInfo(c, snapdYaml, &snap.SideInfo{Revision: snap.R(3)})
-	makeFakeDbusUserdServiceFiles(c, snapdInfo)
-
-	// first setup snapd which writes the files
-	err = s.Backend.Setup(snapdInfo, interfaces.ConfinementOptions{}, s.Repo, nil)
-	c.Assert(err, IsNil)
-
-	// then setup core - if both are installed snapd should win
-	err = s.Backend.Setup(coreInfo, interfaces.ConfinementOptions{}, s.Repo, nil)
-	c.Assert(err, IsNil)
-
-	for _, fn := range []string{
-		"io.snapcraft.Launcher.service",
-		"io.snapcraft.Settings.service",
-	} {
-		c.Assert(filepath.Join(dirs.GlobalRootDir, "/usr/share/dbus-1/services/"+fn), testutil.FileEquals, fmt.Sprintf("content of %s for snap snapd", fn))
-	}
 }

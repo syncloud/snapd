@@ -27,7 +27,6 @@ import (
 	"io/ioutil"
 	"mime"
 	"mime/multipart"
-	"net/http"
 	"path/filepath"
 
 	"gopkg.in/check.v1"
@@ -73,28 +72,22 @@ func (cs *clientSuite) TestClientMultiOpSnapServerError(c *check.C) {
 		_, err := s.op(cs.cli, nil, nil)
 		c.Check(err, check.ErrorMatches, `.*fail`, check.Commentf(s.action))
 	}
-	_, _, err := cs.cli.SnapshotMany(nil, nil)
-	c.Check(err, check.ErrorMatches, `.*fail`)
 }
 
 func (cs *clientSuite) TestClientOpSnapResponseError(c *check.C) {
-	cs.status = 400
-	cs.rsp = `{"type": "error"}`
+	cs.rsp = `{"type": "error", "status": "potatoes"}`
 	for _, s := range ops {
 		_, err := s.op(cs.cli, pkgName, nil)
-		c.Check(err, check.ErrorMatches, `.*server error: "Bad Request"`, check.Commentf(s.action))
+		c.Check(err, check.ErrorMatches, `.*server error: "potatoes"`, check.Commentf(s.action))
 	}
 }
 
 func (cs *clientSuite) TestClientMultiOpSnapResponseError(c *check.C) {
-	cs.status = 500
-	cs.rsp = `{"type": "error"}`
+	cs.rsp = `{"type": "error", "status": "potatoes"}`
 	for _, s := range multiOps {
 		_, err := s.op(cs.cli, nil, nil)
-		c.Check(err, check.ErrorMatches, `.*server error: "Internal Server Error"`, check.Commentf(s.action))
+		c.Check(err, check.ErrorMatches, `.*server error: "potatoes"`, check.Commentf(s.action))
 	}
-	_, _, err := cs.cli.SnapshotMany(nil, nil)
-	c.Check(err, check.ErrorMatches, `.*server error: "Internal Server Error"`)
 }
 
 func (cs *clientSuite) TestClientOpSnapBadType(c *check.C) {
@@ -117,7 +110,6 @@ func (cs *clientSuite) TestClientOpSnapNotAccepted(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientOpSnapNoChange(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"status-code": 202,
 		"type": "async"
@@ -129,7 +121,6 @@ func (cs *clientSuite) TestClientOpSnapNoChange(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientOpSnap(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"change": "d728",
 		"status-code": 202,
@@ -140,9 +131,6 @@ func (cs *clientSuite) TestClientOpSnap(c *check.C) {
 		c.Assert(err, check.IsNil)
 
 		c.Assert(cs.req.Header.Get("Content-Type"), check.Equals, "application/json", check.Commentf(s.action))
-
-		_, ok := cs.req.Context().Deadline()
-		c.Check(ok, check.Equals, true)
 
 		body, err := ioutil.ReadAll(cs.req.Body)
 		c.Assert(err, check.IsNil, check.Commentf(s.action))
@@ -159,14 +147,12 @@ func (cs *clientSuite) TestClientOpSnap(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientMultiOpSnap(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"change": "d728",
 		"status-code": 202,
 		"type": "async"
 	}`
 	for _, s := range multiOps {
-		// Note body is essentially the same as TestClientMultiSnapshot; keep in sync
 		id, err := s.op(cs.cli, []string{pkgName}, nil)
 		c.Assert(err, check.IsNil)
 
@@ -186,34 +172,7 @@ func (cs *clientSuite) TestClientMultiOpSnap(c *check.C) {
 	}
 }
 
-func (cs *clientSuite) TestClientMultiSnapshot(c *check.C) {
-	// Note body is essentially the same as TestClientMultiOpSnap; keep in sync
-	cs.status = 202
-	cs.rsp = `{
-                "result": {"set-id": 42},
-		"change": "d728",
-		"status-code": 202,
-		"type": "async"
-	}`
-	setID, changeID, err := cs.cli.SnapshotMany([]string{pkgName}, nil)
-	c.Assert(err, check.IsNil)
-	c.Check(cs.req.Header.Get("Content-Type"), check.Equals, "application/json")
-
-	body, err := ioutil.ReadAll(cs.req.Body)
-	c.Assert(err, check.IsNil)
-	jsonBody := make(map[string]interface{})
-	err = json.Unmarshal(body, &jsonBody)
-	c.Assert(err, check.IsNil)
-	c.Check(jsonBody["action"], check.Equals, "snapshot")
-	c.Check(jsonBody["snaps"], check.DeepEquals, []interface{}{pkgName})
-	c.Check(jsonBody, check.HasLen, 2)
-	c.Check(cs.req.URL.Path, check.Equals, "/v2/snaps")
-	c.Check(setID, check.Equals, uint64(42))
-	c.Check(changeID, check.Equals, "d728")
-}
-
 func (cs *clientSuite) TestClientOpInstallPath(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"change": "66b3",
 		"status-code": 202,
@@ -225,7 +184,7 @@ func (cs *clientSuite) TestClientOpInstallPath(c *check.C) {
 	err := ioutil.WriteFile(snap, bodyData, 0644)
 	c.Assert(err, check.IsNil)
 
-	id, err := cs.cli.InstallPath(snap, "", nil)
+	id, err := cs.cli.InstallPath(snap, nil)
 	c.Assert(err, check.IsNil)
 
 	body, err := ioutil.ReadAll(cs.req.Body)
@@ -233,37 +192,6 @@ func (cs *clientSuite) TestClientOpInstallPath(c *check.C) {
 
 	c.Assert(string(body), check.Matches, "(?s).*\r\nsnap-data\r\n.*")
 	c.Assert(string(body), check.Matches, "(?s).*Content-Disposition: form-data; name=\"action\"\r\n\r\ninstall\r\n.*")
-
-	c.Check(cs.req.Method, check.Equals, "POST")
-	c.Check(cs.req.URL.Path, check.Equals, fmt.Sprintf("/v2/snaps"))
-	c.Assert(cs.req.Header.Get("Content-Type"), check.Matches, "multipart/form-data; boundary=.*")
-	_, ok := cs.req.Context().Deadline()
-	c.Assert(ok, check.Equals, false)
-	c.Check(id, check.Equals, "66b3")
-}
-
-func (cs *clientSuite) TestClientOpInstallPathInstance(c *check.C) {
-	cs.status = 202
-	cs.rsp = `{
-		"change": "66b3",
-		"status-code": 202,
-		"type": "async"
-	}`
-	bodyData := []byte("snap-data")
-
-	snap := filepath.Join(c.MkDir(), "foo.snap")
-	err := ioutil.WriteFile(snap, bodyData, 0644)
-	c.Assert(err, check.IsNil)
-
-	id, err := cs.cli.InstallPath(snap, "foo_bar", nil)
-	c.Assert(err, check.IsNil)
-
-	body, err := ioutil.ReadAll(cs.req.Body)
-	c.Assert(err, check.IsNil)
-
-	c.Assert(string(body), check.Matches, "(?s).*\r\nsnap-data\r\n.*")
-	c.Assert(string(body), check.Matches, "(?s).*Content-Disposition: form-data; name=\"action\"\r\n\r\ninstall\r\n.*")
-	c.Assert(string(body), check.Matches, "(?s).*Content-Disposition: form-data; name=\"name\"\r\n\r\nfoo_bar\r\n.*")
 
 	c.Check(cs.req.Method, check.Equals, "POST")
 	c.Check(cs.req.URL.Path, check.Equals, fmt.Sprintf("/v2/snaps"))
@@ -272,7 +200,6 @@ func (cs *clientSuite) TestClientOpInstallPathInstance(c *check.C) {
 }
 
 func (cs *clientSuite) TestClientOpInstallDangerous(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"change": "66b3",
 		"status-code": 202,
@@ -289,7 +216,7 @@ func (cs *clientSuite) TestClientOpInstallDangerous(c *check.C) {
 	}
 
 	// InstallPath takes Dangerous
-	_, err = cs.cli.InstallPath(snap, "", &opts)
+	_, err = cs.cli.InstallPath(snap, &opts)
 	c.Assert(err, check.IsNil)
 
 	body, err := ioutil.ReadAll(cs.req.Body)
@@ -308,42 +235,6 @@ func (cs *clientSuite) TestClientOpInstallDangerous(c *check.C) {
 	c.Assert(err, check.NotNil)
 }
 
-func (cs *clientSuite) TestClientOpInstallUnaliased(c *check.C) {
-	cs.status = 202
-	cs.rsp = `{
-		"change": "66b3",
-		"status-code": 202,
-		"type": "async"
-	}`
-	bodyData := []byte("snap-data")
-
-	snap := filepath.Join(c.MkDir(), "foo.snap")
-	err := ioutil.WriteFile(snap, bodyData, 0644)
-	c.Assert(err, check.IsNil)
-
-	opts := client.SnapOptions{
-		Unaliased: true,
-	}
-
-	_, err = cs.cli.Install("foo", &opts)
-	c.Assert(err, check.IsNil)
-
-	body, err := ioutil.ReadAll(cs.req.Body)
-	c.Assert(err, check.IsNil)
-	jsonBody := make(map[string]interface{})
-	err = json.Unmarshal(body, &jsonBody)
-	c.Assert(err, check.IsNil, check.Commentf("body: %v", string(body)))
-	c.Check(jsonBody["unaliased"], check.Equals, true, check.Commentf("body: %v", string(body)))
-
-	_, err = cs.cli.InstallPath(snap, "", &opts)
-	c.Assert(err, check.IsNil)
-
-	body, err = ioutil.ReadAll(cs.req.Body)
-	c.Assert(err, check.IsNil)
-
-	c.Assert(string(body), check.Matches, "(?s).*Content-Disposition: form-data; name=\"unaliased\"\r\n\r\ntrue\r\n.*")
-}
-
 func formToMap(c *check.C, mr *multipart.Reader) map[string]string {
 	formData := map[string]string{}
 	for {
@@ -360,7 +251,6 @@ func formToMap(c *check.C, mr *multipart.Reader) map[string]string {
 }
 
 func (cs *clientSuite) TestClientOpTryMode(c *check.C) {
-	cs.status = 202
 	cs.rsp = `{
 		"change": "66b3",
 		"status-code": 202,
@@ -416,67 +306,4 @@ func (cs *clientSuite) TestClientOpTryModeDangerous(c *check.C) {
 
 	_, err := cs.cli.Try(snapdir, &client.SnapOptions{Dangerous: true})
 	c.Assert(err, check.Equals, client.ErrDangerousNotApplicable)
-}
-
-func (cs *clientSuite) TestSnapOptionsSerialises(c *check.C) {
-	tests := map[string]client.SnapOptions{
-		"{}":                         {},
-		`{"channel":"edge"}`:         {Channel: "edge"},
-		`{"revision":"42"}`:          {Revision: "42"},
-		`{"cohort-key":"what"}`:      {CohortKey: "what"},
-		`{"leave-cohort":true}`:      {LeaveCohort: true},
-		`{"devmode":true}`:           {DevMode: true},
-		`{"jailmode":true}`:          {JailMode: true},
-		`{"classic":true}`:           {Classic: true},
-		`{"dangerous":true}`:         {Dangerous: true},
-		`{"ignore-validation":true}`: {IgnoreValidation: true},
-		`{"unaliased":true}`:         {Unaliased: true},
-		`{"purge":true}`:             {Purge: true},
-		`{"amend":true}`:             {Amend: true},
-	}
-	for expected, opts := range tests {
-		buf, err := json.Marshal(&opts)
-		c.Assert(err, check.IsNil, check.Commentf("%s", expected))
-		c.Check(string(buf), check.Equals, expected)
-	}
-}
-
-func (cs *clientSuite) TestClientOpDownload(c *check.C) {
-	cs.status = 200
-	cs.header = http.Header{
-		"Content-Disposition": {"attachment; filename=foo_2.snap"},
-		"Snap-Sha3-384":       {"sha3sha3sha3"},
-	}
-	cs.contentLength = 1234
-
-	cs.rsp = `lots-of-foo-data`
-
-	dlInfo, rc, err := cs.cli.Download("foo", &client.SnapOptions{
-		Revision: "2",
-		Channel:  "edge",
-	})
-	c.Check(err, check.IsNil)
-	c.Check(dlInfo, check.DeepEquals, &client.DownloadInfo{
-		SuggestedFileName: "foo_2.snap",
-		Size:              1234,
-		Sha3_384:          "sha3sha3sha3",
-	})
-
-	// check we posted the right stuff
-	c.Assert(cs.req.Header.Get("Content-Type"), check.Equals, "application/json")
-	body, err := ioutil.ReadAll(cs.req.Body)
-	c.Assert(err, check.IsNil)
-	var jsonBody client.DownloadAction
-	err = json.Unmarshal(body, &jsonBody)
-	c.Assert(err, check.IsNil)
-	c.Check(jsonBody.SnapName, check.DeepEquals, "foo")
-	c.Check(jsonBody.Revision, check.Equals, "2")
-	c.Check(jsonBody.Channel, check.Equals, "edge")
-
-	// ensure we can read the response
-	content, err := ioutil.ReadAll(rc)
-	c.Assert(err, check.IsNil)
-	c.Check(string(content), check.Equals, cs.rsp)
-	// and we can close it
-	c.Check(rc.Close(), check.IsNil)
 }

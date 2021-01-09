@@ -33,7 +33,6 @@ const (
 	RestartOnFailure  RestartCondition = "on-failure"
 	RestartOnAbnormal RestartCondition = "on-abnormal"
 	RestartOnAbort    RestartCondition = "on-abort"
-	RestartOnWatchdog RestartCondition = "on-watchdog"
 	RestartAlways     RestartCondition = "always"
 )
 
@@ -44,7 +43,6 @@ var RestartMap = map[string]RestartCondition{
 	"on-failure":  RestartOnFailure,
 	"on-abnormal": RestartOnAbnormal,
 	"on-abort":    RestartOnAbort,
-	"on-watchdog": RestartOnWatchdog,
 	"always":      RestartAlways,
 }
 

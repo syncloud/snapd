@@ -27,6 +27,8 @@ import (
 	"os"
 )
 
+var osReadlink = os.Readlink
+
 // ErrNoBuildID is returned when an executable does not contain a Build-ID
 var ErrNoBuildID = errors.New("executable does not contain a build ID")
 
@@ -36,23 +38,18 @@ type elfNoteHeader struct {
 	Type   uint32
 }
 
-const (
-	gnuElfNote = "GNU\x00"
-	gnuHdrType = 3
-	goElfNote  = "Go\x00\x00"
-	goHdrType  = 4
-)
-
-// ReadBuildID returns the build ID of a given binary. GNU BuildID is is
-// preferred over Go BuildID. Returns an error when neither is found.
+// ReadBuildID returns the GNU build ID note of the provided ELF executable.
+// The ErrNoBuildID error is returned when one is not found.
+//
+// Observed Go binaries presented one when built with:
+//
+//      go build -buildmode=pie
+//
+// See details at http://fedoraproject.org/wiki/Releases/FeatureBuildId
 func ReadBuildID(fname string) (string, error) {
-	if buildId, err := readGenericBuildID(fname, gnuElfNote, gnuHdrType); err == nil {
-		return buildId, nil
-	}
-	return readGenericBuildID(fname, goElfNote, goHdrType)
-}
+	const ELF_NOTE_GNU = "GNU\x00"
+	const NT_GNU_BUILD_ID uint32 = 3
 
-func readGenericBuildID(fname, elfNote string, hdrType uint32) (string, error) {
 	// Open the designated ELF file
 	f, err := elf.Open(fname)
 	if err != nil {
@@ -78,7 +75,7 @@ func readGenericBuildID(fname, elfNote string, hdrType uint32) (string, error) {
 		}
 
 		// We are looking for a specific type of note
-		if nHdr.Type != hdrType {
+		if nHdr.Type != NT_GNU_BUILD_ID {
 			continue
 		}
 
@@ -89,7 +86,7 @@ func readGenericBuildID(fname, elfNote string, hdrType uint32) (string, error) {
 		}
 
 		// We are only interested in GNU build IDs
-		if string(noteName) != elfNote {
+		if string(noteName) != ELF_NOTE_GNU {
 			continue
 		}
 

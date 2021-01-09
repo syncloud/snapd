@@ -37,9 +37,6 @@ const hardwareObserveConnectedPlugAppArmor = `
 # used by lscpu and 'lspci -A intel-conf1/intel-conf2'
 capability sys_rawio,
 
-# see loaded kernel modules
-@{PROC}/modules r,
-
 # used by lspci
 capability sys_admin,
 /etc/modprobe.d/{,*} r,
@@ -55,31 +52,15 @@ capability sys_admin,
 /sys/firmware/dmi/tables/DMI r,
 /sys/firmware/dmi/tables/smbios_entry_point r,
 
-# power information
-/sys/power/{,**} r,
-/run/udev/data/+power_supply:* r,
-
 # interrupts
 @{PROC}/interrupts r,
-
-# libsensors
-/etc/sensors3.conf r,
-/etc/sensors.d/{,*} r,
 
 # Needed for udevadm
 /run/udev/data/** r,
 network netlink raw,
 
 # util-linux
-/{,usr/}bin/lsblk ixr,
 /{,usr/}bin/lscpu ixr,
-/{,usr/}bin/lsmem ixr,
-
-# lsmem
-/sys/devices/system/memory/block_size_bytes r,
-/sys/devices/system/memory/memory[0-9]*/removable r,
-/sys/devices/system/memory/memory[0-9]*/state r,
-/sys/devices/system/memory/memory[0-9]*/valid_zones r,
 
 # lsusb
 # Note: lsusb and its database have to be shipped in the snap if not on classic
@@ -96,44 +77,6 @@ network netlink raw,
 @{PROC}/device-tree/{,**} r,
 /sys/kernel/debug/usb/devices r,
 @{PROC}/sys/abi/{,*} r,
-
-# status of hugepages and transparent_hugepage, but not the pages themselves
-/sys/kernel/mm/{hugepages,transparent_hugepage}/{,**} r,
-
-# systemd-detect-virt
-/{,usr/}bin/systemd-detect-virt ixr,
-# VMs
-@{PROC}/cpuinfo r,
-@{PROC}/sysinfo r,  # Linux on z/VM
-@{PROC}/xen/capabilities r,
-/sys/hypervisor/properties/features r,
-/sys/hypervisor/type r,
-
-# containers
-/run/systemd/container r,
-
-# /proc/1/sched in a systemd-nspawn container with '-a' is supposed to show on
-# its first line a pid that != 1 and systemd-detect-virt tries to detect this.
-# This doesn't seem to be the case on (at least) systemd 240 on Ubuntu. This
-# file is somewhat sensitive for arbitrary pids, but is not overly so for pid
-# 1. For containers, systemd won't normally look at this file since it has
-# access to /run/systemd/container and 'container' from the environment, and
-# systemd fails gracefully when it doesn't have access to /proc/1/sched. For
-# VMs, systemd requires access to /proc/1/sched in its detection algorithm.
-# See src/basic/virt.c from systemd sources for details.
-@{PROC}/1/sched r,
-
-# systemd-detect-virt --private-users will look at these and the access is
-# better added to system-observe. Since snaps typically only care about
-# --container and --vm leave these commented out.
-#@{PROC}/@{pid}/uid_map r,
-#@{PROC}/@{pid}/gid_map r,
-#@{PROC}/@{pid}/setgroups r,
-
-# systemd-detect-virt --chroot requires 'ptrace (read)' on unconfined to
-# determine if it is running in a chroot. Like above, this is best granted via
-# system-observe.
-#ptrace (read) peer=unconfined,
 `
 
 const hardwareObserveConnectedPlugSecComp = `
@@ -161,5 +104,6 @@ func init() {
 		baseDeclarationSlots:  hardwareObserveBaseDeclarationSlots,
 		connectedPlugAppArmor: hardwareObserveConnectedPlugAppArmor,
 		connectedPlugSecComp:  hardwareObserveConnectedPlugSecComp,
+		reservedForOS:         true,
 	})
 }

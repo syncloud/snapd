@@ -39,7 +39,6 @@ import (
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/timings"
 )
 
 // Backend is responsible for maintaining DBus policy files.
@@ -58,27 +57,14 @@ func (b *Backend) Name() interfaces.SecuritySystem {
 // setupDbusServiceForUserd will setup the service file for the new
 // `snap userd` instance on re-exec
 func setupDbusServiceForUserd(snapInfo *snap.Info) error {
-	coreOrSnapdRoot := snapInfo.MountDir()
-
-	// fugly - but we need to make sure that the content of the
-	// "snapd" snap wins
-	//
-	// TODO: this is also racy but the content of the files in core and
-	// snapd is identical cleanup after link-snap and
-	// setup-profiles are unified
-	if snapInfo.InstanceName() == "core" && osutil.FileExists(filepath.Join(coreOrSnapdRoot, "../..", "snapd/current")) {
-		return nil
-	}
+	coreRoot := snapInfo.MountDir()
 
 	for _, srv := range []string{
 		"io.snapcraft.Launcher.service",
 		"io.snapcraft.Settings.service",
 	} {
 		dst := filepath.Join("/usr/share/dbus-1/services/", srv)
-		src := filepath.Join(coreOrSnapdRoot, dst)
-
-		// we only need the GlobalRootDir for testing
-		dst = filepath.Join(dirs.GlobalRootDir, dst)
+		src := filepath.Join(coreRoot, dst)
 		if !osutil.FilesAreEqual(src, dst) {
 			if err := osutil.CopyFile(src, dst, osutil.CopyFlagPreserveAll); err != nil {
 				return err
@@ -91,16 +77,16 @@ func setupDbusServiceForUserd(snapInfo *snap.Info) error {
 // Setup creates dbus configuration files specific to a given snap.
 //
 // DBus has no concept of a complain mode so confinment type is ignored.
-func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions, repo *interfaces.Repository, tm timings.Measurer) error {
-	snapName := snapInfo.InstanceName()
+func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions, repo *interfaces.Repository) error {
+	snapName := snapInfo.Name()
 	// Get the snippets that apply to this snap
 	spec, err := repo.SnapSpecification(b.Name(), snapName)
 	if err != nil {
 		return fmt.Errorf("cannot obtain dbus specification for snap %q: %s", snapName, err)
 	}
 
-	// core/snapd on classic are special
-	if (snapInfo.GetType() == snap.TypeOS || snapInfo.GetType() == snap.TypeSnapd) && release.OnClassic {
+	// core on classic is special
+	if snapName == "core" && release.OnClassic {
 		if err := setupDbusServiceForUserd(snapInfo); err != nil {
 			logger.Noticef("cannot create host `snap userd` dbus service file: %s", err)
 		}
@@ -137,7 +123,7 @@ func (b *Backend) Remove(snapName string) error {
 
 // deriveContent combines security snippets collected from all the interfaces
 // affecting a given snap into a content map applicable to EnsureDirState.
-func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (content map[string]osutil.FileState, err error) {
+func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (content map[string]*osutil.FileState, err error) {
 	for _, appInfo := range snapInfo.Apps {
 		securityTag := appInfo.SecurityTag()
 		appSnippets := spec.SnippetForTag(securityTag)
@@ -145,7 +131,7 @@ func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (conte
 			continue
 		}
 		if content == nil {
-			content = make(map[string]osutil.FileState)
+			content = make(map[string]*osutil.FileState)
 		}
 
 		addContent(securityTag, appSnippets, content)
@@ -158,7 +144,7 @@ func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (conte
 			continue
 		}
 		if content == nil {
-			content = make(map[string]osutil.FileState)
+			content = make(map[string]*osutil.FileState)
 		}
 
 		addContent(securityTag, hookSnippets, content)
@@ -167,13 +153,13 @@ func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (conte
 	return content, nil
 }
 
-func addContent(securityTag string, snippet string, content map[string]osutil.FileState) {
+func addContent(securityTag string, snippet string, content map[string]*osutil.FileState) {
 	var buffer bytes.Buffer
 	buffer.Write(xmlHeader)
 	buffer.WriteString(snippet)
 	buffer.Write(xmlFooter)
 
-	content[fmt.Sprintf("%s.conf", securityTag)] = &osutil.MemoryFileState{
+	content[fmt.Sprintf("%s.conf", securityTag)] = &osutil.FileState{
 		Content: buffer.Bytes(),
 		Mode:    0644,
 	}
@@ -181,9 +167,4 @@ func addContent(securityTag string, snippet string, content map[string]osutil.Fi
 
 func (b *Backend) NewSpecification() interfaces.Specification {
 	return &Specification{}
-}
-
-// SandboxFeatures returns list of features supported by snapd for dbus communication.
-func (b *Backend) SandboxFeatures() []string {
-	return []string{"mediated-bus-access"}
 }

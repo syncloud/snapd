@@ -30,21 +30,22 @@ import (
 
 func (s *SnapSuite) TestListHelp(c *check.C) {
 	msg := `Usage:
-  snap.test list [list-OPTIONS] [<snap>...]
+  snap.test [OPTIONS] list [list-OPTIONS] [<snap>...]
 
 The list command displays a summary of snaps installed in the current system.
 
-A green check mark (given color and unicode support) after a publisher name
-indicates that the publisher has been verified.
+Application Options:
+      --version     Print the version and exit
+
+Help Options:
+  -h, --help        Show this help message
 
 [list command options]
-      --all                           Show all revisions
-      --color=[auto|never|always]     Use a little bit of color to highlight
-                                      some things. (default: auto)
-      --unicode=[auto|never|always]   Use a little bit of Unicode to improve
-                                      legibility. (default: auto)
+          --all     Show all revisions
 `
-	s.testSubCommandHelp(c, "list", msg)
+	rest, err := snap.Parser().ParseArgs([]string{"list", "--help"})
+	c.Assert(err.Error(), check.Equals, msg)
+	c.Assert(rest, check.DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestList(c *check.C) {
@@ -55,30 +56,19 @@ func (s *SnapSuite) TestList(c *check.C) {
 			c.Check(r.Method, check.Equals, "GET")
 			c.Check(r.URL.Path, check.Equals, "/v2/snaps")
 			c.Check(r.URL.RawQuery, check.Equals, "")
-			fmt.Fprintln(w, `{"type": "sync", "result": [
-{
-  "name": "foo",
-  "status": "active",
-  "version": "4.2",
-  "developer": "bar",
-  "publisher": {"id": "bar-id", "username": "bar", "display-name": "Bar", "validation": "unproven"},
-  "health": {"status": "blocked"},
-  "revision": 17,
-  "tracking-channel": "potatoes"
-}]}`)
+			fmt.Fprintln(w, `{"type": "sync", "result": [{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "revision":17, "tracking-channel": "potatoes"}]}`)
 		default:
 			c.Fatalf("expected to get 1 requests, now on %d", n+1)
 		}
 
 		n++
 	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"list"})
+	rest, err := snap.Parser().ParseArgs([]string{"list"})
 	c.Assert(err, check.IsNil)
 	c.Assert(rest, check.DeepEquals, []string{})
-	c.Check(s.Stdout(), check.Equals, `
-Name  Version  Rev  Tracking  Publisher  Notes
-foo   4.2      17   potatoes  bar        blocked
-`[1:])
+	c.Check(s.Stdout(), check.Matches, `Name +Version +Rev +Tracking +Developer +Notes
+foo +4.2 +17 +potatoes +bar +-
+`)
 	c.Check(s.Stderr(), check.Equals, "")
 }
 
@@ -90,17 +80,17 @@ func (s *SnapSuite) TestListAll(c *check.C) {
 			c.Check(r.Method, check.Equals, "GET")
 			c.Check(r.URL.Path, check.Equals, "/v2/snaps")
 			c.Check(r.URL.RawQuery, check.Equals, "select=all")
-			fmt.Fprintln(w, `{"type": "sync", "result": [{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "publisher": {"id": "bar-id", "username": "bar", "display-name": "Bar", "validation": "unproven"}, "revision":17, "tracking-channel": "stable"}]}`)
+			fmt.Fprintln(w, `{"type": "sync", "result": [{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "revision":17, "tracking-channel": "stable"}]}`)
 		default:
 			c.Fatalf("expected to get 1 requests, now on %d", n+1)
 		}
 
 		n++
 	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"list", "--all"})
+	rest, err := snap.Parser().ParseArgs([]string{"list", "--all"})
 	c.Assert(err, check.IsNil)
 	c.Assert(rest, check.DeepEquals, []string{})
-	c.Check(s.Stdout(), check.Matches, `Name +Version +Rev +Tracking +Publisher +Notes
+	c.Check(s.Stdout(), check.Matches, `Name +Version +Rev +Tracking +Developer +Notes
 foo +4.2 +17 +stable +bar +-
 `)
 	c.Check(s.Stderr(), check.Equals, "")
@@ -120,11 +110,11 @@ func (s *SnapSuite) TestListEmpty(c *check.C) {
 
 		n++
 	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"list"})
+	rest, err := snap.Parser().ParseArgs([]string{"list"})
 	c.Assert(err, check.IsNil)
 	c.Assert(rest, check.DeepEquals, []string{})
 	c.Check(s.Stdout(), check.Equals, "")
-	c.Check(s.Stderr(), check.Equals, "No snaps are installed yet. Try 'snap install hello-world'.\n")
+	c.Check(s.Stderr(), check.Equals, "No snaps are installed yet. Try \"snap install hello-world\".\n")
 }
 
 func (s *SnapSuite) TestListEmptyWithQuery(c *check.C) {
@@ -141,7 +131,7 @@ func (s *SnapSuite) TestListEmptyWithQuery(c *check.C) {
 
 		n++
 	})
-	_, err := snap.Parser(snap.Client()).ParseArgs([]string{"list", "quux"})
+	_, err := snap.Parser().ParseArgs([]string{"list", "quux"})
 	c.Assert(err, check.ErrorMatches, `no matching snaps installed`)
 }
 
@@ -160,7 +150,7 @@ func (s *SnapSuite) TestListWithNoMatchingQuery(c *check.C) {
 
 		n++
 	})
-	_, err := snap.Parser(snap.Client()).ParseArgs([]string{"list", "quux"})
+	_, err := snap.Parser().ParseArgs([]string{"list", "quux"})
 	c.Assert(err, check.ErrorMatches, "no matching snaps installed")
 }
 
@@ -172,17 +162,17 @@ func (s *SnapSuite) TestListWithQuery(c *check.C) {
 			c.Check(r.Method, check.Equals, "GET")
 			c.Check(r.URL.Path, check.Equals, "/v2/snaps")
 			c.Check(r.URL.Query().Get("snaps"), check.Equals, "foo")
-			fmt.Fprintln(w, `{"type": "sync", "result": [{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "publisher": {"id": "bar-id", "username": "bar", "display-name": "Bar", "validation": "unproven"}, "revision":17, "tracking-channel": "1.10/stable/fix1234"}]}`)
+			fmt.Fprintln(w, `{"type": "sync", "result": [{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "revision":17, "tracking-channel": "1.10/stable/fix1234"}]}`)
 		default:
 			c.Fatalf("expected to get 1 requests, now on %d", n+1)
 		}
 
 		n++
 	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"list", "foo"})
+	rest, err := snap.Parser().ParseArgs([]string{"list", "foo"})
 	c.Assert(err, check.IsNil)
 	c.Assert(rest, check.DeepEquals, []string{})
-	c.Check(s.Stdout(), check.Matches, `Name +Version +Rev +Tracking +Publisher +Notes
+	c.Check(s.Stdout(), check.Matches, `Name +Version +Rev +Tracking +Developer +Notes
 foo +4.2 +17 +1\.10/stable/… +bar +-
 `)
 	c.Check(s.Stderr(), check.Equals, "")
@@ -198,7 +188,7 @@ func (s *SnapSuite) TestListWithNotes(c *check.C) {
 			c.Check(r.Method, check.Equals, "GET")
 			c.Check(r.URL.Path, check.Equals, "/v2/snaps")
 			fmt.Fprintln(w, `{"type": "sync", "result": [
-{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "publisher": {"id": "bar-id", "username": "bar", "display-name": "Bar", "validation": "unproven"}, "revision":17, "trymode": true}
+{"name": "foo", "status": "active", "version": "4.2", "developer": "bar", "revision":17, "trymode": true}
 ,{"name": "dm1", "status": "active", "version": "5", "revision":1, "devmode": true, "confinement": "devmode"}
 ,{"name": "dm2", "status": "active", "version": "5", "revision":1, "devmode": true, "confinement": "strict"}
 ,{"name": "cf1", "status": "active", "version": "6", "revision":2, "confinement": "devmode", "jailmode": true}
@@ -209,10 +199,10 @@ func (s *SnapSuite) TestListWithNotes(c *check.C) {
 
 		n++
 	})
-	rest, err := snap.Parser(snap.Client()).ParseArgs([]string{"list"})
+	rest, err := snap.Parser().ParseArgs([]string{"list"})
 	c.Assert(err, check.IsNil)
 	c.Assert(rest, check.DeepEquals, []string{})
-	c.Check(s.Stdout(), check.Matches, `(?ms)^Name +Version +Rev +Tracking +Publisher +Notes$`)
+	c.Check(s.Stdout(), check.Matches, `(?ms)^Name +Version +Rev +Tracking +Developer +Notes$`)
 	c.Check(s.Stdout(), check.Matches, `(?ms).*^foo +4.2 +17 +- +bar +try$`)
 	c.Check(s.Stdout(), check.Matches, `(?ms).*^dm1 +.* +devmode$`)
 	c.Check(s.Stdout(), check.Matches, `(?ms).*^dm2 +.* +devmode$`)
@@ -229,7 +219,6 @@ func (s *SnapSuite) TestFormatChannel(c *check.C) {
 		{"", "-"},
 		{"stable", "stable"},
 		{"edge", "edge"},
-		{"latest/stable", "stable"},
 		{"foo/stable", "foo"},
 		{"foo/edge", "foo/edge"},
 		{"foo", "foo"},

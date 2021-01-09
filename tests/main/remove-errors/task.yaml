@@ -1,26 +1,14 @@
 summary: Check remove command errors
 
 execute: |
-    #shellcheck source=tests/lib/snaps.sh
+    echo "Given a core snap is installed"
     . "$TESTSLIB/snaps.sh"
-    #shellcheck source=tests/lib/systems.sh
-    . "$TESTSLIB"/systems.sh
-    #shellcheck source=tests/lib/names.sh
+    install_local test-snapd-tools
+
     . "$TESTSLIB/names.sh"
-
-    BASE_SNAP=core
-    TARGET_SNAP=test-snapd-tools
-    if is_core18_system; then
-        BASE_SNAP=core18
-        TARGET_SNAP=test-snapd-tools-core18
-    fi
-
-    echo "Given a base snap, $BASE_SNAP, is installed"
-    install_local "$TARGET_SNAP"
-
     echo "Ensure the important snaps can not be removed"
-    for sn in $BASE_SNAP $kernel_name $gadget_name; do
-        if snap remove "$sn"; then
+    for sn in core $kernel_name $gadget_name; do
+        if snap remove $sn; then
             echo "It should not be possible to remove $sn"
             exit 1
         fi

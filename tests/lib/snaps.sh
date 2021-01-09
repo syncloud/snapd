@@ -2,41 +2,23 @@
 
 make_snap() {
     local SNAP_NAME="$1"
-    local SNAP_DIR="$TESTSLIB/snaps/${SNAP_NAME}"
-    if [ $# -gt 1 ]; then
-        SNAP_DIR="$2"
-    fi
-    local SNAP_FILE="${SNAP_DIR}/${SNAP_NAME}_1.0_all.snap"
+    shift;
+    local SNAP_FILE="$TESTSLIB/snaps/${SNAP_NAME}/${SNAP_NAME}_1.0_all.snap"
+    local SNAP_DIR
     # assigned in a separate step to avoid hiding a failure
+    SNAP_DIR="$(dirname "$SNAP_FILE")"
     if [ ! -f "$SNAP_FILE" ]; then
-        snap pack "$SNAP_DIR" "$SNAP_DIR" >/dev/null || return 1
+        snap pack "$SNAP_DIR" "$SNAP_DIR" >/dev/null
     fi
-    # echo the snap name
-    if [ -f "$SNAP_FILE" ]; then
-        echo "$SNAP_FILE"
-    else
-        find "$SNAP_DIR" -name '*.snap' | head -n1
-    fi
+    echo "$SNAP_FILE"
 }
 
 install_local() {
     local SNAP_NAME="$1"
-    local SNAP_DIR="$TESTSLIB/snaps/${SNAP_NAME}"
     shift
-
-    if [ -d "$SNAP_NAME" ]; then
-        SNAP_DIR="$PWD/$SNAP_NAME"
-    fi
-    SNAP_FILE=$(make_snap "$SNAP_NAME" "$SNAP_DIR")
+    SNAP_FILE=$(make_snap "$SNAP_NAME")
 
     snap install --dangerous "$@" "$SNAP_FILE"
-}
-
-install_local_as() {
-    local snap="$1"
-    local name="$2"
-    shift 2
-    install_local "$snap" --name "$name" "$@"
 }
 
 install_local_devmode() {
@@ -57,15 +39,12 @@ mksnap_fast() {
     dir="$1"
     snap="$2"
 
-    case "$SPREAD_SYSTEM" in
-        ubuntu-14.04-*|amazon-*|centos-*)
-            # trusty, AMZN2 and CentOS 7 do not support -Xcompression-level 1
-            mksquashfs "$dir" "$snap" -comp gzip -no-fragments -no-progress
-            ;;
-        *)
-            mksquashfs "$dir" "$snap" -comp gzip -Xcompression-level 1 -no-fragments -no-progress
-            ;;
-    esac
+    if [[ "$SPREAD_SYSTEM" == ubuntu-14.04-* ]]; then
+        # trusty does not support  -Xcompression-level 1
+        mksquashfs "$dir" "$snap" -comp gzip -no-fragments
+    else
+        mksquashfs "$dir" "$snap" -comp gzip -Xcompression-level 1 -no-fragments
+    fi
 }
 
 install_generic_consumer() {
@@ -78,8 +57,21 @@ install_generic_consumer() {
 }
 
 is_classic_confinement_supported() {
-    if snap debug sandbox-features --required=confinement-options:classic; then
-        return 0
-    fi
-    return 1
+    case "$SPREAD_SYSTEM" in
+        ubuntu-core-16-*)
+            return 1
+            ;;
+        ubuntu-*|debian-*)
+            return 0
+            ;;
+        fedora-*)
+            return 1
+            ;;
+        opensuse-*)
+            return 0
+            ;;
+        *)
+            return 0
+            ;;
+    esac
 }

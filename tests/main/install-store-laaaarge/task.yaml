@@ -1,23 +1,16 @@
 summary: snap install a large snap from the store (bigger than tmpfs)
 
 prepare: |
-    #shellcheck source=tests/lib/systemd.sh
-    . "$TESTSLIB/systemd.sh"
-
-    systemd_stop_units snapd.service snapd.socket
+    systemctl stop snapd.{service,socket}
     mount -t tmpfs -o rw,nosuid,nodev,size=4 none /tmp
     systemctl start snapd.{socket,service}
 
 restore: |
-    #shellcheck source=tests/lib/systemd.sh
-    . "$TESTSLIB/systemd.sh"
-
-    systemd_stop_units snapd.service snapd.socket
-    # Umount lazy to avoid busy device error
-    umount -l /tmp
+    systemctl stop snapd.{service,socket}
+    umount /tmp || true
     systemctl start snapd.{socket,service}
 
 execute: |
-    # test-snapd-sh is about 8k, tmpfs is 4k :-)
-    snap install test-snapd-sh
-    snap remove test-snapd-sh
+    # test-snapd-tools is about 8k, tmpfs is 4k :-)
+    snap install test-snapd-tools
+    snap remove test-snapd-tools

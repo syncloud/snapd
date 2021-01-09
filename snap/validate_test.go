@@ -23,18 +23,13 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	. "gopkg.in/check.v1"
 
 	. "github.com/snapcore/snapd/snap"
-
-	"github.com/snapcore/snapd/testutil"
 )
 
-type ValidateSuite struct {
-	testutil.BaseTest
-}
+type ValidateSuite struct{}
 
 var _ = Suite(&ValidateSuite{})
 
@@ -60,13 +55,37 @@ func createSampleApp() *AppInfo {
 	return app
 }
 
-func (s *ValidateSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-	s.BaseTest.AddCleanup(MockSanitizePlugsSlots(func(snapInfo *Info) {}))
-}
-
-func (s *ValidateSuite) TearDownTest(c *C) {
-	s.BaseTest.TearDownTest(c)
+func (s *ValidateSuite) TestValidateName(c *C) {
+	validNames := []string{
+		"a", "aa", "aaa", "aaaa",
+		"a-a", "aa-a", "a-aa", "a-b-c",
+		"a0", "a-0", "a-0a",
+		"01game", "1-or-2",
+	}
+	for _, name := range validNames {
+		err := ValidateName(name)
+		c.Assert(err, IsNil)
+	}
+	invalidNames := []string{
+		// name cannot be empty
+		"",
+		// dashes alone are not a name
+		"-", "--",
+		// double dashes in a name are not allowed
+		"a--a",
+		// name should not end with a dash
+		"a-",
+		// name cannot have any spaces in it
+		"a ", " a", "a a",
+		// a number alone is not a name
+		"0", "123",
+		// identifier must be plain ASCII
+		"日本語", "한글", "ру́сский язы́к",
+	}
+	for _, name := range invalidNames {
+		err := ValidateName(name)
+		c.Assert(err, ErrorMatches, `invalid snap name: ".*"`)
+	}
 }
 
 func (s *ValidateSuite) TestValidateVersion(c *C) {
@@ -138,7 +157,6 @@ func (s *ValidateSuite) TestValidateHook(c *C) {
 		{Name: "aa-a"},
 		{Name: "a-aa"},
 		{Name: "a-b-c"},
-		{Name: "valid", CommandChain: []string{"valid"}},
 	}
 	for _, hook := range validHooks {
 		err := ValidateHook(hook)
@@ -159,17 +177,27 @@ func (s *ValidateSuite) TestValidateHook(c *C) {
 		err := ValidateHook(hook)
 		c.Assert(err, ErrorMatches, `invalid hook name: ".*"`)
 	}
-	invalidHooks = []*HookInfo{
-		{Name: "valid", CommandChain: []string{"in'valid"}},
-		{Name: "valid", CommandChain: []string{"in valid"}},
-	}
-	for _, hook := range invalidHooks {
-		err := ValidateHook(hook)
-		c.Assert(err, ErrorMatches, `hook command-chain contains illegal.*`)
-	}
 }
 
 // ValidateApp
+
+func (s *ValidateSuite) TestValidateAppName(c *C) {
+	validAppNames := []string{
+		"1", "a", "aa", "aaa", "aaaa", "Aa", "aA", "1a", "a1", "1-a", "a-1",
+		"a-a", "aa-a", "a-aa", "a-b-c", "0a-a", "a-0a",
+	}
+	for _, name := range validAppNames {
+		c.Check(ValidateApp(&AppInfo{Name: name}), IsNil)
+	}
+	invalidAppNames := []string{
+		"", "-", "--", "a--a", "a-", "a ", " a", "a a", "日本語", "한글",
+		"ру́сский язы́к", "ໄຂ່​ອີ​ສ​ເຕີ້", ":a", "a:", "a:a", "_a", "a_", "a_a",
+	}
+	for _, name := range invalidAppNames {
+		err := ValidateApp(&AppInfo{Name: name})
+		c.Assert(err, ErrorMatches, `cannot have ".*" as app name.*`)
+	}
+}
 
 func (s *ValidateSuite) TestValidateAppSockets(c *C) {
 	app := createSampleApp()
@@ -186,7 +214,7 @@ func (s *ValidateSuite) TestValidateAppSocketsWrongPerms(c *C) {
 	app := createSampleApp()
 	app.Sockets["sock"].SocketMode = 1234
 	err := ValidateApp(app)
-	c.Assert(err, ErrorMatches, `invalid definition of socket "sock": cannot use mode: 2322`)
+	c.Assert(err, ErrorMatches, `cannot use socket mode: 2322`)
 }
 
 func (s *ValidateSuite) TestValidateAppSocketsMissingNetworkBindPlug(c *C) {
@@ -202,14 +230,14 @@ func (s *ValidateSuite) TestValidateAppSocketsEmptyListenStream(c *C) {
 	app := createSampleApp()
 	app.Sockets["sock"].ListenStream = ""
 	err := ValidateApp(app)
-	c.Assert(err, ErrorMatches, `invalid definition of socket "sock": "listen-stream" is not defined`)
+	c.Assert(err, ErrorMatches, `socket "sock" must define "listen-stream"`)
 }
 
 func (s *ValidateSuite) TestValidateAppSocketsInvalidName(c *C) {
 	app := createSampleApp()
 	app.Sockets["sock"].Name = "invalid name"
 	err := ValidateApp(app)
-	c.Assert(err, ErrorMatches, `invalid definition of socket "invalid name": invalid socket name: "invalid name"`)
+	c.Assert(err, ErrorMatches, `invalid socket name: "invalid name"`)
 }
 
 func (s *ValidateSuite) TestValidateAppSocketsValidListenStreamAddresses(c *C) {
@@ -218,7 +246,6 @@ func (s *ValidateSuite) TestValidateAppSocketsValidListenStreamAddresses(c *C) {
 		// socket paths using variables as prefix
 		"$SNAP_DATA/my.socket",
 		"$SNAP_COMMON/my.socket",
-		"$XDG_RUNTIME_DIR/my.socket",
 		// abstract sockets
 		"@snap.mysnap.my.socket",
 		// addresses and ports
@@ -249,7 +276,7 @@ func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamPath(c *C) {
 	for _, invalidAddress := range invalidListenAddresses {
 		socket.ListenStream = invalidAddress
 		err := ValidateApp(app)
-		c.Assert(err, ErrorMatches, `invalid definition of socket "sock": invalid "listen-stream": must have a prefix of .*`)
+		c.Assert(err, ErrorMatches, `socket "sock" has invalid "listen-stream": only.*are allowed`)
 	}
 }
 
@@ -259,7 +286,7 @@ func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamPathContainsDot
 	err := ValidateApp(app)
 	c.Assert(
 		err, ErrorMatches,
-		`invalid definition of socket "sock": invalid "listen-stream": "\$SNAP/../some.path" should be written as "some.path"`)
+		`socket "sock" has invalid "listen-stream": "\$SNAP/../some.path" should be written as "some.path"`)
 }
 
 func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamPathPrefix(c *C) {
@@ -274,7 +301,7 @@ func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamPathPrefix(c *C
 		err := ValidateApp(app)
 		c.Assert(
 			err, ErrorMatches,
-			`invalid definition of socket "sock": invalid "listen-stream": must have a prefix of \$SNAP_DATA, \$SNAP_COMMON or \$XDG_RUNTIME_DIR`)
+			`socket "sock" has invalid "listen-stream": only \$SNAP_DATA and \$SNAP_COMMON prefixes are allowed`)
 	}
 }
 
@@ -291,7 +318,7 @@ func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamAbstractSocket(
 	for _, invalidAddress := range invalidListenAddresses {
 		socket.ListenStream = invalidAddress
 		err := ValidateApp(app)
-		c.Assert(err, ErrorMatches, `invalid definition of socket "sock": path for "listen-stream" must be prefixed with.*`)
+		c.Assert(err, ErrorMatches, `socket "sock" path for "listen-stream" must be prefixed with.*`)
 	}
 }
 
@@ -307,7 +334,7 @@ func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamAddress(c *C) {
 	for _, invalidAddress := range invalidListenAddresses {
 		socket.ListenStream = invalidAddress
 		err := ValidateApp(app)
-		c.Assert(err, ErrorMatches, `invalid definition of socket "sock": invalid "listen-stream" address ".*", must be one of: 127\.0\.0\.1, \[::1\], \[::\]`)
+		c.Assert(err, ErrorMatches, `socket "sock" has invalid "listen-stream" address.*`)
 	}
 }
 
@@ -327,7 +354,7 @@ func (s *ValidateSuite) TestValidateAppSocketsInvalidListenStreamPort(c *C) {
 	for _, invalidPort := range invalidPorts {
 		socket.ListenStream = invalidPort
 		err := ValidateApp(app)
-		c.Assert(err, ErrorMatches, `invalid definition of socket "sock": invalid "listen-stream" port number.*`)
+		c.Assert(err, ErrorMatches, `socket "sock" has invalid "listen-stream" port number.*`)
 	}
 }
 
@@ -346,13 +373,10 @@ func (s *ValidateSuite) TestAppWhitelistWithVars(c *C) {
 func (s *ValidateSuite) TestAppWhitelistIllegal(c *C) {
 	c.Check(ValidateApp(&AppInfo{Name: "x\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "test!me"}), NotNil)
-	c.Check(ValidateApp(&AppInfo{Name: "test'me"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", Command: "foo\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", StopCommand: "foo\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", PostStopCommand: "foo\n"}), NotNil)
 	c.Check(ValidateApp(&AppInfo{Name: "foo", BusName: "foo\n"}), NotNil)
-	c.Check(ValidateApp(&AppInfo{Name: "foo", CommandChain: []string{"bar'baz"}}), NotNil)
-	c.Check(ValidateApp(&AppInfo{Name: "foo", CommandChain: []string{"bar baz"}}), NotNil)
 }
 
 func (s *ValidateSuite) TestAppDaemonValue(c *C) {
@@ -378,14 +402,16 @@ func (s *ValidateSuite) TestAppDaemonValue(c *C) {
 	}
 }
 
-func (s *ValidateSuite) TestAppStopMode(c *C) {
+func (s *ValidateSuite) TestAppRefreshMode(c *C) {
 	// check services
 	for _, t := range []struct {
-		stopMode StopModeType
-		ok       bool
+		refresh string
+		ok      bool
 	}{
 		// good
 		{"", true},
+		{"endure", true},
+		{"restart", true},
 		{"sigterm", true},
 		{"sigterm-all", true},
 		{"sighup", true},
@@ -398,34 +424,9 @@ func (s *ValidateSuite) TestAppStopMode(c *C) {
 		{"invalid-thing", false},
 	} {
 		if t.ok {
-			c.Check(ValidateApp(&AppInfo{Name: "foo", Daemon: "simple", StopMode: t.stopMode}), IsNil)
+			c.Check(ValidateApp(&AppInfo{Name: "foo", Daemon: "simple", RefreshMode: t.refresh}), IsNil)
 		} else {
-			c.Check(ValidateApp(&AppInfo{Name: "foo", Daemon: "simple", StopMode: t.stopMode}), ErrorMatches, fmt.Sprintf(`"stop-mode" field contains invalid value %q`, t.stopMode))
-		}
-	}
-
-	// non-services cannot have a stop-mode
-	err := ValidateApp(&AppInfo{Name: "foo", Daemon: "", StopMode: "sigterm"})
-	c.Check(err, ErrorMatches, `"stop-mode" cannot be used for "foo", only for services`)
-}
-
-func (s *ValidateSuite) TestAppRefreshMode(c *C) {
-	// check services
-	for _, t := range []struct {
-		refreshMode string
-		ok          bool
-	}{
-		// good
-		{"", true},
-		{"endure", true},
-		{"restart", true},
-		// bad
-		{"invalid-thing", false},
-	} {
-		if t.ok {
-			c.Check(ValidateApp(&AppInfo{Name: "foo", Daemon: "simple", RefreshMode: t.refreshMode}), IsNil)
-		} else {
-			c.Check(ValidateApp(&AppInfo{Name: "foo", Daemon: "simple", RefreshMode: t.refreshMode}), ErrorMatches, fmt.Sprintf(`"refresh-mode" field contains invalid value %q`, t.refreshMode))
+			c.Check(ValidateApp(&AppInfo{Name: "foo", Daemon: "simple", RefreshMode: t.refresh}), ErrorMatches, fmt.Sprintf(`"refresh-mode" field contains invalid value %q`, t.refresh))
 		}
 	}
 
@@ -566,99 +567,30 @@ apps:
 	c.Check(err, ErrorMatches, `cannot have "foo\$" as alias name for app "foo" - use only letters, digits, dash, underscore and dot characters`)
 }
 
-func (s *ValidateSuite) TestValidatePlugSlotName(c *C) {
-	const yaml1 = `
-name: invalid-plugs
-version: 1
-plugs:
-  p--lug: null
-`
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml1), nil, strk)
-	c.Assert(err, IsNil)
-	c.Assert(info.Plugs, HasLen, 1)
-	err = Validate(info)
-	c.Assert(err, ErrorMatches, `invalid plug name: "p--lug"`)
-
-	const yaml2 = `
-name: invalid-slots
-version: 1
-slots:
-  s--lot: null
-`
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml2), nil, strk)
-	c.Assert(err, IsNil)
-	c.Assert(info.Slots, HasLen, 1)
-	err = Validate(info)
-	c.Assert(err, ErrorMatches, `invalid slot name: "s--lot"`)
-
-	const yaml3 = `
-name: invalid-plugs-iface
-version: 1
-plugs:
-  plug:
-    interface: i--face
-`
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml3), nil, strk)
-	c.Assert(err, IsNil)
-	c.Assert(info.Plugs, HasLen, 1)
-	err = Validate(info)
-	c.Assert(err, ErrorMatches, `invalid interface name "i--face" for plug "plug"`)
-
-	const yaml4 = `
-name: invalid-slots-iface
-version: 1
-slots:
-  slot:
-    interface: i--face
-`
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml4), nil, strk)
-	c.Assert(err, IsNil)
-	c.Assert(info.Slots, HasLen, 1)
-	err = Validate(info)
-	c.Assert(err, ErrorMatches, `invalid interface name "i--face" for slot "slot"`)
-}
-
-func (s *ValidateSuite) TestValidateBaseNone(c *C) {
-	const yaml = `name: requires-base
-version: 1
-base: none
-`
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), nil, strk)
-	c.Assert(err, IsNil)
-	err = Validate(info)
-	c.Assert(err, IsNil)
-	c.Check(info.Base, Equals, "none")
-}
-
-func (s *ValidateSuite) TestValidateBaseNoneError(c *C) {
-	yamlTemplate := `name: use-base-none
-version: 1
-base: none
-
-%APPS_OR_HOOKS%
-`
-	const apps = `
-apps:
-  useradd:
-    command: bin/true
-`
-	const hooks = `
-hooks:
-  configure:
-`
-
-	for _, appsOrHooks := range []string{apps, hooks} {
-		yaml := strings.Replace(yamlTemplate, "%APPS_OR_HOOKS%", appsOrHooks, -1)
-		strk := NewScopedTracker()
-		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), nil, strk)
+func (s *ValidateSuite) TestValidateAlias(c *C) {
+	validAliases := []string{
+		"a", "aa", "aaa", "aaaa",
+		"a-a", "aa-a", "a-aa", "a-b-c",
+		"a0", "a-0", "a-0a",
+		"a_a", "aa_a", "a_aa", "a_b_c",
+		"a0", "a_0", "a_0a",
+		"01game", "1-or-2",
+		"0.1game", "1_or_2",
+	}
+	for _, alias := range validAliases {
+		err := ValidateAlias(alias)
 		c.Assert(err, IsNil)
-		err = Validate(info)
-		c.Assert(err, ErrorMatches, `cannot have apps or hooks with base "none"`)
+	}
+	invalidAliases := []string{
+		"",
+		"_foo",
+		"-foo",
+		".foo",
+		"foo$",
+	}
+	for _, alias := range invalidAliases {
+		err := ValidateAlias(alias)
+		c.Assert(err, ErrorMatches, `invalid alias name: ".*"`)
 	}
 }
 
@@ -712,8 +644,6 @@ func (s *ValidateSuite) TestValidateLayout(c *C) {
 		ErrorMatches, `layout "/dev" in an off-limits area`)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/dev/foo", Type: "tmpfs"}, nil),
 		ErrorMatches, `layout "/dev/foo" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/home", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/home" in an off-limits area`)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/proc", Type: "tmpfs"}, nil),
 		ErrorMatches, `layout "/proc" in an off-limits area`)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/sys", Type: "tmpfs"}, nil),
@@ -726,21 +656,10 @@ func (s *ValidateSuite) TestValidateLayout(c *C) {
 		ErrorMatches, `layout "/lost\+found" in an off-limits area`)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/media", Type: "tmpfs"}, nil),
 		ErrorMatches, `layout "/media" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/var/snap", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/var/snap" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/var/lib/snapd", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/var/lib/snapd" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/var/lib/snapd/hostfs", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/var/lib/snapd/hostfs" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/lib/firmware", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/lib/firmware" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/lib/modules", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/lib/modules" in an off-limits area`)
-	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/tmp", Type: "tmpfs"}, nil),
-		ErrorMatches, `layout "/tmp" in an off-limits area`)
 
 	// Several valid layouts.
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/foo", Type: "tmpfs", Mode: 01755}, nil), IsNil)
+	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/tmp", Type: "tmpfs"}, nil), IsNil)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/usr", Bind: "$SNAP/usr"}, nil), IsNil)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/var", Bind: "$SNAP_DATA/var"}, nil), IsNil)
 	c.Check(ValidateLayout(&Layout{Snap: si, Path: "/var", Bind: "$SNAP_COMMON/var"}, nil), IsNil)
@@ -774,8 +693,7 @@ layout:
 `
 
 	for _, yaml := range []string{yaml1, yaml1rev} {
-		strk := NewScopedTracker()
-		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)}, strk)
+		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)})
 		c.Assert(err, IsNil)
 		c.Assert(info.Layout, HasLen, 2)
 		err = ValidateLayoutAll(info)
@@ -800,8 +718,7 @@ layout:
     bind: $SNAP
 `
 	for _, yaml := range []string{yaml2, yaml2rev} {
-		strk := NewScopedTracker()
-		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)}, strk)
+		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)})
 		c.Assert(err, IsNil)
 		c.Assert(info.Layout, HasLen, 2)
 		err = ValidateLayoutAll(info)
@@ -826,8 +743,7 @@ layout:
     bind: $SNAP_DATA/foo
 `
 	for _, yaml := range []string{yaml3, yaml3rev} {
-		strk := NewScopedTracker()
-		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)}, strk)
+		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)})
 		c.Assert(err, IsNil)
 		c.Assert(info.Layout, HasLen, 2)
 		err = ValidateLayoutAll(info)
@@ -852,8 +768,7 @@ layout:
     symlink: $SNAP_DATA/foo
 `
 	for _, yaml := range []string{yaml4, yaml4rev} {
-		strk := NewScopedTracker()
-		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)}, strk)
+		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)})
 		c.Assert(err, IsNil)
 		c.Assert(info.Layout, HasLen, 2)
 		err = ValidateLayoutAll(info)
@@ -878,8 +793,7 @@ layout:
     symlink: $SNAP_DATA/foo
 `
 	for _, yaml := range []string{yaml5, yaml5rev} {
-		strk := NewScopedTracker()
-		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)}, strk)
+		info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), &SideInfo{Revision: R(42)})
 		c.Assert(err, IsNil)
 		c.Assert(info.Layout, HasLen, 2)
 		err = ValidateLayoutAll(info)
@@ -894,8 +808,7 @@ layout:
   /etc/norf:
     bind-file: $SNAP/etc/norf
 `
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml6), &SideInfo{Revision: R(42)}, strk)
+	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml6), &SideInfo{Revision: R(42)})
 	c.Assert(err, IsNil)
 	c.Assert(info.Layout, HasLen, 1)
 	err = ValidateLayoutAll(info)
@@ -912,9 +825,7 @@ layout:
   /etc/corge:
     bind-file: $SNAP/etc/norf
 `
-
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml7), &SideInfo{Revision: R(42)}, strk)
+	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml7), &SideInfo{Revision: R(42)})
 	c.Assert(err, IsNil)
 	c.Assert(info.Layout, HasLen, 2)
 	err = ValidateLayoutAll(info)
@@ -929,8 +840,7 @@ layout:
   /etc/corge:
     bind: $SNAP/etc/norf
 `
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml8), &SideInfo{Revision: R(42)}, strk)
+	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml8), &SideInfo{Revision: R(42)})
 	c.Assert(err, IsNil)
 	c.Assert(info.Layout, HasLen, 2)
 	err = ValidateLayoutAll(info)
@@ -945,8 +855,7 @@ layout:
   /etc/corge:
     bind: /snap/clashing-source-path-3/42/etc/norf
 `
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml9), &SideInfo{Revision: R(42)}, strk)
+	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml9), &SideInfo{Revision: R(42)})
 	c.Assert(err, IsNil)
 	c.Assert(info.Layout, HasLen, 2)
 	err = ValidateLayoutAll(info)
@@ -961,9 +870,7 @@ layout:
   /etc/corge:
     symlink: $SNAP/etc/norf
 `
-
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml10), &SideInfo{Revision: R(42)}, strk)
+	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml10), &SideInfo{Revision: R(42)})
 	c.Assert(err, IsNil)
 	c.Assert(info.Layout, HasLen, 2)
 	err = ValidateLayoutAll(info)
@@ -978,28 +885,46 @@ layout:
   /etc/corge:
     symlink: $SNAP/etc/norf
 `
-
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml11), &SideInfo{Revision: R(42)}, strk)
+	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml11), &SideInfo{Revision: R(42)})
 	c.Assert(err, IsNil)
 	c.Assert(info.Layout, HasLen, 2)
 	err = ValidateLayoutAll(info)
 	c.Assert(err, IsNil)
+}
 
-	// Layout replacing files in another snap's mount p oit
-	const yaml12 = `
-name: this-snap
-layout:
-  /snap/that-snap/current/stuff:
-    symlink: $SNAP/stuff
-`
-
-	strk = NewScopedTracker()
-	info, err = InfoFromSnapYamlWithSideInfo([]byte(yaml12), &SideInfo{Revision: R(42)}, strk)
-	c.Assert(err, IsNil)
-	c.Assert(info.Layout, HasLen, 1)
-	err = ValidateLayoutAll(info)
-	c.Assert(err, ErrorMatches, `layout "/snap/that-snap/current/stuff" defines a layout in space belonging to another snap`)
+func (s *ValidateSuite) TestValidateSocketName(c *C) {
+	validNames := []string{
+		"a", "aa", "aaa", "aaaa",
+		"a-a", "aa-a", "a-aa", "a-b-c",
+		"a0", "a-0", "a-0a",
+		"01game", "1-or-2",
+	}
+	for _, name := range validNames {
+		err := ValidateSocketName(name)
+		c.Assert(err, IsNil)
+	}
+	invalidNames := []string{
+		// name cannot be empty
+		"",
+		// dashes alone are not a name
+		"-", "--",
+		// double dashes in a name are not allowed
+		"a--a",
+		// name should not end with a dash
+		"a-",
+		// name cannot have any spaces in it
+		"a ", " a", "a a",
+		// a number alone is not a name
+		"0", "123",
+		// identifier must be plain ASCII
+		"日本語", "한글", "ру́сский язы́к",
+		// no null chars in the string are allowed
+		"aa-a\000-b",
+	}
+	for _, name := range invalidNames {
+		err := ValidateSocketName(name)
+		c.Assert(err, ErrorMatches, `invalid socket name: ".*"`)
+	}
 }
 
 func (s *YamlSuite) TestValidateAppStartupOrder(c *C) {
@@ -1122,19 +1047,19 @@ apps:
 	}{{
 		name: "foo after baz",
 		desc: fooAfterBaz,
-		err:  `invalid definition of application "foo": before/after references a missing application "baz"`,
+		err:  `application "foo" refers to missing application "baz" in before/after`,
 	}, {
 		name: "foo before baz",
 		desc: fooBeforeBaz,
-		err:  `invalid definition of application "foo": before/after references a missing application "baz"`,
+		err:  `application "foo" refers to missing application "baz" in before/after`,
 	}, {
 		name: "foo not a daemon",
 		desc: fooNotADaemon,
-		err:  `invalid definition of application "foo": must be a service to define before/after ordering`,
+		err:  `cannot define before/after in application "foo" as it's not a service`,
 	}, {
 		name: "foo wants bar, bar not a daemon",
 		desc: fooBarNotADaemon,
-		err:  `invalid definition of application "foo": before/after references a non-service application "bar"`,
+		err:  `application "foo" refers to non-service application "bar" in before/after`,
 	}, {
 		name: "bad order 1",
 		desc: badOrder1,
@@ -1166,72 +1091,6 @@ apps:
 		err = Validate(info)
 		if tc.err != "" {
 			c.Assert(err, ErrorMatches, tc.err)
-		} else {
-			c.Assert(err, IsNil)
-		}
-	}
-}
-
-func (s *ValidateSuite) TestValidateAppWatchdogTimeout(c *C) {
-	s.testValidateAppTimeout(c, "watchdog")
-}
-func (s *ValidateSuite) TestValidateAppStartTimeout(c *C) {
-	s.testValidateAppTimeout(c, "start")
-}
-func (s *ValidateSuite) TestValidateAppStopTimeout(c *C) {
-	s.testValidateAppTimeout(c, "stop")
-}
-
-func (s *ValidateSuite) testValidateAppTimeout(c *C, timeout string) {
-	timeout += "-timeout"
-	meta := []byte(`
-name: foo
-version: 1.0
-`)
-	fooAllGood := []byte(fmt.Sprintf(`
-apps:
-  foo:
-    daemon: simple
-    %s: 12s
-`, timeout))
-	fooNotADaemon := []byte(fmt.Sprintf(`
-apps:
-  foo:
-    %s: 12s
-`, timeout))
-
-	fooNegative := []byte(fmt.Sprintf(`
-apps:
-  foo:
-    daemon: simple
-    %s: -12s
-`, timeout))
-
-	tcs := []struct {
-		name string
-		desc []byte
-		err  string
-	}{{
-		name: "foo all good",
-		desc: fooAllGood,
-	}, {
-		name: "foo not a service",
-		desc: fooNotADaemon,
-		err:  timeout + ` is only applicable to services`,
-	}, {
-		name: "negative timeout",
-		desc: fooNegative,
-		err:  timeout + ` cannot be negative`,
-	}}
-	for _, tc := range tcs {
-		c.Logf("trying %q", tc.name)
-		info, err := InfoFromSnapYaml(append(meta, tc.desc...))
-		c.Assert(err, IsNil)
-		c.Assert(info, NotNil)
-
-		err = Validate(info)
-		if tc.err != "" {
-			c.Assert(err, ErrorMatches, `invalid definition of application "foo": `+tc.err)
 		} else {
 			c.Assert(err, IsNil)
 		}
@@ -1271,11 +1130,11 @@ apps:
 	}, {
 		name: "not a service",
 		desc: notAService,
-		err:  `timer is only applicable to services`,
+		err:  `cannot use timer with application "foo" as it's not a service`,
 	}, {
 		name: "invalid timer",
 		desc: badTimer,
-		err:  `timer has invalid format: cannot parse "mon2-wed3": invalid schedule fragment`,
+		err:  `application "foo" timer has invalid format: cannot parse "mon2-wed3": invalid schedule fragment`,
 	}}
 	for _, tc := range tcs {
 		c.Logf("trying %q", tc.name)
@@ -1284,408 +1143,9 @@ apps:
 
 		err = Validate(info)
 		if tc.err != "" {
-			c.Assert(err, ErrorMatches, `invalid definition of application "foo": `+tc.err)
+			c.Assert(err, ErrorMatches, tc.err)
 		} else {
 			c.Assert(err, IsNil)
 		}
 	}
-}
-
-func (s *ValidateSuite) TestValidateOsCannotHaveBase(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-type: os
-base: bar
-`))
-	c.Assert(err, IsNil)
-
-	err = Validate(info)
-	c.Check(err, ErrorMatches, `cannot have "base" field on "os" snap "foo"`)
-}
-
-func (s *ValidateSuite) TestValidateOsCanHaveBaseNone(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-type: os
-base: none
-`))
-	c.Assert(err, IsNil)
-	c.Assert(Validate(info), IsNil)
-}
-
-func (s *ValidateSuite) TestValidateBaseInorrectSnapName(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-base: aAAAA
-`))
-	c.Assert(err, IsNil)
-
-	err = Validate(info)
-	c.Check(err, ErrorMatches, `invalid base name: invalid snap name: \"aAAAA\"`)
-}
-
-func (s *ValidateSuite) TestValidateBaseSnapInstanceNameNotAllowed(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-base: foo_abc
-`))
-	c.Assert(err, IsNil)
-
-	err = Validate(info)
-	c.Check(err, ErrorMatches, `base cannot specify a snap instance name: "foo_abc"`)
-}
-
-func (s *ValidateSuite) TestValidateBaseCannotHaveBase(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-type: base
-base: bar
-`))
-	c.Assert(err, IsNil)
-
-	err = Validate(info)
-	c.Check(err, ErrorMatches, `cannot have "base" field on "base" snap "foo"`)
-}
-
-func (s *ValidateSuite) TestValidateBaseCanHaveBaseNone(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-type: base
-base: none
-`))
-	c.Assert(err, IsNil)
-	c.Assert(Validate(info), IsNil)
-}
-
-func (s *ValidateSuite) TestValidateCommonIDs(c *C) {
-	meta := `
-name: foo
-version: 1.0
-`
-	good := meta + `
-apps:
-  foo:
-    common-id: org.foo.foo
-  bar:
-    common-id: org.foo.bar
-  baz:
-`
-	bad := meta + `
-apps:
-  foo:
-    common-id: org.foo.foo
-  bar:
-    common-id: org.foo.foo
-  baz:
-`
-	for i, tc := range []struct {
-		meta string
-		err  string
-	}{
-		{good, ""},
-		{bad, `application ("bar" common-id "org.foo.foo" must be unique, already used by application "foo"|"foo" common-id "org.foo.foo" must be unique, already used by application "bar")`},
-	} {
-		c.Logf("tc #%v", i)
-		info, err := InfoFromSnapYaml([]byte(tc.meta))
-		c.Assert(err, IsNil)
-
-		err = Validate(info)
-		if tc.err == "" {
-			c.Assert(err, IsNil)
-		} else {
-			c.Assert(err, NotNil)
-			c.Check(err, ErrorMatches, tc.err)
-		}
-	}
-}
-
-func (s *validateSuite) TestValidateDescription(c *C) {
-	for _, s := range []string{
-		"xx", // boringest ASCII
-		"🐧🐧", // len("🐧🐧") == 8
-		"á", // á (combining)
-	} {
-		c.Check(ValidateDescription(s), IsNil)
-		c.Check(ValidateDescription(strings.Repeat(s, 2049)), ErrorMatches, `description can have up to 4096 codepoints, got 4098`)
-		c.Check(ValidateDescription(strings.Repeat(s, 2048)), IsNil)
-	}
-}
-
-func (s *validateSuite) TestValidateTitle(c *C) {
-	for _, s := range []string{
-		"xx", // boringest ASCII
-		"🐧🐧", // len("🐧🐧") == 8
-		"á", // á (combining)
-	} {
-		c.Check(ValidateTitle(strings.Repeat(s, 21)), ErrorMatches, `title can have up to 40 codepoints, got 42`)
-		c.Check(ValidateTitle(strings.Repeat(s, 20)), IsNil)
-	}
-}
-
-func (s *validateSuite) TestValidatePlugSlotName(c *C) {
-	validNames := []string{
-		"a", "aa", "aaa", "aaaa",
-		"a-a", "aa-a", "a-aa", "a-b-c",
-		"a0", "a-0", "a-0a",
-	}
-	for _, name := range validNames {
-		c.Assert(ValidatePlugName(name), IsNil)
-		c.Assert(ValidateSlotName(name), IsNil)
-		c.Assert(ValidateInterfaceName(name), IsNil)
-	}
-	invalidNames := []string{
-		// name cannot be empty
-		"",
-		// dashes alone are not a name
-		"-", "--",
-		// double dashes in a name are not allowed
-		"a--a",
-		// name should not end with a dash
-		"a-",
-		// name cannot have any spaces in it
-		"a ", " a", "a a",
-		// a number alone is not a name
-		"0", "123",
-		// identifier must be plain ASCII
-		"日本語", "한글", "ру́сский язы́к",
-	}
-	for _, name := range invalidNames {
-		c.Assert(ValidatePlugName(name), ErrorMatches, `invalid plug name: ".*"`)
-		c.Assert(ValidateSlotName(name), ErrorMatches, `invalid slot name: ".*"`)
-		c.Assert(ValidateInterfaceName(name), ErrorMatches, `invalid interface name: ".*"`)
-	}
-}
-
-func (s *ValidateSuite) TestValidateSnapInstanceNameBadSnapName(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo_bad
-version: 1.0
-`))
-	c.Assert(err, IsNil)
-
-	err = Validate(info)
-	c.Check(err, ErrorMatches, `invalid snap name: "foo_bad"`)
-}
-
-func (s *ValidateSuite) TestValidateSnapInstanceNameBadInstanceKey(c *C) {
-	info, err := InfoFromSnapYaml([]byte(`name: foo
-version: 1.0
-`))
-	c.Assert(err, IsNil)
-
-	for _, s := range []string{"toolonginstance", "ABCD", "_", "inst@nce", "012345678901"} {
-		info.InstanceKey = s
-		err = Validate(info)
-		c.Check(err, ErrorMatches, fmt.Sprintf(`invalid instance key: %q`, s))
-	}
-}
-
-func (s *ValidateSuite) TestValidateAppRestart(c *C) {
-	meta := []byte(`
-name: foo
-version: 1.0
-`)
-	fooAllGood := []byte(`
-apps:
-  foo:
-    daemon: simple
-    restart-condition: on-abort
-    restart-delay: 12s
-`)
-	fooAllGoodDefault := []byte(`
-apps:
-  foo:
-    daemon: simple
-`)
-	fooAllGoodJustDelay := []byte(`
-apps:
-  foo:
-    daemon: simple
-    restart-delay: 12s
-`)
-	fooConditionNotADaemon := []byte(`
-apps:
-  foo:
-    restart-condition: on-abort
-`)
-	fooDelayNotADaemon := []byte(`
-apps:
-  foo:
-    restart-delay: 12s
-`)
-	fooNegativeDelay := []byte(`
-apps:
-  foo:
-    daemon: simple
-    restart-delay: -12s
-`)
-
-	tcs := []struct {
-		name string
-		desc []byte
-		err  string
-	}{{
-		name: "foo all good",
-		desc: fooAllGood,
-	}, {
-		name: "foo all good with default values",
-		desc: fooAllGoodDefault,
-	}, {
-		name: "foo all good with restart-delay only",
-		desc: fooAllGoodJustDelay,
-	}, {
-		name: "foo restart-delay but not a service",
-		desc: fooDelayNotADaemon,
-		err:  `restart-delay is only applicable to services`,
-	}, {
-		name: "foo restart-delay but not a service",
-		desc: fooConditionNotADaemon,
-		err:  `restart-condition is only applicable to services`,
-	}, {
-		name: "negative restart-delay",
-		desc: fooNegativeDelay,
-		err:  `restart-delay cannot be negative`,
-	}}
-	for _, tc := range tcs {
-		c.Logf("trying %q", tc.name)
-		info, err := InfoFromSnapYaml(append(meta, tc.desc...))
-		c.Assert(err, IsNil)
-		c.Assert(info, NotNil)
-
-		err = Validate(info)
-		if tc.err != "" {
-			c.Assert(err, ErrorMatches, `invalid definition of application "foo": `+tc.err)
-		} else {
-			c.Assert(err, IsNil)
-		}
-	}
-}
-
-func (s *ValidateSuite) TestValidateSystemUsernames(c *C) {
-	const yaml1 = `name: binary
-version: 1.0
-system-usernames:
-  "b@d": shared
-`
-
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml1), nil, strk)
-	c.Assert(err, IsNil)
-	c.Assert(info.SystemUsernames, HasLen, 1)
-	err = Validate(info)
-	c.Assert(err, ErrorMatches, `invalid system username "b@d"`)
-}
-
-const yamlNeedDf = `name: need-df
-version: 1.0
-plugs:
-  gtk-3-themes:
-    interface: content
-    content: gtk-3-themes
-    default-provider: gtk-common-themes
-  icon-themes:
-    interface: content
-    content: icon-themes
-    default-provider: gtk-common-themes
-
-`
-
-func (s *ValidateSuite) TestNeededDefaultProviders(c *C) {
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yamlNeedDf), nil, strk)
-	c.Assert(err, IsNil)
-
-	dps := NeededDefaultProviders(info)
-	c.Check(dps, DeepEquals, map[string][]string{"gtk-common-themes": {"gtk-3-themes", "icon-themes"}})
-}
-
-const yamlNeedDfWithSlot = `name: need-df
-version: 1.0
-plugs:
-  gtk-3-themes:
-    interface: content
-    default-provider: gtk-common-themes2:with-slot
-`
-
-func (s *ValidateSuite) TestNeededDefaultProvidersLegacyColonSyntax(c *C) {
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yamlNeedDfWithSlot), nil, strk)
-	c.Assert(err, IsNil)
-
-	dps := NeededDefaultProviders(info)
-	c.Check(dps, DeepEquals, map[string][]string{"gtk-common-themes2": {""}})
-}
-
-func (s *validateSuite) TestValidateSnapMissingCore(c *C) {
-	const yaml = `name: some-snap
-version: 1.0`
-
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), nil, strk)
-	c.Assert(err, IsNil)
-
-	infos := []*Info{info}
-	errors := ValidateBasesAndProviders(infos)
-	c.Assert(errors, HasLen, 1)
-	c.Assert(errors[0], ErrorMatches, `cannot use snap "some-snap": required snap "core" missing`)
-}
-
-func (s *validateSuite) TestValidateSnapMissingBase(c *C) {
-	const yaml = `name: some-snap
-base: some-base
-version: 1.0`
-
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), nil, strk)
-	c.Assert(err, IsNil)
-
-	infos := []*Info{info}
-	errors := ValidateBasesAndProviders(infos)
-	c.Assert(errors, HasLen, 1)
-	c.Assert(errors[0], ErrorMatches, `cannot use snap "some-snap": base "some-base" is missing`)
-}
-
-func (s *validateSuite) TestValidateSnapMissingDefaultProvider(c *C) {
-	strk := NewScopedTracker()
-	snapInfo, err := InfoFromSnapYamlWithSideInfo([]byte(yamlNeedDf), nil, strk)
-	c.Assert(err, IsNil)
-
-	var coreYaml = `name: core
-version: 1.0
-type: os`
-
-	coreInfo, err := InfoFromSnapYamlWithSideInfo([]byte(coreYaml), nil, strk)
-	c.Assert(err, IsNil)
-
-	infos := []*Info{snapInfo, coreInfo}
-	errors := ValidateBasesAndProviders(infos)
-	c.Assert(errors, HasLen, 1)
-	c.Assert(errors[0], ErrorMatches, `cannot use snap "need-df": default provider "gtk-common-themes" is missing`)
-}
-
-func (s *validateSuite) TestValidateSnapBaseNoneOK(c *C) {
-	const yaml = `name: some-snap
-base: none
-version: 1.0`
-
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), nil, strk)
-	c.Assert(err, IsNil)
-
-	infos := []*Info{info}
-	errors := ValidateBasesAndProviders(infos)
-	c.Assert(errors, IsNil)
-}
-
-func (s *validateSuite) TestValidateSnapSnapd(c *C) {
-	const yaml = `name: snapd
-type: snapd
-version: 1.0`
-
-	strk := NewScopedTracker()
-	info, err := InfoFromSnapYamlWithSideInfo([]byte(yaml), nil, strk)
-	c.Assert(err, IsNil)
-
-	infos := []*Info{info}
-	errors := ValidateBasesAndProviders(infos)
-	c.Assert(errors, IsNil)
 }

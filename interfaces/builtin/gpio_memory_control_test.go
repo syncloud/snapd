@@ -67,6 +67,13 @@ func (s *GpioMemoryControlInterfaceSuite) TestName(c *C) {
 
 func (s *GpioMemoryControlInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slotInfo := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "gpio-memory-control",
+		Interface: "gpio-memory-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slotInfo), ErrorMatches,
+		"gpio-memory-control slots are reserved for the core snap")
 }
 
 func (s *GpioMemoryControlInterfaceSuite) TestSanitizePlug(c *C) {
@@ -97,7 +104,8 @@ func (s *GpioMemoryControlInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *GpioMemoryControlInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *GpioMemoryControlInterfaceSuite) TestInterfaces(c *C) {

@@ -30,40 +30,50 @@ import (
 )
 
 // CommandManager helps running arbitrary commands as tasks.
-type CommandManager struct{}
+type CommandManager struct {
+	runner *state.TaskRunner
+}
 
 // Manager returns a new CommandManager.
-func Manager(st *state.State, runner *state.TaskRunner) *CommandManager {
+func Manager(st *state.State) *CommandManager {
+	runner := state.NewTaskRunner(st)
 	runner.AddHandler("exec-command", doExec, nil)
-	return &CommandManager{}
+	return &CommandManager{runner: runner}
+}
+
+func (m *CommandManager) KnownTaskKinds() []string {
+	return m.runner.KnownTaskKinds()
 }
 
 // Ensure is part of the overlord.StateManager interface.
 func (m *CommandManager) Ensure() error {
+	m.runner.Ensure()
 	return nil
 }
 
-var defaultExecTimeout = 5 * time.Minute
+// Wait is part of the overlord.StateManager interface.
+func (m *CommandManager) Wait() {
+	m.runner.Wait()
+}
+
+// Stop is part of the overlord.StateManager interface.
+func (m *CommandManager) Stop() {
+	m.runner.Stop()
+}
+
+var execTimeout = 10 * time.Minute
+
 func doExec(t *state.Task, tomb *tomb.Tomb) error {
 	var argv []string
-	var tout time.Duration
-
 	st := t.State()
 	st.Lock()
-	err1 := t.Get("argv", &argv)
-	err2 := t.Get("timeout", &tout)
+	err := t.Get("argv", &argv)
 	st.Unlock()
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil && err2 != state.ErrNoState {
-		return err2
-	}
-	if err2 == state.ErrNoState {
-		tout = defaultExecTimeout
+	if err != nil {
+		return err
 	}
 
-	if buf, err := osutil.RunAndWait(argv, nil, tout, tomb); err != nil {
+	if buf, err := osutil.RunAndWait(argv, nil, execTimeout, tomb); err != nil {
 		st.Lock()
 		t.Errorf("# %s\n%s", strings.Join(argv, " "), buf)
 		st.Unlock()

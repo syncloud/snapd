@@ -20,14 +20,12 @@
 package ctlcmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/snapcore/snapd/i18n"
 	"github.com/snapcore/snapd/jsonutil"
 	"github.com/snapcore/snapd/overlord/configstate"
-	"github.com/snapcore/snapd/overlord/configstate/config"
 	"github.com/snapcore/snapd/overlord/hookstate"
 )
 
@@ -52,9 +50,6 @@ returns successfully.
 Nested values may be modified via a dotted path:
 
     $ snapctl set author.name=frank
-
-Configuration option may be unset with exclamation mark:
-    $ snapctl set author!
 
 Plug and slot attributes may be set in the respective prepare and connect hooks by
 naming the respective plug or slot:
@@ -102,11 +97,6 @@ func (s *setCommand) setConfigSetting(context *hookstate.Context) error {
 
 	for _, patchValue := range s.Positional.ConfValues {
 		parts := strings.SplitN(patchValue, "=", 2)
-		if len(parts) == 1 && strings.HasSuffix(patchValue, "!") {
-			key := strings.TrimSuffix(patchValue, "!")
-			tr.Set(s.context().InstanceName(), key, nil)
-			continue
-		}
 		if len(parts) != 2 {
 			return fmt.Errorf(i18n.G("invalid parameter: %q (want key=value)"), patchValue)
 		}
@@ -117,42 +107,10 @@ func (s *setCommand) setConfigSetting(context *hookstate.Context) error {
 			value = parts[1]
 		}
 
-		tr.Set(s.context().InstanceName(), key, value)
+		tr.Set(s.context().SnapName(), key, value)
 	}
 
 	return nil
-}
-
-func setInterfaceAttribute(context *hookstate.Context, staticAttrs map[string]interface{}, dynamicAttrs map[string]interface{}, key string, value interface{}) error {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("cannot marshal snap %q option %q: %s", context.InstanceName(), key, err)
-	}
-	raw := json.RawMessage(data)
-
-	subkeys, err := config.ParseKey(key)
-	if err != nil {
-		return err
-	}
-
-	// We're called from setInterfaceSetting, subkeys is derived from key
-	// part of key=value argument and is guaranteed to be non-empty at this
-	// point.
-	if len(subkeys) == 0 {
-		return fmt.Errorf("internal error: unexpected empty subkeys for key %q", key)
-	}
-	var existing interface{}
-	err = getAttribute(context.InstanceName(), subkeys[:1], 0, staticAttrs, &existing)
-	if err == nil {
-		return fmt.Errorf(i18n.G("attribute %q cannot be overwritten"), key)
-	}
-	// we expect NoAttributeError here, any other error is unexpected (a real error)
-	if !isNoAttribute(err) {
-		return err
-	}
-
-	_, err = config.PatchConfig(context.InstanceName(), subkeys, 0, dynamicAttrs, &raw)
-	return err
 }
 
 func (s *setCommand) setInterfaceSetting(context *hookstate.Context, plugOrSlot string) error {
@@ -174,22 +132,18 @@ func (s *setCommand) setInterfaceSetting(context *hookstate.Context, plugOrSlot 
 
 	var which string
 	if hookType == preparePlugHook {
-		which = "plug"
+		which = "plug-attrs"
 	} else {
-		which = "slot"
+		which = "slot-attrs"
 	}
 
-	context.Lock()
-	defer context.Unlock()
+	st := context.State()
+	st.Lock()
+	defer st.Unlock()
 
-	var staticAttrs, dynamicAttrs map[string]interface{}
-	if err = attrsTask.Get(which+"-static", &staticAttrs); err != nil {
-		return fmt.Errorf(i18n.G("internal error: cannot get %s from appropriate task, %s"), which, err)
-	}
-
-	dynKey := which + "-dynamic"
-	if err = attrsTask.Get(dynKey, &dynamicAttrs); err != nil {
-		return fmt.Errorf(i18n.G("internal error: cannot get %s from appropriate task, %s"), which, err)
+	attributes := make(map[string]interface{})
+	if err := attrsTask.Get(which, &attributes); err != nil {
+		return fmt.Errorf(i18n.G("internal error: cannot get %s from appropriate task"), which)
 	}
 
 	for _, attrValue := range s.Positional.ConfValues {
@@ -203,12 +157,9 @@ func (s *setCommand) setInterfaceSetting(context *hookstate.Context, plugOrSlot 
 			// Not valid JSON, save the string as-is
 			value = parts[1]
 		}
-		err = setInterfaceAttribute(context, staticAttrs, dynamicAttrs, parts[0], value)
-		if err != nil {
-			return fmt.Errorf(i18n.G("cannot set attribute: %v"), err)
-		}
+		attributes[parts[0]] = value
 	}
 
-	attrsTask.Set(dynKey, dynamicAttrs)
+	attrsTask.Set(which, attributes)
 	return nil
 }

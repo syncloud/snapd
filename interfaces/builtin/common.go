@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,7 +20,6 @@
 package builtin
 
 import (
-	"io/ioutil"
 	"path/filepath"
 
 	"github.com/snapcore/snapd/interfaces"
@@ -31,13 +30,11 @@ import (
 	"github.com/snapcore/snapd/snap"
 )
 
+type evalSymlinksFn func(string) (string, error)
+
 // evalSymlinks is either filepath.EvalSymlinks or a mocked function for
 // applicable for testing.
 var evalSymlinks = filepath.EvalSymlinks
-
-// readDir is either ioutil.ReadDir or a mocked function for applicable for
-// testing.
-var readDir = ioutil.ReadDir
 
 type commonInterface struct {
 	name    string
@@ -53,17 +50,13 @@ type commonInterface struct {
 	connectedPlugAppArmor  string
 	connectedPlugSecComp   string
 	connectedPlugUDev      []string
+	reservedForOS          bool
 	rejectAutoConnectPairs bool
 
 	connectedPlugKModModules []string
 	connectedSlotKModModules []string
 	permanentPlugKModModules []string
 	permanentSlotKModModules []string
-
-	usesPtraceTrace      bool
-	suppressPtraceTrace  bool
-	suppressHomeIx       bool
-	controlsDeviceCgroup bool
 }
 
 // Name returns the interface name.
@@ -83,15 +76,18 @@ func (iface *commonInterface) StaticInfo() interfaces.StaticInfo {
 	}
 }
 
+// BeforePrepareSlot checks and possibly modifies a slot.
+//
+// If the reservedForOS flag is set then only slots on core snap
+// are allowed.
+func (iface *commonInterface) BeforePrepareSlot(slot *snap.SlotInfo) error {
+	if iface.reservedForOS {
+		return sanitizeSlotReservedForOS(iface, slot)
+	}
+	return nil
+}
+
 func (iface *commonInterface) AppArmorConnectedPlug(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	if iface.usesPtraceTrace {
-		spec.SetUsesPtraceTrace()
-	} else if iface.suppressPtraceTrace {
-		spec.SetSuppressPtraceTrace()
-	}
-	if iface.suppressHomeIx {
-		spec.SetSuppressHomeIx()
-	}
 	if iface.connectedPlugAppArmor != "" {
 		spec.AddSnippet(iface.connectedPlugAppArmor)
 	}
@@ -103,7 +99,7 @@ func (iface *commonInterface) AppArmorConnectedPlug(spec *apparmor.Specification
 // candidate and declaration-based checks allow.
 //
 // By default we allow what declarations allowed.
-func (iface *commonInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *commonInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	return !iface.rejectAutoConnectPairs
 }
 
@@ -151,14 +147,8 @@ func (iface *commonInterface) SecCompConnectedPlug(spec *seccomp.Specification, 
 }
 
 func (iface *commonInterface) UDevConnectedPlug(spec *udev.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	// don't tag devices if the interface controls it's own device cgroup
-	if iface.controlsDeviceCgroup {
-		spec.SetControlsDeviceCgroup()
-	} else {
-		for _, rule := range iface.connectedPlugUDev {
-			spec.TagDevice(rule)
-		}
+	for _, rule := range iface.connectedPlugUDev {
+		spec.TagDevice(rule)
 	}
-
 	return nil
 }

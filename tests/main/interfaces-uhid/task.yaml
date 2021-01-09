@@ -12,12 +12,19 @@ prepare: |
     echo "Given the uhid snap is installed"
     snap install test-snapd-uhid
 
+restore: |
+    rm -f call.error
+
 execute: |
+    CONNECTED_PATTERN=":uhid +test-snapd-uhid"
+    DISCONNECTED_PATTERN="\- +test-snapd-uhid:uhid"
+
     echo "The plug is not connected by default"
-    snap interfaces -i uhid | MATCH -- '^- +test-snapd-uhid:uhid'
+    snap interfaces | MATCH "$DISCONNECTED_PATTERN"
 
     echo "When the plug is connected"
     snap connect test-snapd-uhid:uhid
+    snap interfaces | MATCH "$CONNECTED_PATTERN"
 
     echo "Exit when uhid is not supported, specially on cloud images"
     if [ ! -d /dev/uhid ]; then
@@ -35,7 +42,7 @@ execute: |
     snap disconnect test-snapd-uhid:uhid
 
     echo "Then the snap is not able to create/destroy a device on /dev/uhid"
-    if test-snapd-uhid.test-device 2> call.error; then
+    if test-snapd-uhid.test-device 2>${PWD}/call.error; then
         echo "Expected permission error calling uhid with disconnected plug"
         exit 1
     fi

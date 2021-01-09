@@ -20,14 +20,11 @@
 package ctlcmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/snapcore/snapd/i18n"
-	"github.com/snapcore/snapd/jsonutil"
 	"github.com/snapcore/snapd/overlord/configstate"
 	"github.com/snapcore/snapd/overlord/hookstate"
 	"github.com/snapcore/snapd/overlord/servicestate"
@@ -35,15 +32,6 @@ import (
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
 )
-
-var finalTasks map[string]bool
-
-func init() {
-	finalTasks = make(map[string]bool, len(snapstate.FinalTasks))
-	for _, kind := range snapstate.FinalTasks {
-		finalTasks[kind] = true
-	}
-}
 
 func getServiceInfos(st *state.State, snapName string, serviceNames []string) ([]*snap.AppInfo, error) {
 	st.Lock()
@@ -57,10 +45,6 @@ func getServiceInfos(st *state.State, snapName string, serviceNames []string) ([
 	info, err := snapst.CurrentInfo()
 	if err != nil {
 		return nil, err
-	}
-	if len(serviceNames) == 0 {
-		// all services
-		return info.Services(), nil
 	}
 
 	var svcs []*snap.AppInfo
@@ -85,7 +69,7 @@ func getServiceInfos(st *state.State, snapName string, serviceNames []string) ([
 
 var servicestateControl = servicestate.Control
 
-func queueCommand(context *hookstate.Context, tts []*state.TaskSet) error {
+func queueCommand(context *hookstate.Context, ts *state.TaskSet) error {
 	hookTask, ok := context.Task()
 	if !ok {
 		return fmt.Errorf("attempted to queue command with ephemeral context")
@@ -106,22 +90,10 @@ func queueCommand(context *hookstate.Context, tts []*state.TaskSet) error {
 		hookTaskLanes = nil
 	}
 	for _, l := range hookTaskLanes {
-		for _, ts := range tts {
-			ts.JoinLane(l)
-		}
+		ts.JoinLane(l)
 	}
-
-	for _, ts := range tts {
-		for _, t := range tasks {
-			// queue service command after all tasks, except for final tasks which must come after service commands
-			if finalTasks[t.Kind()] {
-				t.WaitAll(ts)
-			} else {
-				ts.WaitFor(t)
-			}
-		}
-		change.AddAll(ts)
-	}
+	ts.WaitAll(state.NewTaskSet(tasks...))
+	change.AddAll(ts)
 	// As this can be run from what was originally the last task of a change,
 	// make sure the tasks added to the change are considered immediately.
 	st.EnsureBefore(0)
@@ -131,31 +103,28 @@ func queueCommand(context *hookstate.Context, tts []*state.TaskSet) error {
 
 func runServiceCommand(context *hookstate.Context, inst *servicestate.Instruction, serviceNames []string) error {
 	if context == nil {
-		// this message is reused in health.go
 		return fmt.Errorf(i18n.G("cannot %s without a context"), inst.Action)
 	}
 
 	st := context.State()
-	appInfos, err := getServiceInfos(st, context.InstanceName(), serviceNames)
+	appInfos, err := getServiceInfos(st, context.SnapName(), serviceNames)
 	if err != nil {
 		return err
 	}
 
 	// passing context so we can ignore self-conflicts with the current change
-	tts, err := servicestateControl(st, appInfos, inst, context)
+	ts, err := servicestateControl(st, appInfos, inst, context)
 	if err != nil {
 		return err
 	}
 
 	if !context.IsEphemeral() && context.HookName() == "configure" {
-		return queueCommand(context, tts)
+		return queueCommand(context, ts)
 	}
 
 	st.Lock()
-	chg := st.NewChange("service-control", fmt.Sprintf("Running service command for snap %q", context.InstanceName()))
-	for _, ts := range tts {
-		chg.AddAll(ts)
-	}
+	chg := st.NewChange("service-control", fmt.Sprintf("Running service command for snap %q", context.SnapName()))
+	chg.AddAll(ts)
 	st.EnsureBefore(0)
 	st.Unlock()
 
@@ -167,66 +136,4 @@ func runServiceCommand(context *hookstate.Context, inst *servicestate.Instructio
 	case <-time.After(configstate.ConfigureHookTimeout() / 2):
 		return fmt.Errorf("%s command is taking too long", inst.Action)
 	}
-}
-
-// NoAttributeError indicates that an interface attribute is not set.
-type NoAttributeError struct {
-	Attribute string
-}
-
-func (e *NoAttributeError) Error() string {
-	return fmt.Sprintf("no %q attribute", e.Attribute)
-}
-
-// isNoAttribute returns whether the provided error is a *NoAttributeError.
-func isNoAttribute(err error) bool {
-	_, ok := err.(*NoAttributeError)
-	return ok
-}
-
-func jsonRaw(v interface{}) *json.RawMessage {
-	data, err := json.Marshal(v)
-	if err != nil {
-		panic(fmt.Errorf("internal error: cannot marshal attributes: %v", err))
-	}
-	raw := json.RawMessage(data)
-	return &raw
-}
-
-// getAttribute unmarshals into result the value of the provided key from attributes map.
-// If the key does not exist, an error of type *NoAttributeError is returned.
-// The provided key may be formed as a dotted key path through nested maps.
-// For example, the "a.b.c" key describes the {a: {b: {c: value}}} map.
-func getAttribute(snapName string, subkeys []string, pos int, attrs map[string]interface{}, result interface{}) error {
-	if pos >= len(subkeys) {
-		return fmt.Errorf("internal error: invalid subkeys index %d for subkeys %q", pos, subkeys)
-	}
-	value, ok := attrs[subkeys[pos]]
-	if !ok {
-		return &NoAttributeError{Attribute: strings.Join(subkeys[:pos+1], ".")}
-	}
-
-	if pos+1 == len(subkeys) {
-		raw, ok := value.(*json.RawMessage)
-		if !ok {
-			raw = jsonRaw(value)
-		}
-		if err := jsonutil.DecodeWithNumber(bytes.NewReader(*raw), &result); err != nil {
-			key := strings.Join(subkeys, ".")
-			return fmt.Errorf("internal error: cannot unmarshal snap %s attribute %q into %T: %s, json: %s", snapName, key, result, err, *raw)
-		}
-		return nil
-	}
-
-	attrsm, ok := value.(map[string]interface{})
-	if !ok {
-		raw, ok := value.(*json.RawMessage)
-		if !ok {
-			raw = jsonRaw(value)
-		}
-		if err := jsonutil.DecodeWithNumber(bytes.NewReader(*raw), &attrsm); err != nil {
-			return fmt.Errorf("snap %q attribute %q is not a map", snapName, strings.Join(subkeys[:pos+1], "."))
-		}
-	}
-	return getAttribute(snapName, subkeys, pos+1, attrsm, result)
 }

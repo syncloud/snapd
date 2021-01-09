@@ -25,15 +25,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"syscall"
 	"time"
 
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
 )
-
-// overridden in the unit tests
-var osRemove = os.Remove
 
 // downloadCache is the interface that a store download cache must provide
 type DownloadCache interface {
@@ -41,8 +37,6 @@ type DownloadCache interface {
 	Get(cacheKey, targetPath string) error
 	// Put adds a new file to the cache
 	Put(cacheKey, sourcePath string) error
-	// Get full path of the file in cache
-	GetPath(cacheKey string) string
 }
 
 // nullCache is cache that does not cache
@@ -51,17 +45,14 @@ type NullCache struct{}
 func (cm *NullCache) Get(cacheKey, targetPath string) error {
 	return fmt.Errorf("cannot get items from the nullCache")
 }
-func (cm *NullCache) GetPath(cacheKey string) string {
-	return ""
-}
 func (cm *NullCache) Put(cacheKey, sourcePath string) error { return nil }
 
-// changesByMtime sorts by the mtime of files
-type changesByMtime []os.FileInfo
+// changesByReverseMtime sorts by the mtime of files
+type changesByReverseMtime []os.FileInfo
 
-func (s changesByMtime) Len() int           { return len(s) }
-func (s changesByMtime) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s changesByMtime) Less(i, j int) bool { return s[i].ModTime().Before(s[j].ModTime()) }
+func (s changesByReverseMtime) Len() int           { return len(s) }
+func (s changesByReverseMtime) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s changesByReverseMtime) Less(i, j int) bool { return s[i].ModTime().After(s[j].ModTime()) }
 
 // cacheManager implements a downloadCache via content based hard linking
 type CacheManager struct {
@@ -88,15 +79,6 @@ func NewCacheManager(cacheDir string, maxItems int) *CacheManager {
 		cacheDir: cacheDir,
 		maxItems: maxItems,
 	}
-}
-
-// GetPath returns the full path of the given content in the cache
-// or empty string
-func (cm *CacheManager) GetPath(cacheKey string) string {
-	if _, err := os.Stat(cm.path(cacheKey)); os.IsNotExist(err) {
-		return ""
-	}
-	return cm.path(cacheKey)
 }
 
 // Get gets the given cacheKey content and puts it into targetPath
@@ -138,10 +120,8 @@ func (cm *CacheManager) Put(cacheKey, sourcePath string) error {
 	return cm.cleanup()
 }
 
-// count returns the number of items in the cache
-func (cm *CacheManager) count() int {
-	// TODO: Use something more effective than a list of all entries
-	//       here. This will waste a lot of memory on large dirs.
+// Count returns the number of items in the cache
+func (cm *CacheManager) Count() int {
 	if l, err := ioutil.ReadDir(cm.cacheDir); err == nil {
 		return len(l)
 	}
@@ -163,56 +143,11 @@ func (cm *CacheManager) cleanup() error {
 		return nil
 	}
 
-	numOwned := 0
-	for _, fi := range fil {
-		n, err := hardLinkCount(fi)
-		if err != nil {
-			logger.Noticef("cannot inspect cache: %s", err)
-		}
-		// Only count the file if it is not referenced elsewhere in the filesystem
-		if n <= 1 {
-			numOwned++
+	sort.Sort(changesByReverseMtime(fil))
+	for _, fi := range fil[cm.maxItems:] {
+		if err := os.Remove(cm.path(fi.Name())); err != nil && os.IsNotExist(err) {
+			return err
 		}
 	}
-
-	if numOwned <= cm.maxItems {
-		return nil
-	}
-
-	var lastErr error
-	sort.Sort(changesByMtime(fil))
-	deleted := 0
-	for _, fi := range fil {
-		path := cm.path(fi.Name())
-		n, err := hardLinkCount(fi)
-		if err != nil {
-			logger.Noticef("cannot inspect cache: %s", err)
-		}
-		// If the file is referenced in the filesystem somewhere
-		// else our copy is "free" so skip it. If there is any
-		// error we cleanup the file (it is just a cache afterall).
-		if n > 1 {
-			continue
-		}
-		if err := osRemove(path); err != nil {
-			if !os.IsNotExist(err) {
-				logger.Noticef("cannot cleanup cache: %s", err)
-				lastErr = err
-			}
-			continue
-		}
-		deleted++
-		if numOwned-deleted <= cm.maxItems {
-			break
-		}
-	}
-	return lastErr
-}
-
-// hardLinkCount returns the number of hardlinks for the given path
-func hardLinkCount(fi os.FileInfo) (uint64, error) {
-	if stat, ok := fi.Sys().(*syscall.Stat_t); ok && stat != nil {
-		return uint64(stat.Nlink), nil
-	}
-	return 0, fmt.Errorf("internal error: cannot read hardlink count from %s", fi.Name())
+	return nil
 }

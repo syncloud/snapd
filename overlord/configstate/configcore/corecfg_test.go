@@ -26,8 +26,6 @@ import (
 
 	. "gopkg.in/check.v1"
 
-	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/overlord/configstate/configcore"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/systemd"
 )
@@ -35,26 +33,19 @@ import (
 func Test(t *testing.T) { TestingT(t) }
 
 type mockConf struct {
-	state   *state.State
-	conf    map[string]interface{}
-	changes map[string]interface{}
-	err     error
+	state *state.State
+	conf  map[string]interface{}
+	err   error
 }
 
 func (cfg *mockConf) Get(snapName, key string, result interface{}) error {
 	if snapName != "core" {
 		return fmt.Errorf("mockConf only knows about core")
 	}
-
-	var value interface{}
-	value = cfg.changes[key]
-	if value == nil {
-		value = cfg.conf[key]
-	}
-	if value != nil {
+	if cfg.conf[key] != nil {
 		v1 := reflect.ValueOf(result)
 		v2 := reflect.Indirect(v1)
-		v2.Set(reflect.ValueOf(value))
+		v2.Set(reflect.ValueOf(cfg.conf[key]))
 	}
 	return cfg.err
 }
@@ -68,14 +59,6 @@ func (cfg *mockConf) Set(snapName, key string, v interface{}) error {
 	}
 	cfg.conf[key] = v
 	return nil
-}
-
-func (cfg *mockConf) Changes() []string {
-	out := make([]string, 0, len(cfg.changes))
-	for k := range cfg.changes {
-		out = append(out, "core."+k)
-	}
-	return out
 }
 
 func (cfg *mockConf) State() *state.State {
@@ -105,29 +88,10 @@ func (s *configcoreSuite) TearDownSuite(c *C) {
 }
 
 func (s *configcoreSuite) SetUpTest(c *C) {
-	dirs.SetRootDir(c.MkDir())
 	s.state = state.New(nil)
-}
-
-func (s *configcoreSuite) TearDownTest(c *C) {
-	dirs.SetRootDir("")
 }
 
 // runCfgSuite tests configcore.Run()
 type runCfgSuite struct {
 	configcoreSuite
-}
-
-var _ = Suite(&runCfgSuite{})
-
-func (r *runCfgSuite) TestConfigureUnknownOption(c *C) {
-	conf := &mockConf{
-		state: r.state,
-		changes: map[string]interface{}{
-			"unknown.option": "1",
-		},
-	}
-
-	err := configcore.Run(conf)
-	c.Check(err, ErrorMatches, `cannot set "core.unknown.option": unsupported system option`)
 }

@@ -51,14 +51,14 @@ apps:
   plugs: [system-trace]
 `
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "system-trace",
 		Interface: "system-trace",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, mockPlugSnapInfo, nil)
 	s.plugInfo = plugSnap.Plugs["system-trace"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *SystemTraceInterfaceSuite) TestName(c *C) {
@@ -67,6 +67,12 @@ func (s *SystemTraceInterfaceSuite) TestName(c *C) {
 
 func (s *SystemTraceInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "system-trace",
+		Interface: "system-trace",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches, "system-trace slots are reserved for the core snap")
 }
 
 func (s *SystemTraceInterfaceSuite) TestSanitizePlug(c *C) {

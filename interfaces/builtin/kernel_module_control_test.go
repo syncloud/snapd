@@ -68,6 +68,13 @@ func (s *KernelModuleControlInterfaceSuite) TestName(c *C) {
 
 func (s *KernelModuleControlInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "kernel-module-control",
+		Interface: "kernel-module-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"kernel-module-control slots are reserved for the core snap")
 }
 
 func (s *KernelModuleControlInterfaceSuite) TestSanitizePlug(c *C) {
@@ -106,7 +113,8 @@ func (s *KernelModuleControlInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *KernelModuleControlInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *KernelModuleControlInterfaceSuite) TestInterfaces(c *C) {

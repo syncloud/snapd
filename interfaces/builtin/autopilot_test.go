@@ -53,14 +53,14 @@ var _ = Suite(&AutopilotInterfaceSuite{
 
 func (s *AutopilotInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "autopilot-introspection",
 		Interface: "autopilot-introspection",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, mockAutopilotPlugSnapInfo, nil)
 	s.plugInfo = plugSnap.Plugs["autopilot-introspection"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *AutopilotInterfaceSuite) TestName(c *C) {
@@ -69,6 +69,13 @@ func (s *AutopilotInterfaceSuite) TestName(c *C) {
 
 func (s *AutopilotInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "autopilot-introspection",
+		Interface: "autopilot-introspection",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"autopilot-introspection slots are reserved for the core snap")
 }
 
 func (s *AutopilotInterfaceSuite) TestSanitizePlug(c *C) {

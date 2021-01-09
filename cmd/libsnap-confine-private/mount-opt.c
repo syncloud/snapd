@@ -256,10 +256,9 @@ static const char *use_debug_build =
     "(disabled) use debug build to see details";
 #endif
 
-static bool sc_do_mount_ex(const char *source, const char *target,
-			   const char *fs_type,
-			   unsigned long mountflags, const void *data,
-			   bool optional)
+void sc_do_mount(const char *source, const char *target,
+		 const char *fs_type, unsigned long mountflags,
+		 const void *data)
 {
 	char buf[10000] = { 0 };
 	const char *mount_cmd = NULL;
@@ -275,11 +274,9 @@ static bool sc_do_mount_ex(const char *source, const char *target,
 	}
 	if (sc_faulty("mount", NULL)
 	    || mount(source, target, fs_type, mountflags, data) < 0) {
+		// Save errno as ensure can clobber it.
 		int saved_errno = errno;
-		if (optional && saved_errno == ENOENT) {
-			// The special-cased value that is allowed to fail.
-			return false;
-		}
+
 		// Drop privileges so that we can compute our nice error message
 		// without risking an attack on one of the string functions there.
 		sc_privs_drop();
@@ -291,21 +288,6 @@ static bool sc_do_mount_ex(const char *source, const char *target,
 		errno = saved_errno;
 		die("cannot perform operation: %s", mount_cmd);
 	}
-	return true;
-}
-
-void sc_do_mount(const char *source, const char *target,
-		 const char *fs_type, unsigned long mountflags,
-		 const void *data)
-{
-	(void)sc_do_mount_ex(source, target, fs_type, mountflags, data, false);
-}
-
-bool sc_do_optional_mount(const char *source, const char *target,
-			  const char *fs_type, unsigned long mountflags,
-			  const void *data)
-{
-	return sc_do_mount_ex(source, target, fs_type, mountflags, data, true);
 }
 
 void sc_do_umount(const char *target, int flags)

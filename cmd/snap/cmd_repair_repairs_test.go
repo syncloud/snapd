@@ -20,6 +20,7 @@
 package main_test
 
 import (
+	"os"
 	"path/filepath"
 
 	. "gopkg.in/check.v1"
@@ -31,7 +32,10 @@ import (
 )
 
 func mockSnapRepair(c *C) *testutil.MockCmd {
-	return testutil.MockCommand(c, filepath.Join(dirs.GlobalRootDir, dirs.CoreLibExecDir, "snap-repair"), "")
+	coreLibExecDir := filepath.Join(dirs.GlobalRootDir, dirs.CoreLibExecDir)
+	err := os.MkdirAll(coreLibExecDir, 0755)
+	c.Assert(err, IsNil)
+	return testutil.MockCommand(c, filepath.Join(coreLibExecDir, "snap-repair"), "")
 }
 
 func (s *SnapSuite) TestSnapShowRepair(c *C) {
@@ -41,19 +45,11 @@ func (s *SnapSuite) TestSnapShowRepair(c *C) {
 	mockSnapRepair := mockSnapRepair(c)
 	defer mockSnapRepair.Restore()
 
-	_, err := snap.Parser(snap.Client()).ParseArgs([]string{"repair", "canonical-1"})
+	_, err := snap.Parser().ParseArgs([]string{"repair", "canonical-1"})
 	c.Assert(err, IsNil)
 	c.Check(mockSnapRepair.Calls(), DeepEquals, [][]string{
 		{"snap-repair", "show", "canonical-1"},
 	})
-}
-
-func (s *SnapSuite) TestSnapShowRepairNoArgs(c *C) {
-	restore := release.MockOnClassic(false)
-	defer restore()
-
-	_, err := snap.Parser(snap.Client()).ParseArgs([]string{"repair"})
-	c.Assert(err, ErrorMatches, "no <repair-id> given. Try 'snap repairs' to list all repairs or specify a specific repair id.")
 }
 
 func (s *SnapSuite) TestSnapListRepairs(c *C) {
@@ -63,7 +59,7 @@ func (s *SnapSuite) TestSnapListRepairs(c *C) {
 	mockSnapRepair := mockSnapRepair(c)
 	defer mockSnapRepair.Restore()
 
-	_, err := snap.Parser(snap.Client()).ParseArgs([]string{"repairs"})
+	_, err := snap.Parser().ParseArgs([]string{"repairs"})
 	c.Assert(err, IsNil)
 	c.Check(mockSnapRepair.Calls(), DeepEquals, [][]string{
 		{"snap-repair", "list"},

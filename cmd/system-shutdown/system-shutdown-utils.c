@@ -33,9 +33,8 @@
 
 #include "../libsnap-confine-private/mountinfo.h"
 #include "../libsnap-confine-private/string-utils.h"
-#include "../libsnap-confine-private/utils.h"
 
-__attribute__((format(printf, 1, 2)))
+__attribute__ ((format(printf, 1, 2)))
 void kmsg(const char *fmt, ...)
 {
 	static FILE *kmsg = NULL;
@@ -52,6 +51,19 @@ void kmsg(const char *fmt, ...)
 	vfprintf(kmsg, fmt, va);
 	fprintf(kmsg, "\n");
 	va_end(va);
+}
+
+__attribute__ ((noreturn))
+void die(const char *msg)
+{
+	if (errno == 0) {
+		kmsg("*** %s", msg);
+	} else {
+		kmsg("*** %s: %s", msg, strerror(errno));
+	}
+	sync();
+	reboot(RB_HALT_SYSTEM);
+	exit(1);
 }
 
 int sc_read_reboot_arg(char *arg, size_t max_size)
@@ -84,7 +96,7 @@ static void detach_loop(const char *src)
 		     strerror(errno));
 	} else {
 		if (ioctl(fd, LOOP_CLR_FD) < 0) {
-			kmsg("* unable to disassociate loop device %s: %s",
+			kmsg("* unable to disassociate loop device %ss: %s",
 			     src, strerror(errno));
 		}
 		close(fd);
@@ -99,12 +111,13 @@ bool umount_all(void)
 	bool had_writable = false;
 
 	for (int i = 0; i < 10 && did_umount; i++) {
-		sc_mountinfo *mounts = sc_parse_mountinfo(NULL);
+		struct sc_mountinfo *mounts = sc_parse_mountinfo(NULL);
 		if (!mounts) {
 			// oh dear
 			die("unable to get mount info; giving up");
 		}
-		sc_mountinfo_entry *cur = sc_first_mountinfo_entry(mounts);
+		struct sc_mountinfo_entry *cur =
+		    sc_first_mountinfo_entry(mounts);
 
 		had_writable = false;
 		did_umount = false;

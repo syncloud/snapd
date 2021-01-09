@@ -1,42 +1,25 @@
 summary: Ensure snap userd allows opening a URL via xdg-open
 
-# Not supposed to work on Ubuntu Core systems as we don't have
-# a user session environment there
-systems: [-ubuntu-core-*]
+systems:
+    # Not supposed to work on Ubuntu Core systems as we don't have
+    # a user session environment there
+    - -ubuntu-core-*
 
 environment:
     DISPLAY: :0
 
-prepare: |
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB/snaps.sh"
-    install_local test-snapd-desktop
-
 restore: |
-    #shellcheck source=tests/lib/dirs.sh
     . "$TESTSLIB/dirs.sh"
-    #shellcheck source=tests/lib/pkgdb.sh
     . "$TESTSLIB/pkgdb.sh"
+    rm -f dbus.env
     umount -f /usr/bin/xdg-open || true
-    rm /usr/bin/xdg-open
-    if [ -e /usr/bin/xdg-open.orig ]; then
-        mv /usr/bin/xdg-open.orig /usr/bin/xdg-open
-    fi
 
 execute: |
-    #shellcheck source=tests/lib/pkgdb.sh
     . "$TESTSLIB/pkgdb.sh"
-    #shellcheck source=tests/lib/dirs.sh
     . "$TESTSLIB/dirs.sh"
-    #shellcheck source=tests/lib/systems.sh
-    . "$TESTSLIB"/systems.sh
-
-    # this will be later used by userd
-    export XDG_DATA_DIRS=/usr/share
 
     dbus-launch > dbus.env
-    #shellcheck disable=SC2046
-    export $(xargs < dbus.env)
+    export $(cat dbus.env | xargs)
 
     # wait for session to be ready
     ping_launcher() {
@@ -56,46 +39,27 @@ execute: |
     cat << 'EOF' > /tmp/xdg-open
     #!/bin/sh
     echo "$@" > /tmp/xdg-open-output
-    echo "XDG_DATA_DIRS=$XDG_DATA_DIRS" >> /tmp/xdg-open-output
     EOF
     chmod +x /tmp/xdg-open
-    if [ -e /usr/bin/xdg-open ]; then
-        mv /usr/bin/xdg-open /usr/bin/xdg-open.orig
-    fi
     touch /usr/bin/xdg-open
     mount --bind /tmp/xdg-open /usr/bin/xdg-open
 
     ensure_xdg_open_output() {
         rm -f /tmp/xdg-open-output
         export DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS
-        test-snapd-desktop.cmd /usr/bin/xdg-open "$1"
+        $SNAP_MOUNT_DIR/core/current/usr/bin/xdg-open $1
         test -e /tmp/xdg-open-output
-        test "$(head -1 /tmp/xdg-open-output)" = "$1"
+        test "$(cat /tmp/xdg-open-output)" = $1
     }
 
-    if is_cgroupv2 ; then
-        # we are expecting the test to fail on a cgroup v2 system
-        if ensure_xdg_open_output "http://smoke-test-cgroupv2.com" 2> stderr.log ; then
-            echo "expected failure, but none happened"
-            exit 1
-        fi
-        MATCH 'WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement' < stderr.log
-        MATCH 'cannot find snap for connection: not supported' < stderr.log
-        exit 0
-    fi
-
-    # Ensure http, https, mailto, snap and help work
+    # Ensure http, https and mailto work
     ensure_xdg_open_output "https://snapcraft.io"
     ensure_xdg_open_output "http://snapcraft.io"
     ensure_xdg_open_output "mailto:talk@snapcraft.io"
-    ensure_xdg_open_output "snap://snapcraft"
-    ensure_xdg_open_output "help:snapcraft"
-    # Ensure XDG_DATA_DIRS was prefixed with snap specific location
-    test "$(tail -1 /tmp/xdg-open-output)" = "XDG_DATA_DIRS=$SNAP_MOUNT_DIR/test-snapd-desktop/current/usr/share:/usr/share"
 
     # Ensure other schemes are not passed through
     rm /tmp/xdg-open-output
-    not test-snapd-desktop.cmd /usr/bin/xdg-open ftp://snapcraft.io
+    ! $SNAP_MOUNT_DIR/core/current/usr/bin/xdg-open ftp://snapcraft.io
     test ! -e /tmp/xdg-open-output
-    not test-snapd-desktop.cmd /usr/bin/xdg-open aabbcc
+    ! $SNAP_MOUNT_DIR/core/current/usr/bin/xdg-open aabbcc
     test ! -e /tmp/xdg-open-output

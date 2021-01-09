@@ -23,16 +23,33 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "cleanup-funcs.h"
-#include "panic.h"
 #include "utils.h"
+#include "cleanup-funcs.h"
 
 void die(const char *msg, ...)
 {
-	va_list ap;
-	va_start(ap, msg);
-	sc_panicv(msg, ap);
-	va_end(ap);
+	int saved_errno = errno;
+	va_list va;
+	va_start(va, msg);
+	vfprintf(stderr, msg, va);
+	va_end(va);
+
+	if (errno != 0) {
+		fprintf(stderr, ": %s\n", strerror(saved_errno));
+	} else {
+		fprintf(stderr, "\n");
+	}
+	exit(1);
+}
+
+bool error(const char *msg, ...)
+{
+	va_list va;
+	va_start(va, msg);
+	vfprintf(stderr, msg, va);
+	va_end(va);
+
+	return false;
 }
 
 struct sc_bool_name {
@@ -57,7 +74,7 @@ static const struct sc_bool_name sc_bool_names[] = {
  *
  * If the text cannot be recognized, the default value is used.
  **/
-static int parse_bool(const char *text, bool *value, bool default_value)
+static int parse_bool(const char *text, bool * value, bool default_value)
 {
 	if (value == NULL) {
 		errno = EFAULT;

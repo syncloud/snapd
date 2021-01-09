@@ -23,7 +23,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -32,128 +31,55 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/godbus/dbus"
 	"github.com/jessevdk/go-flags"
 
-	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/i18n"
-	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/osutil/strace"
-	"github.com/snapcore/snapd/sandbox/selinux"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/snap/snapenv"
-	"github.com/snapcore/snapd/strutil/shlex"
-	"github.com/snapcore/snapd/timeutil"
 	"github.com/snapcore/snapd/x11"
 )
 
 var (
-	syscallExec              = syscall.Exec
-	userCurrent              = user.Current
-	osGetenv                 = os.Getenv
-	timeNow                  = time.Now
-	selinuxIsEnabled         = selinux.IsEnabled
-	selinuxVerifyPathContext = selinux.VerifyPathContext
-	selinuxRestoreContext    = selinux.RestoreContext
+	syscallExec = syscall.Exec
+	userCurrent = user.Current
+	osGetenv    = os.Getenv
 )
 
 type cmdRun struct {
-	clientMixin
 	Command  string `long:"command" hidden:"yes"`
 	HookName string `long:"hook" hidden:"yes"`
 	Revision string `short:"r" default:"unset" hidden:"yes"`
 	Shell    bool   `long:"shell" `
-
 	// This options is both a selector (use or don't use strace) and it
 	// can also carry extra options for strace. This is why there is
 	// "default" and "optional-value" to distinguish this.
-	Strace    string `long:"strace" optional:"true" optional-value:"with-strace" default:"no-strace" default-mask:"-"`
-	Gdb       bool   `long:"gdb"`
-	TraceExec bool   `long:"trace-exec"`
+	Strace string `long:"strace" optional:"true" optional-value:"with-strace" default:"no-strace" default-mask:"-"`
+	Gdb    bool   `long:"gdb"`
 
 	// not a real option, used to check if cmdRun is initialized by
 	// the parser
-	ParserRan int    `long:"parser-ran" default:"1" hidden:"yes"`
-	Timer     string `long:"timer" hidden:"yes"`
+	ParserRan int `long:"parser-ran" default:"1" hidden:"yes"`
 }
 
 func init() {
 	addCommand("run",
 		i18n.G("Run the given snap command"),
-		i18n.G(`
-The run command executes the given snap command with the right confinement
-and environment.
-`),
+		i18n.G("Run the given snap command with the right confinement and environment"),
 		func() flags.Commander {
 			return &cmdRun{}
 		}, map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"command": i18n.G("Alternative command to run"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"hook": i18n.G("Hook to run"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"r": i18n.G("Use a specific snap revision when running hook"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"shell": i18n.G("Run a shell instead of the command (useful for debugging)"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"strace": i18n.G("Run the command under strace (useful for debugging). Extra strace options can be specified as well here. Pass --raw to strace early snap helpers."),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"gdb": i18n.G("Run the command with gdb"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"timer": i18n.G("Run as a timer service with given schedule"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"trace-exec": i18n.G("Display exec calls timing data"),
+			"command":    i18n.G("Alternative command to run"),
+			"hook":       i18n.G("Hook to run"),
+			"r":          i18n.G("Use a specific snap revision when running hook"),
+			"shell":      i18n.G("Run a shell instead of the command (useful for debugging)"),
+			"strace":     i18n.G("Run the command under strace (useful for debugging). Extra strace options can be specified as well here."),
+			"gdb":        i18n.G("Run the command with gdb"),
 			"parser-ran": "",
 		}, nil)
-}
-
-func maybeWaitForSecurityProfileRegeneration(cli *client.Client) error {
-	// check if the security profiles key has changed, if so, we need
-	// to wait for snapd to re-generate all profiles
-	mismatch, err := interfaces.SystemKeyMismatch()
-	if err == nil && !mismatch {
-		return nil
-	}
-	// something went wrong with the system-key compare, try to
-	// reach snapd before continuing
-	if err != nil {
-		logger.Debugf("SystemKeyMismatch returned an error: %v", err)
-	}
-
-	// We have a mismatch, try to connect to snapd, once we can
-	// connect we just continue because that usually means that
-	// a new snapd is ready and has generated profiles.
-	//
-	// There is a corner case if an upgrade leaves the old snapd
-	// running and we connect to the old snapd. Handling this
-	// correctly is tricky because our "snap run" pipeline may
-	// depend on profiles written by the new snapd. So for now we
-	// just continue and hope for the best. The real fix for this
-	// is to fix the packaging so that snapd is stopped, upgraded
-	// and started.
-	//
-	// connect timeout for client is 5s on each try, so 12*5s = 60s
-	timeout := 12
-	if timeoutEnv := os.Getenv("SNAPD_DEBUG_SYSTEM_KEY_RETRY"); timeoutEnv != "" {
-		if i, err := strconv.Atoi(timeoutEnv); err == nil {
-			timeout = i
-		}
-	}
-
-	for i := 0; i < timeout; i++ {
-		if _, err := cli.SysInfo(); err == nil {
-			return nil
-		}
-		// sleep a little bit for good measure
-		time.Sleep(1 * time.Second)
-	}
-
-	return fmt.Errorf("timeout waiting for snap system profiles to get updated")
 }
 
 func (x *cmdRun) Execute(args []string) error {
@@ -164,26 +90,15 @@ func (x *cmdRun) Execute(args []string) error {
 	args = args[1:]
 
 	// Catch some invalid parameter combinations, provide helpful errors
-	optionsSet := 0
-	for _, param := range []string{x.HookName, x.Command, x.Timer} {
-		if param != "" {
-			optionsSet++
-		}
+	if x.HookName != "" && x.Command != "" {
+		return fmt.Errorf(i18n.G("cannot use --hook and --command together"))
 	}
-	if optionsSet > 1 {
-		return fmt.Errorf("you can only use one of --hook, --command, and --timer")
-	}
-
 	if x.Revision != "unset" && x.Revision != "" && x.HookName == "" {
 		return fmt.Errorf(i18n.G("-r can only be used with --hook"))
 	}
 	if x.HookName != "" && len(args) > 0 {
 		// TRANSLATORS: %q is the hook name; %s a space-separated list of extra arguments
 		return fmt.Errorf(i18n.G("too many arguments for hook %q: %s"), x.HookName, strings.Join(args, " "))
-	}
-
-	if err := maybeWaitForSecurityProfileRegeneration(x.client); err != nil {
-		return err
 	}
 
 	// Now actually handle the dispatching
@@ -193,10 +108,6 @@ func (x *cmdRun) Execute(args []string) error {
 
 	if x.Command == "complete" {
 		snapApp, args = antialias(snapApp, args)
-	}
-
-	if x.Timer != "" {
-		return x.snapRunTimer(snapApp, x.Timer, args)
 	}
 
 	return x.snapRunApp(snapApp, args)
@@ -256,16 +167,28 @@ func antialias(snapApp string, args []string) (string, []string) {
 	return actualApp, argsOut
 }
 
-func getSnapInfo(snapName string, revision snap.Revision) (info *snap.Info, err error) {
+func getSnapInfo(snapName string, revision snap.Revision) (*snap.Info, error) {
 	if revision.Unset() {
-		info, err = snap.ReadCurrentInfo(snapName)
-	} else {
-		info, err = snap.ReadInfo(snapName, &snap.SideInfo{
-			Revision: revision,
-		})
+		curFn := filepath.Join(dirs.SnapMountDir, snapName, "current")
+		realFn, err := os.Readlink(curFn)
+		if err != nil {
+			return nil, fmt.Errorf("cannot find current revision for snap %s: %s", snapName, err)
+		}
+		rev := filepath.Base(realFn)
+		revision, err = snap.ParseRevision(rev)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read revision %s: %s", rev, err)
+		}
 	}
 
-	return info, err
+	info, err := snap.ReadInfo(snapName, &snap.SideInfo{
+		Revision: revision,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
 
 func createOrUpdateUserDataSymlink(info *snap.Info, usr *user.User) error {
@@ -313,96 +236,41 @@ func createOrUpdateUserDataSymlink(info *snap.Info, usr *user.User) error {
 }
 
 func createUserDataDirs(info *snap.Info) error {
-	// Adjust umask so that the created directories have the permissions we
-	// expect and are unaffected by the initial umask. While go runtime creates
-	// threads at will behind the scenes, the setting of umask applies to the
-	// entire process so it doesn't need any special handling to lock the
-	// executing goroutine to a single thread.
-	oldUmask := syscall.Umask(0)
-	defer syscall.Umask(oldUmask)
-
 	usr, err := userCurrent()
 	if err != nil {
 		return fmt.Errorf(i18n.G("cannot get the current user: %v"), err)
 	}
 
 	// see snapenv.User
-	instanceUserData := info.UserDataDir(usr.HomeDir)
-	instanceCommonUserData := info.UserCommonDataDir(usr.HomeDir)
-	createDirs := []string{instanceUserData, instanceCommonUserData}
-	if info.InstanceKey != "" {
-		// parallel instance snaps get additional mapping in their mount
-		// namespace, namely /home/joe/snap/foo_bar ->
-		// /home/joe/snap/foo, make sure that the mount point exists and
-		// is owned by the user
-		snapUserDir := snap.UserSnapDir(usr.HomeDir, info.SnapName())
-		createDirs = append(createDirs, snapUserDir)
-	}
-	for _, d := range createDirs {
+	userData := info.UserDataDir(usr.HomeDir)
+	commonUserData := info.UserCommonDataDir(usr.HomeDir)
+	for _, d := range []string{userData, commonUserData} {
 		if err := os.MkdirAll(d, 0755); err != nil {
 			// TRANSLATORS: %q is the directory whose creation failed, %v the error message
 			return fmt.Errorf(i18n.G("cannot create %q: %v"), d, err)
 		}
 	}
 
-	if err := createOrUpdateUserDataSymlink(info, usr); err != nil {
-		return err
-	}
-
-	return maybeRestoreSecurityContext(usr)
-}
-
-// maybeRestoreSecurityContext attempts to restore security context of ~/snap on
-// systems where it's applicable
-func maybeRestoreSecurityContext(usr *user.User) error {
-	snapUserHome := filepath.Join(usr.HomeDir, dirs.UserHomeSnapDir)
-	enabled, err := selinuxIsEnabled()
-	if err != nil {
-		return fmt.Errorf("cannot determine SELinux status: %v", err)
-	}
-	if !enabled {
-		logger.Debugf("SELinux not enabled")
-		return nil
-	}
-
-	match, err := selinuxVerifyPathContext(snapUserHome)
-	if err != nil {
-		return fmt.Errorf("failed to verify SELinux context of %v: %v", snapUserHome, err)
-	}
-	if match {
-		return nil
-	}
-	logger.Noticef("restoring default SELinux context of %v", snapUserHome)
-
-	if err := selinuxRestoreContext(snapUserHome, selinux.RestoreMode{Recursive: true}); err != nil {
-		return fmt.Errorf("cannot restore SELinux context of %v: %v", snapUserHome, err)
-	}
-	return nil
+	return createOrUpdateUserDataSymlink(info, usr)
 }
 
 func (x *cmdRun) useStrace() bool {
 	return x.ParserRan == 1 && x.Strace != "no-strace"
 }
 
-func (x *cmdRun) straceOpts() (opts []string, raw bool, err error) {
+func (x *cmdRun) straceOpts() []string {
 	if x.Strace == "with-strace" {
-		return nil, false, nil
+		return nil
 	}
 
-	split, err := shlex.Split(x.Strace)
-	if err != nil {
-		return nil, false, err
-	}
-
-	opts = make([]string, 0, len(split))
-	for _, opt := range split {
-		if opt == "--raw" {
-			raw = true
-			continue
+	var opts []string
+	// TODO: use shlex?
+	for _, opt := range strings.Split(x.Strace, " ") {
+		if strings.TrimSpace(opt) != "" {
+			opts = append(opts, opt)
 		}
-		opts = append(opts, opt)
 	}
-	return opts, raw, nil
+	return opts
 }
 
 func (x *cmdRun) snapRunApp(snapApp string, args []string) error {
@@ -432,7 +300,6 @@ func (x *cmdRun) snapRunHook(snapName string) error {
 	}
 
 	hook := info.Hooks[x.HookName]
-	logger.Noticef("snap: app hooks %v", info)
 	if hook == nil {
 		return fmt.Errorf(i18n.G("cannot find hook %q in %q"), x.HookName, snapName)
 	}
@@ -440,49 +307,15 @@ func (x *cmdRun) snapRunHook(snapName string) error {
 	return x.runSnapConfine(info, hook.SecurityTag(), snapName, hook.Name, nil)
 }
 
-func (x *cmdRun) snapRunTimer(snapApp, timer string, args []string) error {
-	schedule, err := timeutil.ParseSchedule(timer)
-	if err != nil {
-		return fmt.Errorf("invalid timer format: %v", err)
-	}
-
-	now := timeNow()
-	if !timeutil.Includes(schedule, now) {
-		fmt.Fprintf(Stderr, "%s: attempted to run %q timer outside of scheduled time %q\n", now.Format(time.RFC3339), snapApp, timer)
-		return nil
-	}
-
-	return x.snapRunApp(snapApp, args)
-}
-
 var osReadlink = os.Readlink
 
-// snapdHelperPath return the path of a helper like "snap-confine" or
-// "snap-exec" based on if snapd is re-execed or not
-func snapdHelperPath(toolName string) (string, error) {
+func isReexeced() bool {
 	exe, err := osReadlink("/proc/self/exe")
 	if err != nil {
-		return "", fmt.Errorf("cannot read /proc/self/exe: %v", err)
+		logger.Noticef("cannot read /proc/self/exe: %v", err)
+		return false
 	}
-	// no re-exec
-	if !strings.HasPrefix(exe, dirs.SnapMountDir) {
-		return filepath.Join(dirs.DistroLibExecDir, toolName), nil
-	}
-	// The logic below only works if the last two path components
-	// are /usr/bin
-	// FIXME: use a snap warning?
-	if !strings.HasSuffix(exe, "/usr/bin/"+filepath.Base(exe)) {
-		logger.Noticef("(internal error): unexpected exe input in snapdHelperPath: %v", exe)
-		return filepath.Join(dirs.DistroLibExecDir, toolName), nil
-	}
-	// snapBase will be "/snap/{core,snapd}/$rev/" because
-	// the snap binary is always at $root/usr/bin/snap
-	snapBase := filepath.Clean(filepath.Join(filepath.Dir(exe), "..", ".."))
-	// Run snap-confine from the core/snapd snap.  The tools in
-	// core/snapd snap are statically linked, or mostly
-	// statically, with the exception of libraries such as libudev
-	// and libc.
-	return filepath.Join(snapBase, dirs.CoreLibExecDir, toolName), nil
+	return strings.HasPrefix(exe, dirs.SnapMountDir)
 }
 
 func migrateXauthority(info *snap.Info) (string, error) {
@@ -618,99 +451,40 @@ func migrateXauthority(info *snap.Info) (string, error) {
 	return targetPath, nil
 }
 
-func activateXdgDocumentPortal(info *snap.Info, snapApp, hook string) error {
-	// Don't do anything for apps or hooks that don't plug the
-	// desktop interface
-	//
-	// NOTE: This check is imperfect because we don't really know
-	// if the interface is connected or not but this is an
-	// acceptable compromise for not having to communicate with
-	// snapd in snap run. In a typical desktop session the
-	// document portal can be in use by many applications, not
-	// just by snaps, so this is at most, pre-emptively using some
-	// extra memory.
-	var plugs map[string]*snap.PlugInfo
-	if hook != "" {
-		plugs = info.Hooks[hook].Plugs
-	} else {
-		_, appName := snap.SplitSnapApp(snapApp)
-		plugs = info.Apps[appName].Plugs
+func straceCmd() ([]string, error) {
+	current, err := user.Current()
+	if err != nil {
+		return nil, err
 	}
-	plugsDesktop := false
-	for _, plug := range plugs {
-		if plug.Interface == "desktop" {
-			plugsDesktop = true
-			break
+	sudoPath, err := exec.LookPath("sudo")
+	if err != nil {
+		return nil, fmt.Errorf("cannot use strace without sudo: %s", err)
+	}
+
+	// try strace from the snap first, we use new syscalls like
+	// "_newselect" that are known to not work with the strace of e.g.
+	// ubuntu 14.04
+	var stracePath string
+	cand := filepath.Join(dirs.SnapMountDir, "strace-static", "current", "bin", "strace")
+	if osutil.FileExists(cand) {
+		stracePath = cand
+	}
+	if stracePath == "" {
+		stracePath, err = exec.LookPath("strace")
+		if err != nil {
+			return nil, fmt.Errorf("cannot find an installed strace, please try: `snap install strace-static`")
 		}
 	}
-	if !plugsDesktop {
-		return nil
-	}
 
-	u, err := userCurrent()
-	if err != nil {
-		return fmt.Errorf(i18n.G("cannot get the current user: %s"), err)
-	}
-	xdgRuntimeDir := filepath.Join(dirs.XdgRuntimeDirBase, u.Uid)
-
-	// If $XDG_RUNTIME_DIR/doc appears to be a mount point, assume
-	// that the document portal is up and running.
-	expectedMountPoint := filepath.Join(xdgRuntimeDir, "doc")
-	if mounted, err := osutil.IsMounted(expectedMountPoint); err != nil {
-		logger.Noticef("Could not check document portal mount state: %s", err)
-	} else if mounted {
-		return nil
-	}
-
-	// If there is no session bus, our job is done.  We check this
-	// manually to avoid dbus.SessionBus() auto-launching a new
-	// bus.
-	busAddress := osGetenv("DBUS_SESSION_BUS_ADDRESS")
-	if len(busAddress) == 0 {
-		return nil
-	}
-
-	// We've previously tried to start the document portal and
-	// were told the service is unknown: don't bother connecting
-	// to the session bus again.
-	//
-	// As the file is in $XDG_RUNTIME_DIR, it will be cleared over
-	// full logout/login or reboot cycles.
-	portalsUnavailableFile := filepath.Join(xdgRuntimeDir, ".portals-unavailable")
-	if osutil.FileExists(portalsUnavailableFile) {
-		return nil
-	}
-
-	conn, err := dbus.SessionBus()
-	if err != nil {
-		return err
-	}
-
-	portal := conn.Object("org.freedesktop.portal.Documents",
-		"/org/freedesktop/portal/documents")
-	var mountPoint []byte
-	if err := portal.Call("org.freedesktop.portal.Documents.GetMountPoint", 0).Store(&mountPoint); err != nil {
-		// It is not considered an error if
-		// xdg-document-portal is not available on the system.
-		if dbusErr, ok := err.(dbus.Error); ok && dbusErr.Name == "org.freedesktop.DBus.Error.ServiceUnknown" {
-			// We ignore errors here: if writing the file
-			// fails, we'll just try connecting to D-Bus
-			// again next time.
-			if err = ioutil.WriteFile(portalsUnavailableFile, []byte(""), 0644); err != nil {
-				logger.Noticef("WARNING: cannot write file at %s: %s", portalsUnavailableFile, err)
-			}
-			return nil
-		}
-		return err
-	}
-
-	// Sanity check to make sure the document portal is exposed
-	// where we think it is.
-	actualMountPoint := strings.TrimRight(string(mountPoint), "\x00")
-	if actualMountPoint != expectedMountPoint {
-		return fmt.Errorf(i18n.G("Expected portal at %#v, got %#v"), expectedMountPoint, actualMountPoint)
-	}
-	return nil
+	return []string{
+		sudoPath, "-E",
+		stracePath,
+		"-u", current.Username,
+		"-f",
+		// these syscalls are excluded because they make strace hang
+		// on all or some architectures (gettimeofday on arm64)
+		"-e", "!select,pselect6,_newselect,clock_gettime,sigaltstack,gettid,gettimeofday",
+	}, nil
 }
 
 func (x *cmdRun) runCmdUnderGdb(origCmd, env []string) error {
@@ -727,91 +501,27 @@ func (x *cmdRun) runCmdUnderGdb(origCmd, env []string) error {
 	return gcmd.Run()
 }
 
-func (x *cmdRun) runCmdWithTraceExec(origCmd, env []string) error {
-	// setup private tmp dir with strace fifo
-	straceTmp, err := ioutil.TempDir("", "exec-trace")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(straceTmp)
-	straceLog := filepath.Join(straceTmp, "strace.fifo")
-	if err := syscall.Mkfifo(straceLog, 0640); err != nil {
-		return err
-	}
-	// ensure we have one writer on the fifo so that if strace fails
-	// nothing blocks
-	fw, err := os.OpenFile(straceLog, os.O_RDWR, 0640)
-	if err != nil {
-		return err
-	}
-	defer fw.Close()
-
-	// read strace data from fifo async
-	var slg *strace.ExecveTiming
-	var straceErr error
-	doneCh := make(chan bool, 1)
-	go func() {
-		// FIXME: make this configurable?
-		nSlowest := 10
-		slg, straceErr = strace.TraceExecveTimings(straceLog, nSlowest)
-		close(doneCh)
-	}()
-
-	cmd, err := strace.TraceExecCommand(straceLog, origCmd...)
-	if err != nil {
-		return err
-	}
-	// run
-	cmd.Env = env
-	cmd.Stdin = Stdin
-	cmd.Stdout = Stdout
-	cmd.Stderr = Stderr
-	err = cmd.Run()
-	// ensure we close the fifo here so that the strace.TraceExecCommand()
-	// helper gets a EOF from the fifo (i.e. all writers must be closed
-	// for this)
-	fw.Close()
-
-	// wait for strace reader
-	<-doneCh
-	if straceErr == nil {
-		slg.Display(Stderr)
-	} else {
-		logger.Noticef("cannot extract runtime data: %v", straceErr)
-	}
-	return err
-}
-
 func (x *cmdRun) runCmdUnderStrace(origCmd, env []string) error {
-	extraStraceOpts, raw, err := x.straceOpts()
+	// prepend strace magic
+	cmd, err := straceCmd()
 	if err != nil {
 		return err
 	}
-	cmd, err := strace.Command(extraStraceOpts, origCmd...)
-	if err != nil {
-		return err
-	}
+	cmd = append(cmd, x.straceOpts()...)
+	cmd = append(cmd, origCmd...)
 
 	// run with filter
-	cmd.Env = env
-	cmd.Stdin = Stdin
-	cmd.Stdout = Stdout
-	stderr, err := cmd.StderrPipe()
+	gcmd := exec.Command(cmd[0], cmd[1:]...)
+	gcmd.Env = env
+	gcmd.Stdin = Stdin
+	gcmd.Stdout = Stdout
+	stderr, err := gcmd.StderrPipe()
 	if err != nil {
 		return err
 	}
 	filterDone := make(chan bool, 1)
 	go func() {
 		defer func() { filterDone <- true }()
-
-		if raw {
-			// Passing --strace='--raw' disables the filtering of
-			// early strace output. This is useful when tracking
-			// down issues with snap helpers such as snap-confine,
-			// snap-exec ...
-			io.Copy(Stderr, stderr)
-			return
-		}
 
 		r := bufio.NewReader(stderr)
 
@@ -860,25 +570,31 @@ func (x *cmdRun) runCmdUnderStrace(origCmd, env []string) error {
 		}
 		io.Copy(Stderr, r)
 	}()
-	if err := cmd.Start(); err != nil {
+	if err := gcmd.Start(); err != nil {
 		return err
 	}
 	<-filterDone
-	err = cmd.Wait()
+	err = gcmd.Wait()
 	return err
 }
 
 func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook string, args []string) error {
-	snapConfine, err := snapdHelperPath("snap-exec")
-	if err != nil {
-		return err
+	snapConfine := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
+	// if we re-exec, we must run the snap-confine from the core snap
+	// as well, if they get out of sync, havoc will happen
+	if isReexeced() {
+		// run snap-confine from the core snap. that will work because
+		// snap-confine on the core snap is mostly statically linked
+		// (except libudev and libc)
+		snapConfine = filepath.Join(dirs.SnapMountDir, "core/current", dirs.CoreLibExecDir, "snap-confine")
 	}
+
 	if !osutil.FileExists(snapConfine) {
 		if hook != "" {
-			logger.Noticef("WARNING: skipping running hook %q of snap %q: missing snap-confine", hook, info.InstanceName())
+			logger.Noticef("WARNING: skipping running hook %q of snap %q: missing snap-confine", hook, info.Name())
 			return nil
 		}
-		return fmt.Errorf(i18n.G("missing snap-confine: try updating your core/snapd package"))
+		return fmt.Errorf(i18n.G("missing snap-confine: try updating your snapd package"))
 	}
 
 	if err := createUserDataDirs(info); err != nil {
@@ -888,10 +604,6 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 	xauthPath, err := migrateXauthority(info)
 	if err != nil {
 		logger.Noticef("WARNING: cannot copy user Xauthority file: %s", err)
-	}
-
-	if err := activateXdgDocumentPortal(info, snapApp, hook); err != nil {
-		logger.Noticef("WARNING: cannot start document portal: %s", err)
 	}
 
 	cmd := []string{snapConfine}
@@ -920,9 +632,7 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 	}
 	env := snapenv.ExecEnv(info, extraEnv)
 
-	if x.TraceExec {
-		return x.runCmdWithTraceExec(cmd, env)
-	} else if x.Gdb {
+	if x.Gdb {
 		return x.runCmdUnderGdb(cmd, env)
 	} else if x.useStrace() {
 		return x.runCmdUnderStrace(cmd, env)
@@ -930,4 +640,3 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 		return syscallExec(cmd[0], cmd, env)
 	}
 }
-

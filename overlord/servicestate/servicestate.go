@@ -21,7 +21,6 @@ package servicestate
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/overlord/cmdstate"
@@ -45,41 +44,39 @@ type ServiceActionConflictError struct{ error }
 // The appInfos and inst define the services and the command to execute.
 // Context is used to determine change conflicts - we will not conflict with
 // tasks from same change as that of context's.
-func Control(st *state.State, appInfos []*snap.AppInfo, inst *Instruction, context *hookstate.Context) ([]*state.TaskSet, error) {
-	var tts []*state.TaskSet
+func Control(st *state.State, appInfos []*snap.AppInfo, inst *Instruction, context *hookstate.Context) (*state.TaskSet, error) {
+	// the argv to call systemctl will need at most one entry per appInfo,
+	// plus one for "systemctl", one for the action, and sometimes one for
+	// an option. That's a maximum of 3+len(appInfos).
+	argv := make([]string, 2, 3+len(appInfos))
+	argv[0] = "systemctl"
 
-	var ctlcmds []string
-	switch {
-	case inst.Action == "start":
+	argv[1] = inst.Action
+	switch inst.Action {
+	case "start":
 		if inst.Enable {
-			ctlcmds = []string{"enable"}
+			argv[1] = "enable"
+			argv = append(argv, "--now")
 		}
-		ctlcmds = append(ctlcmds, "start")
-	case inst.Action == "stop":
+	case "stop":
 		if inst.Disable {
-			ctlcmds = []string{"disable"}
+			argv[1] = "disable"
+			argv = append(argv, "--now")
 		}
-		ctlcmds = append(ctlcmds, "stop")
-	case inst.Action == "restart":
+	case "restart":
 		if inst.Reload {
-			ctlcmds = []string{"reload-or-restart"}
-		} else {
-			ctlcmds = []string{"restart"}
+			argv[1] = "reload-or-restart"
 		}
 	default:
 		return nil, fmt.Errorf("unknown action %q", inst.Action)
 	}
 
-	st.Lock()
-	defer st.Unlock()
-
-	svcs := make([]string, 0, len(appInfos))
 	snapNames := make([]string, 0, len(appInfos))
 	lastName := ""
 	names := make([]string, len(appInfos))
 	for i, svc := range appInfos {
-		svcs = append(svcs, svc.ServiceName())
-		snapName := svc.Snap.InstanceName()
+		argv = append(argv, svc.ServiceName())
+		snapName := svc.Snap.Name()
 		names[i] = snapName + "." + svc.Name
 		if snapName != lastName {
 			snapNames = append(snapNames, snapName)
@@ -87,35 +84,28 @@ func Control(st *state.State, appInfos []*snap.AppInfo, inst *Instruction, conte
 		}
 	}
 
-	var ignoreChangeID string
+	desc := fmt.Sprintf("%s of %v", inst.Action, names)
+
+	st.Lock()
+	defer st.Unlock()
+
+	var checkConflict func(otherTask *state.Task) bool
 	if context != nil && !context.IsEphemeral() {
 		if task, ok := context.Task(); ok {
-			if chg := task.Change(); chg != nil {
-				ignoreChangeID = chg.ID()
+			chg := task.Change()
+			checkConflict = func(otherTask *state.Task) bool {
+				if chg != nil && otherTask.Change() != nil {
+					// if same change, then return false (no conflict)
+					return chg.ID() != otherTask.Change().ID()
+				}
+				return true
 			}
 		}
 	}
 
-	if err := snapstate.CheckChangeConflictMany(st, snapNames, ignoreChangeID); err != nil {
+	if err := snapstate.CheckChangeConflictMany(st, snapNames, checkConflict); err != nil {
 		return nil, &ServiceActionConflictError{err}
 	}
 
-	for _, cmd := range ctlcmds {
-		argv := append([]string{"systemctl", cmd}, svcs...)
-		desc := fmt.Sprintf("%s of %v", cmd, names)
-		// Give the systemctl a maximum time of 61 for now.
-		//
-		// Longer term we need to refactor this code and
-		// reuse the snapd/systemd and snapd/wrapper packages
-		// to control the timeout in a single place.
-		ts := cmdstate.ExecWithTimeout(st, desc, argv, 61*time.Second)
-		tts = append(tts, ts)
-	}
-
-	// make a taskset wait for its predecessor
-	for i := 1; i < len(tts); i++ {
-		tts[i].WaitAll(tts[i-1])
-	}
-
-	return tts, nil
+	return cmdstate.Exec(st, desc, argv), nil
 }

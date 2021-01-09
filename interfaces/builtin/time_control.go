@@ -38,12 +38,12 @@ const timeControlConnectedPlugAppArmor = `
 #include <abstractions/dbus-strict>
 
 # Introspection of org.freedesktop.timedate1
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/timedate1
     interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
+    member=Introspect
+    peer=(label=unconfined),
 
 dbus (send)
     bus=system
@@ -53,12 +53,12 @@ dbus (send)
     peer=(label=unconfined),
 
 # Read all properties from timedate1
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/timedate1
     interface=org.freedesktop.DBus.Properties
-    member=Get{,All},
+    member=Get{,All}
+    peer=(label=unconfined),
 
 # Receive timedate1 property changed events
 dbus (receive)
@@ -108,9 +108,6 @@ const timeControlConnectedPlugSecComp = `
 # https://www.freedesktop.org/wiki/Software/systemd/timedated/; This also
 # gives full access to the RTC device nodes and relevant parts of sysfs.
 
-settimeofday
-adjtimex
-
 # util-linux built with libaudit tries to write to the audit subsystem. We
 # allow the socket call here to avoid seccomp kill, but omit the AppArmor
 # capability rules.
@@ -130,5 +127,6 @@ func init() {
 		connectedPlugAppArmor: timeControlConnectedPlugAppArmor,
 		connectedPlugSecComp:  timeControlConnectedPlugSecComp,
 		connectedPlugUDev:     timeControlConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

@@ -54,7 +54,7 @@ type cmdShowRepair struct {
 	} `positional-args:"yes"`
 }
 
-var shortRepairHelp = i18n.G("Show specific repairs")
+var shortRepairHelp = i18n.G("Shows specific repairs")
 var longRepairHelp = i18n.G(`
 The repair command shows the details about one or multiple repairs.
 `)
@@ -69,10 +69,6 @@ func init() {
 }
 
 func (x *cmdShowRepair) Execute(args []string) error {
-	if len(x.Positional.Repair) == 0 {
-		return fmt.Errorf("no <repair-id> given. Try 'snap repairs' to list all repairs or specify a specific repair id.")
-	}
-
 	return runSnapRepair("show", x.Positional.Repair)
 }
 

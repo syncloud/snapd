@@ -68,7 +68,7 @@ func SanitizePlugsSlots(snapInfo *snap.Info) {
 			continue
 		}
 		// Reject plug with invalid name
-		if err := snap.ValidatePlugName(plugName); err != nil {
+		if err := interfaces.ValidateName(plugName); err != nil {
 			snapInfo.BadInterfaces[plugName] = err.Error()
 			badPlugs = append(badPlugs, plugName)
 			continue
@@ -88,7 +88,7 @@ func SanitizePlugsSlots(snapInfo *snap.Info) {
 			continue
 		}
 		// Reject slot with invalid name
-		if err := snap.ValidateSlotName(slotName); err != nil {
+		if err := interfaces.ValidateName(slotName); err != nil {
 			snapInfo.BadInterfaces[slotName] = err.Error()
 			badSlots = append(badSlots, slotName)
 			continue
@@ -121,12 +121,8 @@ func SanitizePlugsSlots(snapInfo *snap.Info) {
 	}
 }
 
-func MockInterface(iface interfaces.Interface) func() {
-	name := iface.Name()
-	allInterfaces[name] = iface
-	return func() {
-		delete(allInterfaces, name)
-	}
+func MockInterface(iface interfaces.Interface) {
+	allInterfaces[iface.Name()] = iface
 }
 
 type byIfaceName []interfaces.Interface

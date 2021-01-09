@@ -54,7 +54,7 @@ func (sdbs *sysDBSuite) SetUpTest(c *C) {
 
 	trustedAcct := assertstest.NewAccount(signingDB, "can0nical", map[string]interface{}{
 		"account-id": "can0nical",
-		"validation": "verified",
+		"validation": "certified",
 		"timestamp":  "2015-11-20T15:04:00Z",
 	}, "")
 
@@ -68,7 +68,7 @@ func (sdbs *sysDBSuite) SetUpTest(c *C) {
 
 	otherAcct := assertstest.NewAccount(signingDB, "gener1c", map[string]interface{}{
 		"account-id": "gener1c",
-		"validation": "verified",
+		"validation": "certified",
 		"timestamp":  "2015-11-20T15:04:00Z",
 	}, "")
 
@@ -152,8 +152,6 @@ func (sdbs *sysDBSuite) TestOpenSysDatabase(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	c.Check(trustedAcc.(*asserts.Account).Validation(), Equals, "verified")
-
 	err = db.Check(trustedAcc)
 	c.Check(err, IsNil)
 
@@ -167,8 +165,6 @@ func (sdbs *sysDBSuite) TestOpenSysDatabase(c *C) {
 		"name":       "models",
 	})
 	c.Assert(err, IsNil)
-
-	c.Check(genericAcc.(*asserts.Account).Validation(), Equals, "verified")
 
 	err = db.Check(genericAcc)
 	c.Check(err, IsNil)

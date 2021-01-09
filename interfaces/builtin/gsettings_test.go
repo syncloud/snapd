@@ -53,14 +53,14 @@ var _ = Suite(&GsettingsInterfaceSuite{
 
 func (s *GsettingsInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "gsettings",
 		Interface: "gsettings",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, gsettingsMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["gsettings"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *GsettingsInterfaceSuite) TestName(c *C) {
@@ -69,6 +69,13 @@ func (s *GsettingsInterfaceSuite) TestName(c *C) {
 
 func (s *GsettingsInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "gsettings",
+		Interface: "gsettings",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"gsettings slots are reserved for the core snap")
 }
 
 func (s *GsettingsInterfaceSuite) TestSanitizePlug(c *C) {

@@ -1,7 +1,5 @@
 summary: Check snap ack
-
-systems: [-ubuntu-core-*-arm-*]
-
+systems: [-ubuntu-core-16-arm-*]
 execute: |
     if [ "$TRUST_TEST_KEYS" = "false" ]; then
         echo "This test needs test keys to be trusted"
@@ -13,7 +11,7 @@ execute: |
     ALICE_ID=BGLTY1rcRKQQMbt9B407lDH38lbCW3wg
 
     echo "Ack when missing prerequisite fails"
-    not snap ack alice.account-key
+    ! snap ack alice.account-key
 
     echo "Ack account and account-key for alice"
     snap ack alice.account

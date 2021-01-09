@@ -70,8 +70,8 @@ func NewContext(task *state.Task, state *state.State, setup *HookSetup, handler 
 	}, nil
 }
 
-// InstanceName returns the name of the snap instance containing the hook.
-func (c *Context) InstanceName() string {
+// SnapName returns the name of the snap containing the hook.
+func (c *Context) SnapName() string {
 	return c.setup.Snap
 }
 

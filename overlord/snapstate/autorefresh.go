@@ -21,40 +21,27 @@ package snapstate
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/snapcore/snapd/httputil"
 	"github.com/snapcore/snapd/i18n"
 	"github.com/snapcore/snapd/logger"
-	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/overlord/configstate/config"
 	"github.com/snapcore/snapd/overlord/state"
-	"github.com/snapcore/snapd/release"
-	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/strutil"
 	"github.com/snapcore/snapd/timeutil"
-	"github.com/snapcore/snapd/timings"
 )
 
 // the default refresh pattern
 const defaultRefreshSchedule = "23:00~24:00/1"
 
-// cannot keep without refreshing for more than maxPostponement
-const maxPostponement = 60 * 24 * time.Hour
-
-// cannot inhibit refreshes for more than maxInhibition
-const maxInhibition = 7 * 24 * time.Hour
-
 // hooks setup by devicestate
 var (
-	CanAutoRefresh        func(st *state.State) (bool, error)
-	CanManageRefreshes    func(st *state.State) bool
-	IsOnMeteredConnection func() (bool, error)
+	CanAutoRefresh     func(st *state.State) (bool, error)
+	CanManageRefreshes func(st *state.State) bool
 )
 
 // refreshRetryDelay specified the minimum time to retry failed refreshes
-var refreshRetryDelay = 20 * time.Minute
+var refreshRetryDelay = 10 * time.Minute
 
 // autoRefresh will ensure that snaps are refreshed automatically
 // according to the refresh schedule.
@@ -87,110 +74,12 @@ func (m *autoRefresh) NextRefresh() time.Time {
 
 // LastRefresh returns when the last refresh happened.
 func (m *autoRefresh) LastRefresh() (time.Time, error) {
-	return getTime(m.state, "last-refresh")
-}
-
-// EffectiveRefreshHold returns the time until to which refreshes are
-// held if refresh.hold configuration is set and accounting for the
-// max postponement since the last refresh.
-func (m *autoRefresh) EffectiveRefreshHold() (time.Time, error) {
-	var holdTime time.Time
-
-	tr := config.NewTransaction(m.state)
-	err := tr.Get("core", "refresh.hold", &holdTime)
-	if err != nil && !config.IsNoOption(err) {
-		return time.Time{}, err
-	}
-
-	// cannot hold beyond last-refresh + max-postponement
-	lastRefresh, err := m.LastRefresh()
-	if err != nil {
-		return time.Time{}, err
-	}
-	if lastRefresh.IsZero() {
-		seedTime, err := getTime(m.state, "seed-time")
-		if err != nil {
-			return time.Time{}, err
-		}
-		if seedTime.IsZero() {
-			// no reference to know whether holding is reasonable
-			return time.Time{}, nil
-		}
-		lastRefresh = seedTime
-	}
-
-	limitTime := lastRefresh.Add(maxPostponement)
-	if holdTime.After(limitTime) {
-		return limitTime, nil
-	}
-
-	return holdTime, nil
-}
-
-// clearRefreshHold clears refresh.hold configuration.
-func (m *autoRefresh) clearRefreshHold() {
-	tr := config.NewTransaction(m.state)
-	tr.Set("core", "refresh.hold", nil)
-	tr.Commit()
-}
-
-// AtSeed configures refresh policies at end of seeding.
-func (m *autoRefresh) AtSeed() error {
-	// on classic hold refreshes for 2h after seeding
-	if release.OnClassic {
-		var t1 time.Time
-		tr := config.NewTransaction(m.state)
-		err := tr.Get("core", "refresh.hold", &t1)
-		if !config.IsNoOption(err) {
-			// already set or error
-			return err
-		}
-		// TODO: have a policy that if the snapd exe itself
-		// is older than X weeks/months we skip the holding?
-		now := time.Now().UTC()
-		tr.Set("core", "refresh.hold", now.Add(2*time.Hour))
-		tr.Commit()
-		m.nextRefresh = now
-	}
-	return nil
-}
-
-func canRefreshOnMeteredConnection(st *state.State) (bool, error) {
-	tr := config.NewTransaction(st)
-	var onMetered string
-	err := tr.GetMaybe("core", "refresh.metered", &onMetered)
+	var lastRefresh time.Time
+	err := m.state.Get("last-refresh", &lastRefresh)
 	if err != nil && err != state.ErrNoState {
-		return false, err
+		return time.Time{}, err
 	}
-
-	return onMetered != "hold", nil
-}
-
-func (m *autoRefresh) canRefreshRespectingMetered(now, lastRefresh time.Time) (can bool, err error) {
-	can, err = canRefreshOnMeteredConnection(m.state)
-	if err != nil {
-		return false, err
-	}
-	if can {
-		return true, nil
-	}
-
-	// ignore any errors that occurred while checking if we are on a metered
-	// connection
-	metered, _ := IsOnMeteredConnection()
-	if !metered {
-		return true, nil
-	}
-
-	if now.Sub(lastRefresh) >= maxPostponement {
-		// TODO use warnings when the infra becomes available
-		logger.Noticef("Auto refresh disabled while on metered connections, but pending for too long (%d days). Trying to refresh now.", int(maxPostponement.Hours()/24))
-		return true, nil
-	}
-
-	logger.Debugf("Auto refresh disabled on metered connections")
-
-	return false, nil
+	return lastRefresh, nil
 }
 
 // Ensure ensures that we refresh all installed snaps periodically
@@ -204,6 +93,13 @@ func (m *autoRefresh) Ensure() error {
 	}
 	if ok, err := CanAutoRefresh(m.state); err != nil || !ok {
 		return err
+	}
+
+	// Check that we have reasonable delays between attempts.
+	// If the store is under stress we need to make sure we do not
+	// hammer it too often
+	if !m.lastRefreshAttempt.IsZero() && m.lastRefreshAttempt.Add(refreshRetryDelay).After(time.Now()) {
+		return nil
 	}
 
 	// get lastRefresh and schedule
@@ -235,91 +131,31 @@ func (m *autoRefresh) Ensure() error {
 		return nil
 	}
 
-	now := time.Now()
 	// compute next refresh attempt time (if needed)
 	if m.nextRefresh.IsZero() {
 		// store attempts in memory so that we can backoff
 		if !lastRefresh.IsZero() {
-			delta := timeutil.Next(refreshSchedule, lastRefresh, maxPostponement)
-			now = time.Now()
-			m.nextRefresh = now.Add(delta)
+			delta := timeutil.Next(refreshSchedule, lastRefresh)
+			m.nextRefresh = time.Now().Add(delta)
 		} else {
-			// make sure either seed-time or last-refresh
-			// are set for hold code below
-			m.ensureLastRefreshAnchor()
 			// immediate
-			m.nextRefresh = now
+			m.nextRefresh = time.Now()
 		}
-		logger.Debugf("Next refresh scheduled for %s.", m.nextRefresh.Format(time.RFC3339))
-	}
-
-	// should we hold back refreshes?
-	holdTime, err := m.EffectiveRefreshHold()
-	if err != nil {
-		return err
-	}
-	if holdTime.After(now) {
-		return nil
-	}
-	if !holdTime.IsZero() {
-		// expired hold case
-		m.clearRefreshHold()
-		if m.nextRefresh.Before(holdTime) {
-			// next refresh is obsolete, compute the next one
-			delta := timeutil.Next(refreshSchedule, holdTime, maxPostponement)
-			now = time.Now()
-			m.nextRefresh = now.Add(delta)
-		}
+		logger.Debugf("Next refresh scheduled for %s.", m.nextRefresh)
 	}
 
 	// do refresh attempt (if needed)
-	if !m.nextRefresh.After(now) {
-		var can bool
-		can, err = m.canRefreshRespectingMetered(now, lastRefresh)
-		if err != nil {
-			return err
-		}
-		if !can {
-			// clear nextRefresh so that another refresh time is calculated
-			m.nextRefresh = time.Time{}
-			return nil
-		}
-
-		// Check that we have reasonable delays between attempts.
-		// If the store is under stress we need to make sure we do not
-		// hammer it too often
-		if !m.lastRefreshAttempt.IsZero() && m.lastRefreshAttempt.Add(refreshRetryDelay).After(time.Now()) {
-			return nil
-		}
-
+	if !m.nextRefresh.After(time.Now()) {
 		err = m.launchAutoRefresh()
-		if _, ok := err.(*httputil.PerstistentNetworkError); !ok {
+		// clear nextRefresh only if the refresh worked. There is
+		// still the lastRefreshAttempt rate limit so things will
+		// not go into a busy store loop
+		if err == nil {
 			m.nextRefresh = time.Time{}
-		} // else - refresh will be retried after refreshRetryDelay
+		}
 	}
 
 	return err
-}
-
-func (m *autoRefresh) ensureLastRefreshAnchor() {
-	seedTime, _ := getTime(m.state, "seed-time")
-	if !seedTime.IsZero() {
-		return
-	}
-
-	// last core refresh
-	coreRefreshDate := snap.InstallDate("core")
-	if !coreRefreshDate.IsZero() {
-		m.state.Set("last-refresh", coreRefreshDate)
-		return
-	}
-
-	// fallback to executable time
-	st, err := os.Stat("/proc/self/exe")
-	if err == nil {
-		m.state.Set("last-refresh", st.ModTime())
-		return
-	}
 }
 
 // refreshScheduleWithDefaultsFallback returns the current refresh schedule
@@ -329,15 +165,16 @@ func (m *autoRefresh) ensureLastRefreshAnchor() {
 // TODO: we can remove the refreshSchedule reset because we have validation
 //       of the schedule now.
 func (m *autoRefresh) refreshScheduleWithDefaultsFallback() (ts []*timeutil.Schedule, scheduleAsStr string, legacy bool, err error) {
-	if managed, legacy := refreshScheduleManaged(m.state); managed {
+	if refreshScheduleManaged(m.state) {
 		if m.lastRefreshSchedule != "managed" {
-			logger.Noticef("refresh is managed via the snapd-control interface")
+			logger.Noticef("refresh.schedule is managed via the snapd-control interface")
 			m.lastRefreshSchedule = "managed"
 		}
-		return nil, "managed", legacy, nil
+		return nil, "managed", true, nil
 	}
 
 	tr := config.NewTransaction(m.state)
+
 	// try the new refresh.timer config option first
 	err = tr.Get("core", "refresh.timer", &scheduleAsStr)
 	if err != nil && !config.IsNoOption(err) {
@@ -372,24 +209,16 @@ func (m *autoRefresh) refreshScheduleWithDefaultsFallback() (ts []*timeutil.Sche
 
 // launchAutoRefresh creates the auto-refresh taskset and a change for it.
 func (m *autoRefresh) launchAutoRefresh() error {
-	perfTimings := timings.New(map[string]string{"ensure": "auto-refresh"})
-	tm := perfTimings.StartSpan("auto-refresh", "query store and setup auto-refresh change")
-	defer func() {
-		tm.Stop()
-		perfTimings.Save(m.state)
-	}()
-
 	m.lastRefreshAttempt = time.Now()
-	updated, tasksets, err := AutoRefresh(auth.EnsureContextTODO(), m.state)
-	if _, ok := err.(*httputil.PerstistentNetworkError); ok {
-		logger.Noticef("Cannot prepare auto-refresh change due to a permanent network error: %s", err)
-		return err
-	}
-	m.state.Set("last-refresh", time.Now())
+	updated, tasksets, err := AutoRefresh(m.state)
 	if err != nil {
 		logger.Noticef("Cannot prepare auto-refresh change: %s", err)
 		return err
 	}
+
+	// Set last refresh time only if the store (in AutoRefresh) gave
+	// us no error.
+	m.state.Set("last-refresh", time.Now())
 
 	var msg string
 	switch len(updated) {
@@ -412,7 +241,6 @@ func (m *autoRefresh) launchAutoRefresh() error {
 	}
 	chg.Set("snap-names", updated)
 	chg.Set("api-data", map[string]interface{}{"snap-names": updated})
-	perfTimings.AddTag("change-id", chg.ID())
 
 	return nil
 }
@@ -437,65 +265,22 @@ func autoRefreshInFlight(st *state.State) bool {
 
 // refreshScheduleManaged returns true if the refresh schedule of the
 // device is managed by an external snap
-func refreshScheduleManaged(st *state.State) (managed bool, legacy bool) {
-	var confStr string
+func refreshScheduleManaged(st *state.State) bool {
+	var refreshScheduleStr string
 
 	// this will only be "nil" if running in tests
 	if CanManageRefreshes == nil {
-		return false, legacy
+		return false
 	}
 
-	// check new style timer first
 	tr := config.NewTransaction(st)
-	err := tr.Get("core", "refresh.timer", &confStr)
-	if err != nil && !config.IsNoOption(err) {
-		return false, legacy
+	err := tr.Get("core", "refresh.schedule", &refreshScheduleStr)
+	if err != nil {
+		return false
 	}
-	// if not set, fallback to refresh.schedule
-	if confStr == "" {
-		if err := tr.Get("core", "refresh.schedule", &confStr); err != nil {
-			return false, legacy
-		}
-		legacy = true
+	if refreshScheduleStr != "managed" {
+		return false
 	}
 
-	if confStr != "managed" {
-		return false, legacy
-	}
-	return CanManageRefreshes(st), legacy
-}
-
-// getTime retrieves a time from a state value.
-func getTime(st *state.State, timeKey string) (time.Time, error) {
-	var t1 time.Time
-	err := st.Get(timeKey, &t1)
-	if err != nil && err != state.ErrNoState {
-		return time.Time{}, err
-	}
-	return t1, nil
-}
-
-// inhibitRefresh returns an error if refresh is inhibited by running apps.
-//
-// Internally the snap state is updated to remember when the inhibition first
-// took place. Apps can inhibit refreshes for up to "maxInhibition", beyond
-// that period the refresh will go ahead despite application activity.
-func inhibitRefresh(st *state.State, snapst *SnapState, info *snap.Info, checker func(*snap.Info) error) error {
-	if err := checker(info); err != nil {
-		now := time.Now()
-		if snapst.RefreshInhibitedTime == nil {
-			// Store the instant when the snap was first inhibited.
-			// This is reset to nil on successful refresh.
-			snapst.RefreshInhibitedTime = &now
-			Set(st, info.InstanceName(), snapst)
-			return err
-		}
-
-		if now.Sub(*snapst.RefreshInhibitedTime) < maxInhibition {
-			// If we are still in the allowed window then just return
-			// the error but don't change the snap state again.
-			return err
-		}
-	}
-	return nil
+	return CanManageRefreshes(st)
 }

@@ -21,7 +21,6 @@ package squashfs
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,13 +28,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strings"
-	"syscall"
-	"time"
-	"github.com/snapcore/snapd/logger"
 
-	"github.com/snapcore/snapd/cmd/cmdutil"
-	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/strutil"
 )
@@ -58,15 +51,12 @@ func New(snapPath string) *Snap {
 	return &Snap{path: snapPath}
 }
 
-var osLink = os.Link
-var cmdutilCommandFromSystemSnap = cmdutil.CommandFromSystemSnap
-
-func (s *Snap) Install(targetPath, mountDir string) (bool, error) {
+func (s *Snap) Install(targetPath, mountDir string) error {
 
 	// ensure mount-point and blob target dir.
 	for _, dir := range []string{mountDir, filepath.Dir(targetPath)} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return false, err
+			return err
 		}
 	}
 
@@ -76,15 +66,14 @@ func (s *Snap) Install(targetPath, mountDir string) (bool, error) {
 	// it to the location which is good enough for the tests.
 	if osutil.GetenvBool("SNAPPY_SQUASHFS_UNPACK_FOR_TESTS") {
 		if err := s.Unpack("*", mountDir); err != nil {
-			return false, err
+			return err
 		}
 	}
 
 	// nothing to do, happens on e.g. first-boot when we already
 	// booted with the OS snap but its also in the seed.yaml
 	if s.path == targetPath || osutil.FilesAreEqual(s.path, targetPath) {
-		didNothing := true
-		return didNothing, nil
+		return nil
 	}
 
 	// try to (hard)link the file, but go on to trying to copy it
@@ -93,17 +82,11 @@ func (s *Snap) Install(targetPath, mountDir string) (bool, error) {
 	// link(2) returns EPERM on filesystems that don't support
 	// hard links (like vfat), so checking the error here doesn't
 	// make sense vs just trying to copy it.
-	if err := osLink(s.path, targetPath); err == nil {
-		return false, nil
+	if err := os.Link(s.path, targetPath); err == nil {
+		return nil
 	}
 
-	// if the file is a seed, but the hardlink failed, symlinking it
-	// saves the copy (which in livecd is expensive) so try that next
-	if filepath.Dir(s.path) == dirs.SnapSeedDir && os.Symlink(s.path, targetPath) == nil {
-		return false, nil
-	}
-
-	return false, osutil.CopyFile(s.path, targetPath, osutil.CopyFlagPreserveAll|osutil.CopyFlagSync)
+	return osutil.CopyFile(s.path, targetPath, osutil.CopyFlagPreserveAll|osutil.CopyFlagSync)
 }
 
 // unsquashfsStderrWriter is a helper that captures errors from
@@ -122,11 +105,9 @@ type unsquashfsStderrWriter struct {
 	strutil.MatchCounter
 }
 
-var unsquashfsStderrRegexp = regexp.MustCompile(`(?m).*\b[Ff]ailed\b.*`)
-
 func newUnsquashfsStderrWriter() *unsquashfsStderrWriter {
 	return &unsquashfsStderrWriter{strutil.MatchCounter{
-		Regexp: unsquashfsStderrRegexp,
+		Regexp: regexp.MustCompile(`(?m).*\b[Ff]ailed\b.*`),
 		N:      4, // note Err below uses this value
 	}}
 }
@@ -151,7 +132,7 @@ func (u *unsquashfsStderrWriter) Err() error {
 func (s *Snap) Unpack(src, dstDir string) error {
 	usw := newUnsquashfsStderrWriter()
 
-	cmd := exec.Command("unsquashfs", "-n", "-f", "-d", dstDir, s.path, src)
+	cmd := exec.Command("unsquashfs", "-f", "-d", dstDir, s.path, src)
 	cmd.Stderr = usw
 	if err := cmd.Run(); err != nil {
 		return err
@@ -181,7 +162,7 @@ func (s *Snap) ReadFile(filePath string) (content []byte, err error) {
 	defer os.RemoveAll(tmpdir)
 
 	unpackDir := filepath.Join(tmpdir, "unpack")
-	if err := exec.Command("unsquashfs", "-n", "-i", "-d", unpackDir, s.path, filePath).Run(); err != nil {
+	if err := exec.Command("unsquashfs", "-i", "-d", unpackDir, s.path, filePath).Run(); err != nil {
 		return nil, err
 	}
 
@@ -229,16 +210,11 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	} else {
 		cmd = exec.Command("unsquashfs", "-no-progress", "-dest", ".", "-ll", s.path, relative)
 	}
-	cmd.Env = []string{"TZ=UTC", "LD_LIBRARY_PATH=/usr/lib/snapd/lib"}
-  logger.Noticef("cmd: %v", cmd) 	
-	
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-   logger.Noticef("pipe err: %v", err) 	
 		return walkFn(relative, nil, err)
 	}
 	if err := cmd.Start(); err != nil {
-   logger.Noticef("start err: %v", err) 	
 		return walkFn(relative, nil, err)
 	}
 	defer cmd.Process.Kill()
@@ -246,25 +222,21 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	scanner := bufio.NewScanner(stdout)
 	// skip the header
 	for scanner.Scan() {
-    logger.Noticef("scanned: %v", len(scanner.Bytes())) 	
 		if len(scanner.Bytes()) == 0 {
 			break
 		}
 	}
 
 	skipper := make(skipper)
-  logger.Noticef("skipper") 	
 	for scanner.Scan() {
 		st, err := fromRaw(scanner.Bytes())
 		if err != nil {
-     logger.Noticef("from raw err: ", err)
 			err = walkFn(relative, nil, err)
 			if err != nil {
 				return err
 			}
 		} else {
 			path := filepath.Join(relative, st.Path())
-     logger.Noticef("scanner path: %v", path) 	
 			if skipper.Has(path) {
 				continue
 			}
@@ -280,12 +252,10 @@ func (s *Snap) Walk(relative string, walkFn filepath.WalkFunc) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-   logger.Noticef("scanner err: ", err)
 		return walkFn(relative, nil, err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-    logger.Noticef("wait err: ", err)
 		return walkFn(relative, nil, err)
 	}
 	return nil
@@ -315,162 +285,21 @@ func (s *Snap) ListDir(dirPath string) ([]string, error) {
 	return directoryContents, nil
 }
 
-const maxErrPaths = 10
-
-type errPathsNotReadable struct {
-	paths []string
-}
-
-func (e *errPathsNotReadable) accumulate(p string, fi os.FileInfo) error {
-	if len(e.paths) >= maxErrPaths {
-		return e
-	}
-	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
-		e.paths = append(e.paths, fmt.Sprintf("%s (owner %v:%v mode %#03o)", p, st.Uid, st.Gid, fi.Mode().Perm()))
-	} else {
-		e.paths = append(e.paths, p)
-	}
-	return nil
-}
-
-func (e *errPathsNotReadable) asErr() error {
-	if len(e.paths) > 0 {
-		return e
-	}
-	return nil
-}
-
-func (e *errPathsNotReadable) Error() string {
-	var b bytes.Buffer
-
-	b.WriteString("cannot access the following locations in the snap source directory:\n")
-	for _, p := range e.paths {
-		fmt.Fprintf(&b, "- ")
-		fmt.Fprintf(&b, p)
-		fmt.Fprintf(&b, "\n")
-	}
-	if len(e.paths) == maxErrPaths {
-		fmt.Fprintf(&b, "- too many errors, listing first %v entries\n", maxErrPaths)
-	}
-	return b.String()
-}
-
-// verifyContentAccessibleForBuild checks whether the content under source
-// directory is usable to the user and can be represented by mksquashfs.
-func verifyContentAccessibleForBuild(sourceDir string) error {
-	var errPaths errPathsNotReadable
-
-	withSlash := filepath.Clean(sourceDir) + "/"
-	err := filepath.Walk(withSlash, func(path string, st os.FileInfo, err error) error {
-		if err != nil {
-			if !os.IsPermission(err) {
-				return err
-			}
-			// accumulate permission errors
-			return errPaths.accumulate(strings.TrimPrefix(path, withSlash), st)
-		}
-		mode := st.Mode()
-		if !mode.IsRegular() && !mode.IsDir() {
-			// device nodes are just recreated by mksquashfs
-			return nil
-		}
-		if mode.IsRegular() && st.Size() == 0 {
-			// empty files are also recreated
-			return nil
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			if !os.IsPermission(err) {
-				return err
-			}
-			// accumulate permission errors
-			if err = errPaths.accumulate(strings.TrimPrefix(path, withSlash), st); err != nil {
-				return err
-			}
-			// workaround for https://github.com/golang/go/issues/21758
-			// with pre 1.10 go, explicitly skip directory
-			if mode.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		f.Close()
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return errPaths.asErr()
-}
-
 // Build builds the snap.
-func (s *Snap) Build(sourceDir, snapType string, excludeFiles ...string) error {
-	if err := verifyContentAccessibleForBuild(sourceDir); err != nil {
-		return err
-	}
-
+func (s *Snap) Build(buildDir string) error {
 	fullSnapPath, err := filepath.Abs(s.path)
 	if err != nil {
 		return err
 	}
-	cmd, err := cmdutilCommandFromSystemSnap("/usr/bin/mksquashfs")
-	if err != nil {
-		cmd = exec.Command("mksquashfs")
-	}
-	cmd.Args = append(cmd.Args,
-		".", fullSnapPath,
-		"-noappend",
-		"-comp", "xz",
-		"-no-fragments",
-		"-no-progress",
-	)
-	if len(excludeFiles) > 0 {
-		cmd.Args = append(cmd.Args, "-wildcards")
-		for _, excludeFile := range excludeFiles {
-			cmd.Args = append(cmd.Args, "-ef", excludeFile)
-		}
-	}
-	if snapType != "os" && snapType != "core" && snapType != "base" {
-		cmd.Args = append(cmd.Args, "-all-root", "-no-xattrs")
-	}
 
-	return osutil.ChDir(sourceDir, func() error {
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("mksquashfs call failed: %s", osutil.OutputErr(output, err))
-		}
-
-		return nil
+	return osutil.ChDir(buildDir, func() error {
+		return exec.Command(
+			"mksquashfs",
+			".", fullSnapPath,
+			"-noappend",
+			"-comp", "xz",
+			"-no-xattrs",
+			"-no-fragments",
+		).Run()
 	})
-}
-
-// BuildDate returns the "Creation or last append time" as reported by unsquashfs.
-func (s *Snap) BuildDate() time.Time {
-	return BuildDate(s.path)
-}
-
-// BuildDate returns the "Creation or last append time" as reported by unsquashfs.
-func BuildDate(path string) time.Time {
-	var t0 time.Time
-
-	const prefix = "Creation or last append time "
-	m := &strutil.MatchCounter{
-		Regexp: regexp.MustCompile("(?m)^" + prefix + ".*$"),
-		N:      1,
-	}
-
-	cmd := exec.Command("unsquashfs", "-n", "-s", path)
-	cmd.Env = []string{"TZ=UTC"}
-	cmd.Stdout = m
-	cmd.Stderr = m
-	if err := cmd.Run(); err != nil {
-		return t0
-	}
-	matches, count := m.Matches()
-	if count != 1 {
-		return t0
-	}
-	t0, _ = time.Parse(time.ANSIC, matches[0][len(prefix):])
-	return t0
 }

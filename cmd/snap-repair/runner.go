@@ -188,7 +188,7 @@ func (r *Repair) Run() error {
 	// wait for repair to finish or timeout
 	var scriptErr error
 	killTimerCh := time.After(defaultRepairTimeout)
-	doneCh := make(chan error, 1)
+	doneCh := make(chan error)
 	go func() {
 		doneCh <- cmd.Wait()
 		close(doneCh)
@@ -281,7 +281,7 @@ func NewRunner() *Runner {
 	run := &Runner{
 		sequenceNext: make(map[string]int),
 	}
-	opts := httputil.ClientOptions{
+	opts := httputil.ClientOpts{
 		MayLogBody: false,
 		TLSConfig: &tls.Config{
 			Time: run.now,
@@ -776,7 +776,7 @@ func (run *Runner) Applicable(headers map[string]interface{}) bool {
 	if err != nil {
 		return false
 	}
-	if len(archs) != 0 && !strutil.ListContains(archs, arch.DpkgArchitecture()) {
+	if len(archs) != 0 && !strutil.ListContains(archs, arch.UbuntuArchitecture()) {
 		return false
 	}
 	brandModel := fmt.Sprintf("%s/%s", run.state.Device.Brand, run.state.Device.Model)
@@ -984,9 +984,6 @@ func (run *Runner) Verify(repair *asserts.Repair, aux []asserts.Assertion) error
 		trustedBS.Put(asserts.AccountKeyType, t)
 	}
 	for _, t := range sysdb.Trusted() {
-		// we do *not* add the defalt sysdb trusted account
-		// keys here because the repair assertions have their
-		// own *dedicated* root of trust
 		if t.Type() == asserts.AccountType {
 			trustedBS.Put(asserts.AccountType, t)
 		}

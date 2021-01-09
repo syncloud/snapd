@@ -35,28 +35,19 @@ import (
 
 var shortListHelp = i18n.G("List installed snaps")
 var longListHelp = i18n.G(`
-The list command displays a summary of snaps installed in the current system.
-
-A green check mark (given color and unicode support) after a publisher name
-indicates that the publisher has been verified.
-`)
+The list command displays a summary of snaps installed in the current system.`)
 
 type cmdList struct {
-	clientMixin
 	Positional struct {
 		Snaps []installedSnapName `positional-arg-name:"<snap>"`
 	} `positional-args:"yes"`
 
 	All bool `long:"all"`
-	colorMixin
 }
 
 func init() {
 	addCommand("list", shortListHelp, longListHelp, func() flags.Commander { return &cmdList{} },
-		colorDescs.also(map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"all": i18n.G("Show all revisions"),
-		}), nil)
+		map[string]string{"all": i18n.G("Show all revisions")}, nil)
 }
 
 type snapsByName []*client.Snap
@@ -65,12 +56,19 @@ func (s snapsByName) Len() int           { return len(s) }
 func (s snapsByName) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s snapsByName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
+func (x *cmdList) Execute(args []string) error {
+	if len(args) > 0 {
+		return ErrExtraArgs
+	}
+
+	return listSnaps(installedSnapNames(x.Positional.Snaps), x.All)
+}
+
 var ErrNoMatchingSnaps = errors.New(i18n.G("no matching snaps installed"))
 
 // snapd will give us  and we want
 // "" (local snap)     "-"
 // risk                risk
-// latest/risk         risk
 // track               track        (not yet returned by snapd)
 // track/stable        track
 // track/risk          track/risk
@@ -87,9 +85,6 @@ func fmtChannel(ch string) string {
 		return ch
 	}
 	first, rest := ch[:idx], ch[idx+1:]
-	if first == "latest" {
-		return fmtChannel(rest)
-	}
 	if rest == "stable" && first != "" {
 		// track/stable -> track
 		return first
@@ -107,17 +102,13 @@ func fmtChannel(ch string) string {
 	return ch
 }
 
-func (x *cmdList) Execute(args []string) error {
-	if len(args) > 0 {
-		return ErrExtraArgs
-	}
-
-	names := installedSnapNames(x.Positional.Snaps)
-	snaps, err := x.client.List(names, &client.ListOptions{All: x.All})
+func listSnaps(names []string, all bool) error {
+	cli := Client()
+	snaps, err := cli.List(names, &client.ListOptions{All: all})
 	if err != nil {
 		if err == client.ErrNoSnapsInstalled {
 			if len(names) == 0 {
-				fmt.Fprintln(Stderr, i18n.G("No snaps are installed yet. Try 'snap install hello-world'."))
+				fmt.Fprintln(Stderr, i18n.G("No snaps are installed yet. Try \"snap install hello-world\"."))
 				return nil
 			} else {
 				return ErrNoMatchingSnaps
@@ -129,25 +120,28 @@ func (x *cmdList) Execute(args []string) error {
 	}
 	sort.Sort(snapsByName(snaps))
 
-	esc := x.getEscapes()
 	w := tabWriter()
+	defer w.Flush()
 
-	// TRANSLATORS: the %s is to insert a filler escape sequence (please keep it flush to the column header, with no extra spaces)
-	fmt.Fprintf(w, i18n.G("Name\tVersion\tRev\tTracking\tPublisher%s\tNotes\n"), fillerPublisher(esc))
+	fmt.Fprintln(w, i18n.G("Name\tVersion\tRev\tTracking\tDeveloper\tNotes"))
 
 	for _, snap := range snaps {
+		// Aid parsing of the output by not leaving the field empty.
+		dev := snap.Developer
+		if dev == "" {
+			dev = "-"
+		}
 		// doing it this way because otherwise it's a sea of %s\t%s\t%s
 		line := []string{
 			snap.Name,
 			snap.Version,
 			snap.Revision.String(),
 			fmtChannel(snap.TrackingChannel),
-			shortPublisher(esc, snap.Publisher),
+			dev,
 			NotesFromLocal(snap).String(),
 		}
 		fmt.Fprintln(w, strings.Join(line, "\t"))
 	}
-	w.Flush()
 
 	return nil
 }

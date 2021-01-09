@@ -26,12 +26,7 @@ import (
 
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/overlord/configstate/config"
 )
-
-func init() {
-	supportedConfigurations["core.system.power-key-action"] = true
-}
 
 func powerBtnCfg() string {
 	return filepath.Join(dirs.GlobalRootDir, "/etc/systemd/logind.conf.d/00-snap-core.conf")
@@ -67,7 +62,7 @@ HandlePowerKey=%s
 	return osutil.AtomicWriteFile(powerBtnCfg(), []byte(content), 0644, 0)
 }
 
-func handlePowerButtonConfiguration(tr config.Conf) error {
+func handlePowerButtonConfiguration(tr Conf) error {
 	output, err := coreCfg(tr, "system.power-key-action")
 	if err != nil {
 		return err

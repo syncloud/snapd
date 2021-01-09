@@ -33,7 +33,7 @@ import (
 
 func (s *SnapSuite) TestConnectHelp(c *C) {
 	msg := `Usage:
-  snap.test connect [connect-OPTIONS] [<snap>:<plug>] [<snap>:<slot>]
+  snap.test [OPTIONS] connect [<snap>:<plug>] [<snap>:<slot>]
 
 The connect command connects a plug to a slot.
 It may be called in the following ways:
@@ -53,11 +53,15 @@ $ snap connect <snap>:<plug>
 Connects the provided plug to the slot in the core snap with a name matching
 the plug name.
 
-[connect command options]
-      --no-wait          Do not wait for the operation to finish but just print
-                         the change id.
+Application Options:
+      --version            Print the version and exit
+
+Help Options:
+  -h, --help               Show this help message
 `
-	s.testSubCommandHelp(c, "connect", msg)
+	rest, err := Parser().ParseArgs([]string{"connect", "--help"})
+	c.Assert(err.Error(), Equals, msg)
+	c.Assert(rest, DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestConnectExplicitEverything(c *C) {
@@ -80,7 +84,6 @@ func (s *SnapSuite) TestConnectExplicitEverything(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -89,7 +92,7 @@ func (s *SnapSuite) TestConnectExplicitEverything(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"connect", "producer:plug", "consumer:slot"})
+	rest, err := Parser().ParseArgs([]string{"connect", "producer:plug", "consumer:slot"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 }
@@ -114,7 +117,6 @@ func (s *SnapSuite) TestConnectExplicitPlugImplicitSlot(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -123,7 +125,7 @@ func (s *SnapSuite) TestConnectExplicitPlugImplicitSlot(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"connect", "producer:plug", "consumer"})
+	rest, err := Parser().ParseArgs([]string{"connect", "producer:plug", "consumer"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 }
@@ -148,7 +150,6 @@ func (s *SnapSuite) TestConnectImplicitPlugExplicitSlot(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -157,7 +158,7 @@ func (s *SnapSuite) TestConnectImplicitPlugExplicitSlot(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"connect", "plug", "consumer:slot"})
+	rest, err := Parser().ParseArgs([]string{"connect", "plug", "consumer:slot"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 }
@@ -182,7 +183,6 @@ func (s *SnapSuite) TestConnectImplicitPlugImplicitSlot(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -191,7 +191,7 @@ func (s *SnapSuite) TestConnectImplicitPlugImplicitSlot(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"connect", "plug", "consumer"})
+	rest, err := Parser().ParseArgs([]string{"connect", "plug", "consumer"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 }
@@ -280,7 +280,7 @@ var fortestingConnectionList = client.Connections{
 func (s *SnapSuite) TestConnectCompletion(c *C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/v2/connections":
+		case "/v2/interfaces":
 			c.Assert(r.Method, Equals, "GET")
 			EncodeResponseBody(c, w, map[string]interface{}{
 				"type":   "sync",
@@ -294,7 +294,7 @@ func (s *SnapSuite) TestConnectCompletion(c *C) {
 	defer os.Unsetenv("GO_FLAGS_COMPLETION")
 
 	expected := []flags.Completion{}
-	parser := Parser(Client())
+	parser := Parser()
 	parser.CompletionHandler = func(obtained []flags.Completion) {
 		c.Check(obtained, DeepEquals, expected)
 	}

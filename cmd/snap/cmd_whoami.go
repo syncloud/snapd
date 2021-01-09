@@ -27,14 +27,12 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-var shortWhoAmIHelp = i18n.G("Show the email the user is logged in with")
+var shortWhoAmIHelp = i18n.G("Prints the email the user is logged in with")
 var longWhoAmIHelp = i18n.G(`
-The whoami command shows the email the user is logged in with.
+The whoami command prints the email the user is logged in with.
 `)
 
-type cmdWhoAmI struct {
-	clientMixin
-}
+type cmdWhoAmI struct{}
 
 func init() {
 	addCommand("whoami", shortWhoAmIHelp, longWhoAmIHelp, func() flags.Commander { return &cmdWhoAmI{} }, nil, nil)
@@ -45,7 +43,7 @@ func (cmd cmdWhoAmI) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	email, err := cmd.client.WhoAmI()
+	email, err := Client().WhoAmI()
 	if err != nil {
 		return err
 	}

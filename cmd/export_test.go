@@ -24,14 +24,14 @@ var (
 	CoreSupportsReExec   = coreSupportsReExec
 )
 
-func MockCoreSnapdPaths(newCoreSnap, newSnapdSnap string) func() {
-	oldOldCore := coreSnap
-	oldNewCore := snapdSnap
-	snapdSnap = newSnapdSnap
-	coreSnap = newCoreSnap
+func MockCorePaths(newOldCore, newNewCore string) func() {
+	oldOldCore := oldCore
+	oldNewCore := newCore
+	newCore = newNewCore
+	oldCore = newOldCore
 	return func() {
-		snapdSnap = oldNewCore
-		coreSnap = oldOldCore
+		newCore = oldNewCore
+		oldCore = oldOldCore
 	}
 }
 
@@ -48,5 +48,13 @@ func MockSyscallExec(f func(argv0 string, argv []string, envv []string) (err err
 	syscallExec = f
 	return func() {
 		syscallExec = oldSyscallExec
+	}
+}
+
+func MockOsReadlink(f func(string) (string, error)) func() {
+	realOsReadlink := osReadlink
+	osReadlink = f
+	return func() {
+		osReadlink = realOsReadlink
 	}
 }

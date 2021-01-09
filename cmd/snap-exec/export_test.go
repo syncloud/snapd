@@ -49,12 +49,3 @@ func SetOptsHook(s string) {
 func GetOptsHook() string {
 	return opts.Hook
 }
-
-// MockOsReadlink is for use in tests
-func MockOsReadlink(f func(string) (string, error)) func() {
-	realOsReadlink := osReadlink
-	osReadlink = f
-	return func() {
-		osReadlink = realOsReadlink
-	}
-}

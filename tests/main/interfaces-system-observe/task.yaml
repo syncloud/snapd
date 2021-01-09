@@ -1,8 +1,5 @@
 summary: Ensures that the system-observe interface works.
 
-# on s390x we do not have a serial port to observe
-systems: [-ubuntu-*-s390x]
-
 details: |
     A snap declaring the system-observe plug is defined, its command
     just calls ps -ax.
@@ -21,16 +18,23 @@ prepare: |
     fi
 
 restore: |
+    rm -f *.error
     if [[ "$SPREAD_SYSTEM" != ubuntu-14.04-* ]]; then
         systemctl stop systemd-hostnamed
     fi
 
 execute: |
-    echo "The interface is disconnected by default"
-    snap interfaces -i system-observe | MATCH -- '^- +test-snapd-system-observe-consumer:system-observe'
+    CONNECTED_PATTERN=":system-observe +test-snapd-system-observe-consumer"
+    DISCONNECTED_PATTERN="^\- +test-snapd-system-observe-consumer:system-observe"
 
-    echo "When the interface is connected"
+    echo "Then the plug is shown as disconnected"
+    snap interfaces | MATCH "$DISCONNECTED_PATTERN"
+
+    echo "==========================================="
+
+    echo "When the plug is connected"
     snap connect test-snapd-system-observe-consumer:system-observe
+    snap interfaces | MATCH "$CONNECTED_PATTERN"
 
     echo "Then the snap is able to get system information"
     expected="/dev/tty.*?serial"
@@ -42,29 +46,26 @@ execute: |
         su -l -c "test-snapd-system-observe-consumer.dbus-introspect" test | MATCH "$expected"
     fi
 
-    if [ "$(snap debug confinement)" = partial ] ; then
-        exit 0
-    fi
+    if [ "$(snap debug confinement)" = strict ] ; then
+        echo "==========================================="
 
-    echo "And the policy has the ptrace suppression rule"
-    MATCH '^deny ptrace \(trace\),' < /var/lib/snapd/apparmor/profiles/snap.test-snapd-system-observe-consumer.consumer
+        echo "When the plug is disconnected"
+        snap disconnect test-snapd-system-observe-consumer:system-observe
+        snap interfaces | MATCH "$DISCONNECTED_PATTERN"
 
-    echo "When the plug is disconnected"
-    snap disconnect test-snapd-system-observe-consumer:system-observe
-
-    echo "Then the snap is not able to get system information"
-    if su -l -c "test-snapd-system-observe-consumer.consumer" test 2> consumer.error; then
-        echo "Expected error with plug disconnected"
-        exit 1
-    fi
-    MATCH "Permission denied" < consumer.error
-
-    if [[ "$SPREAD_SYSTEM" != ubuntu-14.04-* ]]; then
-        echo "And the snap is not able to introspect hostname1"
-        if su -l -c "test-snapd-system-observe-consumer.dbus-introspect" test 2> introspect.error; then
+        echo "Then the snap is not able to get system information"
+        if su -l -c "test-snapd-system-observe-consumer.consumer 2>${PWD}/consumer.error" test; then
             echo "Expected error with plug disconnected"
             exit 1
         fi
-        MATCH "Permission denied" < introspect.error
-    fi
+        cat consumer.error | MATCH "Permission denied"
 
+        if [[ "$SPREAD_SYSTEM" != ubuntu-14.04-* ]]; then
+            echo "And the snap is not able to introspect hostname1"
+            if su -l -c "test-snapd-system-observe-consumer.dbus-introspect 2>${PWD}/introspect.error" test; then
+                echo "Expected error with plug disconnected"
+                exit 1
+            fi
+            cat introspect.error | MATCH "Permission denied"
+        fi
+    fi

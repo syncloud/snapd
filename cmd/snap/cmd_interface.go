@@ -20,7 +20,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -33,7 +32,6 @@ import (
 )
 
 type cmdInterface struct {
-	clientMixin
 	ShowAttrs   bool `long:"attrs"`
 	ShowAll     bool `long:"all"`
 	Positionals struct {
@@ -41,7 +39,7 @@ type cmdInterface struct {
 	} `positional-args:"true"`
 }
 
-var shortInterfaceHelp = i18n.G("Show details of snap interfaces")
+var shortInterfaceHelp = i18n.G("Lists snap interfaces")
 var longInterfaceHelp = i18n.G(`
 The interface command shows details of snap interfaces.
 
@@ -53,14 +51,12 @@ func init() {
 	addCommand("interface", shortInterfaceHelp, longInterfaceHelp, func() flags.Commander {
 		return &cmdInterface{}
 	}, map[string]string{
-		// TRANSLATORS: This should not start with a lowercase letter.
 		"attrs": i18n.G("Show interface attributes"),
-		// TRANSLATORS: This should not start with a lowercase letter.
-		"all": i18n.G("Include unused interfaces"),
+		"all":   i18n.G("Include unused interfaces"),
 	}, []argDesc{{
-		// TRANSLATORS: This needs to begin with < and end with >
+		// TRANSLATORS: This needs to be wrapped in <>s.
 		name: i18n.G("<interface>"),
-		// TRANSLATORS: This should not start with a lowercase letter.
+		// TRANSLATORS: This should probably not start with a lowercase letter.
 		desc: i18n.G("Show details of a specific interface"),
 	}})
 }
@@ -73,7 +69,7 @@ func (x *cmdInterface) Execute(args []string) error {
 	if x.Positionals.Interface != "" {
 		// Show one interface in detail.
 		name := string(x.Positionals.Interface)
-		ifaces, err := x.client.Interfaces(&client.InterfaceOptions{
+		ifaces, err := Client().Interfaces(&client.InterfaceOptions{
 			Names: []string{name},
 			Doc:   true,
 			Plugs: true,
@@ -88,7 +84,7 @@ func (x *cmdInterface) Execute(args []string) error {
 		x.showOneInterface(ifaces[0])
 	} else {
 		// Show an overview of available interfaces.
-		ifaces, err := x.client.Interfaces(&client.InterfaceOptions{
+		ifaces, err := Client().Interfaces(&client.InterfaceOptions{
 			Connected: !x.ShowAll,
 		})
 		if err != nil {
@@ -183,7 +179,7 @@ func (x *cmdInterface) showAttrs(w io.Writer, attrs map[string]interface{}, inde
 	for _, name := range names {
 		value := attrs[name]
 		switch value.(type) {
-		case string, bool, json.Number:
+		case string, int, bool:
 			fmt.Fprintf(w, "%s  %s:\t%v\n", indent, name, value)
 		}
 	}

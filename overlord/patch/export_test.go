@@ -25,7 +25,7 @@ import (
 )
 
 // PatchesForTest returns the registered set of patches for testing purposes.
-func PatchesForTest() map[int][]PatchFunc {
+func PatchesForTest() map[int]func(*state.State) error {
 	return patches
 }
 
@@ -37,32 +37,10 @@ func MockPatch1ReadType(f func(name string, rev snap.Revision) (snap.Type, error
 }
 
 // MockLevel replaces the current implemented patch level
-func MockLevel(lv, sublvl int) (restorer func()) {
+func MockLevel(lv int) (restorer func()) {
 	old := Level
 	Level = lv
-	oldSublvl := Sublevel
-	Sublevel = sublvl
-	oldPatches := make(map[int][]PatchFunc)
-	for k, v := range patches {
-		oldPatches[k] = v
-	}
-
-	for level, sublevels := range patches {
-		if level > lv {
-			delete(patches, level)
-			continue
-		}
-		if level == lv && len(sublevels)-1 > sublvl {
-			sublevels = sublevels[:sublvl+1]
-			patches[level] = sublevels
-		}
-	}
-
-	return func() {
-		patches = oldPatches
-		Level = old
-		Sublevel = oldSublvl
-	}
+	return func() { Level = old }
 }
 
 func Patch4TaskSnapSetup(task *state.Task) (*patch4SnapSetup, error) {

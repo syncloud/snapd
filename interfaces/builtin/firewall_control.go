@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -72,20 +72,15 @@ network inet raw,
 network inet6 raw,
 
 # iptables (note, we don't want to allow loading modules, but
-# we can allow reading @{PROC}/sys/kernel/modprobe).
-@{PROC}/sys/kernel/modprobe r,
-
-unix (bind, listen) type=stream addr="@xtables",
+# we can allow reading @{PROC}/sys/kernel/modprobe). Also,
+# snappy needs to have iptable_filter and ip6table_filter loaded,
+# they don't autoload.
+unix (bind) type=stream addr="@xtables",
 /{,var/}run/xtables.lock rwk,
+@{PROC}/sys/kernel/modprobe r,
 
 @{PROC}/@{pid}/net/ r,
 @{PROC}/@{pid}/net/** r,
-
-# nft accesses these for routing expressions and device groups
-/etc/iproute2/ r,
-/etc/iproute2/rt_marks r,
-/etc/iproute2/rt_realms r,
-/etc/iproute2/group r,
 
 # sysctl
 /{,usr/}{,s}bin/sysctl ixr,
@@ -108,14 +103,10 @@ unix (bind, listen) type=stream addr="@xtables",
 /sys/module/iptable_filter/initstate  r,
 /sys/module/ip6table_filter/          r,
 /sys/module/ip6table_filter/initstate r,
-/sys/module/nf_*/initstate            r,
 
 # read netfilter module parameters
 /sys/module/nf_*/                     r,
 /sys/module/nf_*/parameters/{,*}      r,
-
-# write netfilter module parameters
-/sys/module/nf_conntrack/parameters/hashsize w,
 
 # various firewall related sysctl files
 @{PROC}/sys/net/bridge/bridge-nf-call-arptables rw,
@@ -134,10 +125,6 @@ unix (bind, listen) type=stream addr="@xtables",
 @{PROC}/sys/net/ipv4/conf/*/log_martians w,
 @{PROC}/sys/net/ipv4/tcp_syncookies w,
 @{PROC}/sys/net/ipv6/conf/*/forwarding w,
-@{PROC}/sys/net/netfilter/nf_conntrack_helper rw,
-@{PROC}/sys/net/netfilter/nf_conntrack_max rw,
-@{PROC}/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait rw,
-@{PROC}/sys/net/netfilter/nf_conntrack_tcp_timeout_established rw,
 `
 
 // http://bazaar.launchpad.net/~ubuntu-security/ubuntu-core-security/trunk/view/head:/data/seccomp/policygroups/ubuntu-core/16.04/firewall-control
@@ -158,7 +145,6 @@ capset
 setuid
 `
 
-// These don't auto-load via iptables, etc
 var firewallControlConnectedPlugKmod = []string{
 	"arp_tables",
 	"br_netfilter",
@@ -176,5 +162,6 @@ func init() {
 		connectedPlugAppArmor:    firewallControlConnectedPlugAppArmor,
 		connectedPlugSecComp:     firewallControlConnectedPlugSecComp,
 		connectedPlugKModModules: firewallControlConnectedPlugKmod,
+		reservedForOS:            true,
 	})
 }

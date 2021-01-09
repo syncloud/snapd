@@ -72,5 +72,6 @@ func init() {
 		baseDeclarationSlots:  mountObserveBaseDeclarationSlots,
 		connectedPlugAppArmor: mountObserveConnectedPlugAppArmor,
 		connectedPlugSecComp:  mountObserveConnectedPlugSecComp,
+		reservedForOS:         true,
 	})
 }

@@ -23,70 +23,153 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
-	"unicode/utf8"
 
 	"github.com/jessevdk/go-flags"
 
 	"github.com/snapcore/snapd/client"
-	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/i18n"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/snap/channel"
-	"github.com/snapcore/snapd/strutil"
+	"github.com/snapcore/snapd/progress"
 )
 
+func lastLogStr(logs []string) string {
+	if len(logs) == 0 {
+		return ""
+	}
+	return logs[len(logs)-1]
+}
+
 var (
-	shortInstallHelp = i18n.G("Install snaps on the system")
-	shortRemoveHelp  = i18n.G("Remove snaps from the system")
-	shortRefreshHelp = i18n.G("Refresh snaps in the system")
-	shortTryHelp     = i18n.G("Test an unpacked snap in the system")
-	shortEnableHelp  = i18n.G("Enable a snap in the system")
-	shortDisableHelp = i18n.G("Disable a snap in the system")
+	maxGoneTime = 5 * time.Second
+	pollTime    = 100 * time.Millisecond
+)
+
+type waitMixin struct {
+	NoWait bool `long:"no-wait" hidden:"true"`
+}
+
+// TODO: use waitMixin outside of cmd_snap_op.go
+
+var waitDescs = mixinDescs{
+	"no-wait": i18n.G("Do not wait for the operation to finish but just print the change id."),
+}
+
+var noWait = errors.New("no wait for op")
+
+func (wmx *waitMixin) wait(cli *client.Client, id string) (*client.Change, error) {
+	if wmx.NoWait {
+		fmt.Fprintf(Stdout, "%s\n", id)
+		return nil, noWait
+	}
+	return wait(cli, id)
+}
+
+func wait(cli *client.Client, id string) (*client.Change, error) {
+	pb := progress.MakeProgressBar()
+	defer func() {
+		pb.Finished()
+	}()
+
+	tMax := time.Time{}
+
+	var lastID string
+	lastLog := map[string]string{}
+	for {
+		chg, err := cli.Change(id)
+		if err != nil {
+			// a client.Error means we were able to communicate with
+			// the server (got an answer)
+			if e, ok := err.(*client.Error); ok {
+				return nil, e
+			}
+
+			// an non-client error here means the server most
+			// likely went away
+			// XXX: it actually can be a bunch of other things; fix client to expose it better
+			now := time.Now()
+			if tMax.IsZero() {
+				tMax = now.Add(maxGoneTime)
+			}
+			if now.After(tMax) {
+				return nil, err
+			}
+			pb.Spin(i18n.G("Waiting for server to restart"))
+			time.Sleep(pollTime)
+			continue
+		}
+		if !tMax.IsZero() {
+			pb.Finished()
+			tMax = time.Time{}
+		}
+
+		for _, t := range chg.Tasks {
+			switch {
+			case t.Status != "Doing":
+				continue
+			case t.Progress.Total == 1:
+				pb.Spin(t.Summary)
+				nowLog := lastLogStr(t.Log)
+				if lastLog[t.ID] != nowLog {
+					pb.Notify(nowLog)
+					lastLog[t.ID] = nowLog
+				}
+			case t.ID == lastID:
+				pb.Set(float64(t.Progress.Done))
+			default:
+				pb.Start(t.Summary, float64(t.Progress.Total))
+				lastID = t.ID
+			}
+			break
+		}
+
+		if chg.Ready {
+			if chg.Status == "Done" {
+				return chg, nil
+			}
+
+			if chg.Err != "" {
+				return chg, errors.New(chg.Err)
+			}
+
+			return nil, fmt.Errorf(i18n.G("change finished in status %q with no error message"), chg.Status)
+		}
+
+		// note this very purposely is not a ticker; we want
+		// to sleep 100ms between calls, not call once every
+		// 100ms.
+		time.Sleep(pollTime)
+	}
+}
+
+var (
+	shortInstallHelp = i18n.G("Installs a snap to the system")
+	shortRemoveHelp  = i18n.G("Removes a snap from the system")
+	shortRefreshHelp = i18n.G("Refreshes a snap in the system")
+	shortTryHelp     = i18n.G("Tests a snap in the system")
+	shortEnableHelp  = i18n.G("Enables a snap in the system")
+	shortDisableHelp = i18n.G("Disables a snap in the system")
 )
 
 var longInstallHelp = i18n.G(`
-The install command installs the named snaps on the system.
-
-To install multiple instances of the same snap, append an underscore and a
-unique identifier (for each instance) to a snap's name.
-
-With no further options, the snaps are installed tracking the stable channel,
-with strict security confinement.
-
-Revision choice via the --revision override requires the the user to
-have developer access to the snap, either directly or through the
-store's collaboration feature, and to be logged in (see 'snap help login').
-
-Note a later refresh will typically undo a revision override, taking the snap
-back to the current revision of the channel it's tracking.
-
-Use --name to set the instance name when installing from snap file.
+The install command installs the named snap in the system.
 `)
 
 var longRemoveHelp = i18n.G(`
-The remove command removes the named snap instance from the system.
+The remove command removes the named snap from the system.
 
-By default all the snap revisions are removed, including their data and the
-common data directory. When a --revision option is passed only the specified
-revision is removed.
+By default all the snap revisions are removed, including their data and the common
+data directory. When a --revision option is passed only the specified revision is
+removed.
 `)
 
 var longRefreshHelp = i18n.G(`
-The refresh command updates the specified snaps, or all snaps in the system if
-none are specified.
-
-With no further options, the snaps are refreshed to the current revision of the
-channel they're tracking, preserving their confinement options.
-
-Revision choice via the --revision override requires the the user to
-have developer access to the snap, either directly or through the
-store's collaboration feature, and to be logged in (see 'snap help login').
-
-Note a later refresh will typically undo a revision override.
+The refresh command refreshes (updates) the named snap.
 `)
 
 var longTryHelp = i18n.G(`
@@ -106,7 +189,7 @@ The enable command enables a snap that was previously disabled.
 
 var longDisableHelp = i18n.G(`
 The disable command disables a snap. The binaries and services of the
-snap will no longer be available, but all the data is still available
+snap will no longer be available. But all the data is still available
 and the snap can easily be enabled again.
 `)
 
@@ -114,7 +197,6 @@ type cmdRemove struct {
 	waitMixin
 
 	Revision   string `long:"revision"`
-	Purge      bool   `long:"purge"`
 	Positional struct {
 		Snaps []installedSnapName `positional-arg-name:"<snap>" required:"1"`
 	} `positional-args:"yes" required:"yes"`
@@ -123,7 +205,8 @@ type cmdRemove struct {
 func (x *cmdRemove) removeOne(opts *client.SnapOptions) error {
 	name := string(x.Positional.Snaps[0])
 
-	changeID, err := x.client.Remove(name, opts)
+	cli := Client()
+	changeID, err := cli.Remove(name, opts)
 	if err != nil {
 		msg, err := errorToCmdMessage(name, err, opts)
 		if err != nil {
@@ -133,33 +216,31 @@ func (x *cmdRemove) removeOne(opts *client.SnapOptions) error {
 		return nil
 	}
 
-	if _, err := x.wait(changeID); err != nil {
-		if err == noWait {
-			return nil
-		}
+	_, err = x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
-	if opts.Revision != "" {
-		fmt.Fprintf(Stdout, i18n.G("%s (revision %s) removed\n"), name, opts.Revision)
-	} else {
-		fmt.Fprintf(Stdout, i18n.G("%s removed\n"), name)
-	}
+	fmt.Fprintf(Stdout, i18n.G("%s removed\n"), name)
 	return nil
 }
 
 func (x *cmdRemove) removeMany(opts *client.SnapOptions) error {
 	names := installedSnapNames(x.Positional.Snaps)
-	changeID, err := x.client.RemoveMany(names, opts)
+	cli := Client()
+	changeID, err := cli.RemoveMany(names, opts)
 	if err != nil {
 		return err
 	}
 
-	chg, err := x.wait(changeID)
+	chg, err := x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
 	if err != nil {
-		if err == noWait {
-			return nil
-		}
 		return err
 	}
 
@@ -186,7 +267,7 @@ func (x *cmdRemove) removeMany(opts *client.SnapOptions) error {
 }
 
 func (x *cmdRemove) Execute([]string) error {
-	opts := &client.SnapOptions{Revision: x.Revision, Purge: x.Purge}
+	opts := &client.SnapOptions{Revision: x.Revision}
 	if len(x.Positional.Snaps) == 1 {
 		return x.removeOne(opts)
 	}
@@ -221,16 +302,11 @@ func (mxd mixinDescs) also(m map[string]string) mixinDescs {
 }
 
 var channelDescs = mixinDescs{
-	// TRANSLATORS: This should not start with a lowercase letter.
-	"channel": i18n.G("Use this channel instead of stable"),
-	// TRANSLATORS: This should not start with a lowercase letter.
-	"beta": i18n.G("Install from the beta channel"),
-	// TRANSLATORS: This should not start with a lowercase letter.
-	"edge": i18n.G("Install from the edge channel"),
-	// TRANSLATORS: This should not start with a lowercase letter.
+	"channel":   i18n.G("Use this channel instead of stable"),
+	"beta":      i18n.G("Install from the beta channel"),
+	"edge":      i18n.G("Install from the edge channel"),
 	"candidate": i18n.G("Install from the candidate channel"),
-	// TRANSLATORS: This should not start with a lowercase letter.
-	"stable": i18n.G("Install from the stable channel"),
+	"stable":    i18n.G("Install from the stable channel"),
 }
 
 func (mx *channelMixin) setChannelFromCommandline() error {
@@ -252,74 +328,23 @@ func (mx *channelMixin) setChannelFromCommandline() error {
 		mx.Channel = ch.chName
 	}
 
-	if mx.Channel != "" {
-		if ch, err := channel.Parse(mx.Channel, ""); err != nil {
-			full, er := channel.Full(mx.Channel)
-			if er != nil {
-				// the parse error has more detailed info
-				return err
-			}
-
-			// TODO: get escapes in here so we can bold the Warning
-			head := i18n.G("Warning:")
-			msg := i18n.G("Specifying a channel %q is relying on undefined behaviour. Interpreting it as %q for now, but this will be an error later.\n")
-			warn := fill(fmt.Sprintf(msg, mx.Channel, full), utf8.RuneCountInString(head)+1) // +1 for the space
-			fmt.Fprint(Stderr, head, " ", warn, "\n\n")
-			mx.Channel = full // so a malformed-but-eh channel will always be full, i.e. //stable// -> latest/stable
-		} else {
-			// because snap.ParseChannel calls Clean() on the channel,
-			// the name will be the short form name that we want
-			mx.Channel = ch.Name
-		}
+	if !strings.Contains(mx.Channel, "/") && mx.Channel != "" && mx.Channel != "edge" && mx.Channel != "beta" && mx.Channel != "candidate" && mx.Channel != "stable" {
+		// shortcut to jump to a different track, e.g.
+		// snap install foo --channel=3.4 # implies 3.4/stable
+		mx.Channel += "/stable"
 	}
 
 	return nil
 }
 
-// isSnapInPath checks whether the snap binaries dir (e.g. /snap/bin)
-// is in $PATH.
-//
-// TODO: consider symlinks
-func isSnapInPath() bool {
-	paths := filepath.SplitList(os.Getenv("PATH"))
-	for _, path := range paths {
-		if filepath.Clean(path) == dirs.SnapBinariesDir {
-			return true
-		}
-	}
-	return false
-}
-
-func isSameRisk(tracking, current string) (bool, error) {
-	if tracking == current {
-		return true, nil
-	}
-	var trackingRisk, currentRisk string
-	if tracking != "" {
-		traCh, err := channel.Parse(tracking, "")
-		if err != nil {
-			return false, err
-		}
-		trackingRisk = traCh.Risk
-	}
-	if current != "" {
-		curCh, err := channel.Parse(current, "")
-		if err != nil {
-			return false, err
-		}
-		currentRisk = curCh.Risk
-	}
-	return trackingRisk == currentRisk, nil
-}
-
 // show what has been done
-func showDone(cli *client.Client, names []string, op string, opts *client.SnapOptions, esc *escapes) error {
+func showDone(names []string, op string) error {
+	cli := Client()
 	snaps, err := cli.List(names, nil)
 	if err != nil {
 		return err
 	}
 
-	needsPathWarning := !isSnapInPath()
 	for _, snap := range snaps {
 		channelStr := ""
 		if snap.Channel != "" && snap.Channel != "stable" {
@@ -327,32 +352,17 @@ func showDone(cli *client.Client, names []string, op string, opts *client.SnapOp
 		}
 		switch op {
 		case "install":
-			if needsPathWarning {
-				head := i18n.G("Warning:")
-				warn := fill(fmt.Sprintf(i18n.G("%s was not found in your $PATH. If you've not restarted your session since you installed snapd, try doing that. Please see https://forum.snapcraft.io/t/9469 for more details."), dirs.SnapBinariesDir), utf8.RuneCountInString(head)+1) // +1 for the space
-				fmt.Fprint(Stderr, esc.bold, head, esc.end, " ", warn, "\n\n")
-				needsPathWarning = false
-			}
-
-			if opts != nil && opts.Classic && snap.Confinement != client.ClassicConfinement {
-				// requested classic but the snap is not classic
-				head := i18n.G("Warning:")
-				// TRANSLATORS: the arg is a snap name (e.g. "some-snap")
-				warn := fill(fmt.Sprintf(i18n.G("flag --classic ignored for strictly confined snap %s"), snap.Name), utf8.RuneCountInString(head)+1) // +1 for the space
-				fmt.Fprint(Stderr, esc.bold, head, esc.end, " ", warn, "\n\n")
-			}
-
-			if snap.Publisher != nil {
-				// TRANSLATORS: the args are a snap name optionally followed by a channel, then a version, then the developer name (e.g. "some-snap (beta) 1.3 from Alice installed")
-				fmt.Fprintf(Stdout, i18n.G("%s%s %s from %s installed\n"), snap.Name, channelStr, snap.Version, longPublisher(esc, snap.Publisher))
+			if snap.Developer != "" {
+				// TRANSLATORS: the args are a snap name optionally followed by a channel, then a version, then the developer name (e.g. "some-snap (beta) 1.3 from 'alice' installed")
+				fmt.Fprintf(Stdout, i18n.G("%s%s %s from '%s' installed\n"), snap.Name, channelStr, snap.Version, snap.Developer)
 			} else {
 				// TRANSLATORS: the args are a snap name optionally followed by a channel, then a version (e.g. "some-snap (beta) 1.3 installed")
 				fmt.Fprintf(Stdout, i18n.G("%s%s %s installed\n"), snap.Name, channelStr, snap.Version)
 			}
 		case "refresh":
-			if snap.Publisher != nil {
-				// TRANSLATORS: the args are a snap name optionally followed by a channel, then a version, then the developer name (e.g. "some-snap (beta) 1.3 from Alice refreshed")
-				fmt.Fprintf(Stdout, i18n.G("%s%s %s from %s refreshed\n"), snap.Name, channelStr, snap.Version, longPublisher(esc, snap.Publisher))
+			if snap.Developer != "" {
+				// TRANSLATORS: the args are a snap name optionally followed by a channel, then a version, then the developer name (e.g. "some-snap (beta) 1.3 from 'alice' refreshed")
+				fmt.Fprintf(Stdout, i18n.G("%s%s %s from '%s' refreshed\n"), snap.Name, channelStr, snap.Version, snap.Developer)
 			} else {
 				// TRANSLATORS: the args are a snap name optionally followed by a channel, then a version (e.g. "some-snap (beta) 1.3 refreshed")
 				fmt.Fprintf(Stdout, i18n.G("%s%s %s refreshed\n"), snap.Name, channelStr, snap.Version)
@@ -360,40 +370,12 @@ func showDone(cli *client.Client, names []string, op string, opts *client.SnapOp
 		case "revert":
 			// TRANSLATORS: first %s is a snap name, second %s is a revision
 			fmt.Fprintf(Stdout, i18n.G("%s reverted to %s\n"), snap.Name, snap.Version)
-		case "switch":
-			switchCohort := opts.CohortKey != ""
-			switchChannel := opts.Channel != ""
-			var msg string
-			// we have three boolean things to check, meaning 2³=8 possibilities,
-			// minus 3 error cases which are handled before the call to showDone.
-			switch {
-			case switchCohort && !opts.LeaveCohort && !switchChannel:
-				// TRANSLATORS: the first %q will be the (quoted) snap name, the second an ellipted cohort string
-				msg = fmt.Sprintf(i18n.G("%q switched to the %q cohort\n"), snap.Name, strutil.ElliptLeft(opts.CohortKey, 10))
-			case switchCohort && !opts.LeaveCohort && switchChannel:
-				// TRANSLATORS: the first %q will be the (quoted) snap name, the second a channel, the third an ellipted cohort string
-				msg = fmt.Sprintf(i18n.G("%q switched to the %q channel and the %q cohort\n"), snap.Name, snap.TrackingChannel, strutil.ElliptLeft(opts.CohortKey, 10))
-			case !switchCohort && !opts.LeaveCohort && switchChannel:
-				// TRANSLATORS: the first %q will be the (quoted) snap name, the second a channel
-				msg = fmt.Sprintf(i18n.G("%q switched to the %q channel\n"), snap.Name, snap.TrackingChannel)
-			case !switchCohort && opts.LeaveCohort && switchChannel:
-				// TRANSLATORS: the first %q will be the (quoted) snap name, the second a channel
-				msg = fmt.Sprintf(i18n.G("%q left the cohort, and switched to the %q channel"), snap.Name, snap.TrackingChannel)
-			case !switchCohort && opts.LeaveCohort && !switchChannel:
-				// TRANSLATORS: %q will be the (quoted) snap name
-				msg = fmt.Sprintf(i18n.G("%q left the cohort"), snap.Name)
-			}
-			fmt.Fprintln(Stdout, msg)
 		default:
 			fmt.Fprintf(Stdout, "internal error: unknown op %q", op)
 		}
-		if op == "install" || op == "refresh" {
-			if snap.TrackingChannel != snap.Channel && snap.Channel != "" {
-				if sameRisk, err := isSameRisk(snap.TrackingChannel, snap.Channel); err == nil && !sameRisk {
-					// TRANSLATORS: first %s is a channel name, following %s is a snap name, last %s is a channel name again.
-					fmt.Fprintf(Stdout, i18n.G("Channel %s for %s is closed; temporarily forwarding to %s.\n"), snap.TrackingChannel, snap.Name, snap.Channel)
-				}
-			}
+		if snap.TrackingChannel != snap.Channel {
+			// TRANSLATORS: first %s is a snap name, following %s is a channel name
+			fmt.Fprintf(Stdout, i18n.G("Snap %s is no longer tracking %s.\n"), snap.Name, snap.TrackingChannel)
 		}
 	}
 
@@ -411,11 +393,8 @@ type modeMixin struct {
 }
 
 var modeDescs = mixinDescs{
-	// TRANSLATORS: This should not start with a lowercase letter.
-	"classic": i18n.G("Put snap in classic mode and disable security confinement"),
-	// TRANSLATORS: This should not start with a lowercase letter.
-	"devmode": i18n.G("Put snap in development mode and disable security confinement"),
-	// TRANSLATORS: This should not start with a lowercase letter.
+	"classic":  i18n.G("Put snap in classic mode and disable security confinement"),
+	"devmode":  i18n.G("Put snap in development mode and disable security confinement"),
 	"jailmode": i18n.G("Put snap in enforced confinement mode"),
 }
 
@@ -439,7 +418,6 @@ func (mx modeMixin) setModes(opts *client.SnapOptions) {
 }
 
 type cmdInstall struct {
-	colorMixin
 	waitMixin
 
 	channelMixin
@@ -453,32 +431,39 @@ type cmdInstall struct {
 
 	Unaliased bool `long:"unaliased"`
 
-	Name string `long:"name"`
-
-	Cohort     string `long:"cohort"`
 	Positional struct {
 		Snaps []remoteSnapName `positional-arg-name:"<snap>"`
 	} `positional-args:"yes" required:"yes"`
 }
 
-func (x *cmdInstall) installOne(nameOrPath, desiredName string, opts *client.SnapOptions) error {
-	var err error
-	var changeID string
-	var snapName string
-	var path string
-
-	if strings.Contains(nameOrPath, "/") || strings.HasSuffix(nameOrPath, ".snap") || strings.Contains(nameOrPath, ".snap.") {
-		path = nameOrPath
-		changeID, err = x.client.InstallPath(path, x.Name, opts)
-	} else {
-		snapName = nameOrPath
-		if desiredName != "" {
-			return errors.New(i18n.G("cannot use explicit name when installing from store"))
+func setupAbortHandler(changeId string) {
+	// Intercept sigint
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, syscall.SIGINT)
+	go func() {
+		<-c
+		cli := Client()
+		_, err := cli.Abort(changeId)
+		if err != nil {
+			fmt.Fprintf(Stderr, err.Error()+"\n")
 		}
-		changeID, err = x.client.Install(snapName, opts)
+	}()
+}
+
+func (x *cmdInstall) installOne(name string, opts *client.SnapOptions) error {
+	var err error
+	var installFromFile bool
+	var changeID string
+
+	cli := Client()
+	if strings.Contains(name, "/") || strings.HasSuffix(name, ".snap") || strings.Contains(name, ".snap.") {
+		installFromFile = true
+		changeID, err = cli.InstallPath(name, opts)
+	} else {
+		changeID, err = cli.Install(name, opts)
 	}
 	if err != nil {
-		msg, err := errorToCmdMessage(nameOrPath, err, opts)
+		msg, err := errorToCmdMessage(name, err, opts)
 		if err != nil {
 			return err
 		}
@@ -486,23 +471,27 @@ func (x *cmdInstall) installOne(nameOrPath, desiredName string, opts *client.Sna
 		return nil
 	}
 
-	chg, err := x.wait(changeID)
+	setupAbortHandler(changeID)
+
+	chg, err := x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
 	if err != nil {
-		if err == noWait {
-			return nil
-		}
 		return err
 	}
 
 	// extract the snapName from the change, important for sideloaded
-	if path != "" {
+	var snapName string
+
+	if installFromFile {
 		if err := chg.Get("snap-name", &snapName); err != nil {
-			return fmt.Errorf("cannot extract the snap-name from local file %q: %s", nameOrPath, err)
+			return fmt.Errorf("cannot extract the snap-name from local file %q: %s", name, err)
 		}
+		name = snapName
 	}
 
-	// TODO: mention details of the install (e.g. like switch does)
-	return showDone(x.client, []string{snapName}, "install", opts, x.getEscapes())
+	return showDone([]string{name}, "install")
 }
 
 func (x *cmdInstall) installMany(names []string, opts *client.SnapOptions) error {
@@ -513,7 +502,8 @@ func (x *cmdInstall) installMany(names []string, opts *client.SnapOptions) error
 		}
 	}
 
-	changeID, err := x.client.InstallMany(names, opts)
+	cli := Client()
+	changeID, err := cli.InstallMany(names, opts)
 	if err != nil {
 		var snapName string
 		if err, ok := err.(*client.Error); ok {
@@ -527,11 +517,13 @@ func (x *cmdInstall) installMany(names []string, opts *client.SnapOptions) error
 		return nil
 	}
 
-	chg, err := x.wait(changeID)
+	setupAbortHandler(changeID)
+
+	chg, err := x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
 	if err != nil {
-		if err == noWait {
-			return nil
-		}
 		return err
 	}
 
@@ -541,7 +533,7 @@ func (x *cmdInstall) installMany(names []string, opts *client.SnapOptions) error
 	}
 
 	if len(installed) > 0 {
-		if err := showDone(x.client, installed, "install", opts, x.getEscapes()); err != nil {
+		if err := showDone(installed, "install"); err != nil {
 			return err
 		}
 	}
@@ -576,45 +568,29 @@ func (x *cmdInstall) Execute([]string) error {
 		Revision:  x.Revision,
 		Dangerous: dangerous,
 		Unaliased: x.Unaliased,
-		CohortKey: x.Cohort,
 	}
 	x.setModes(opts)
 
 	names := remoteSnapNames(x.Positional.Snaps)
-	if len(names) == 0 {
-		return errors.New(i18n.G("cannot install zero snaps"))
-	}
-	for _, name := range names {
-		if len(name) == 0 {
-			return errors.New(i18n.G("cannot install snap with empty name"))
-		}
-	}
-
 	if len(names) == 1 {
-		return x.installOne(names[0], x.Name, opts)
+		return x.installOne(names[0], opts)
 	}
 
 	if x.asksForMode() || x.asksForChannel() {
 		return errors.New(i18n.G("a single snap name is needed to specify mode or channel flags"))
 	}
 
-	if x.Name != "" {
-		return errors.New(i18n.G("cannot use instance name when installing multiple snaps"))
-	}
 	return x.installMany(names, nil)
 }
 
 type cmdRefresh struct {
-	colorMixin
-	timeMixin
 	waitMixin
+
 	channelMixin
 	modeMixin
 
 	Amend            bool   `long:"amend"`
 	Revision         string `long:"revision"`
-	Cohort           string `long:"cohort"`
-	LeaveCohort      bool   `long:"leave-cohort"`
 	List             bool   `long:"list"`
 	Time             bool   `long:"time"`
 	IgnoreValidation bool   `long:"ignore-validation"`
@@ -624,16 +600,17 @@ type cmdRefresh struct {
 }
 
 func (x *cmdRefresh) refreshMany(snaps []string, opts *client.SnapOptions) error {
-	changeID, err := x.client.RefreshMany(snaps, opts)
+	cli := Client()
+	changeID, err := cli.RefreshMany(snaps, opts)
 	if err != nil {
 		return err
 	}
 
-	chg, err := x.wait(changeID)
+	chg, err := x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
 	if err != nil {
-		if err == noWait {
-			return nil
-		}
 		return err
 	}
 
@@ -643,7 +620,7 @@ func (x *cmdRefresh) refreshMany(snaps []string, opts *client.SnapOptions) error
 	}
 
 	if len(refreshed) > 0 {
-		return showDone(x.client, refreshed, "refresh", opts, x.getEscapes())
+		return showDone(refreshed, "refresh")
 	}
 
 	fmt.Fprintln(Stderr, i18n.G("All snaps up to date."))
@@ -652,7 +629,8 @@ func (x *cmdRefresh) refreshMany(snaps []string, opts *client.SnapOptions) error
 }
 
 func (x *cmdRefresh) refreshOne(name string, opts *client.SnapOptions) error {
-	changeID, err := x.client.Refresh(name, opts)
+	cli := Client()
+	changeID, err := cli.Refresh(name, opts)
 	if err != nil {
 		msg, err := errorToCmdMessage(name, err, opts)
 		if err != nil {
@@ -662,28 +640,20 @@ func (x *cmdRefresh) refreshOne(name string, opts *client.SnapOptions) error {
 		return nil
 	}
 
-	if _, err := x.wait(changeID); err != nil {
-		if err == noWait {
-			return nil
-		}
+	_, err = x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
-	// TODO: this doesn't really tell about all the things you
-	// could set while refreshing (something switch does)
-	return showDone(x.client, []string{name}, "refresh", opts, x.getEscapes())
-}
-
-func parseSysinfoTime(s string) time.Time {
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return time.Time{}
-	}
-	return t
+	return showDone([]string{name}, "refresh")
 }
 
 func (x *cmdRefresh) showRefreshTimes() error {
-	sysinfo, err := x.client.SysInfo()
+	cli := Client()
+	sysinfo, err := cli.SysInfo()
 	if err != nil {
 		return err
 	}
@@ -695,27 +665,13 @@ func (x *cmdRefresh) showRefreshTimes() error {
 	} else {
 		return errors.New("internal error: both refresh.timer and refresh.schedule are empty")
 	}
-	last := parseSysinfoTime(sysinfo.Refresh.Last)
-	hold := parseSysinfoTime(sysinfo.Refresh.Hold)
-	next := parseSysinfoTime(sysinfo.Refresh.Next)
-
-	if !last.IsZero() {
-		fmt.Fprintf(Stdout, "last: %s\n", x.fmtTime(last))
+	if sysinfo.Refresh.Last != "" {
+		fmt.Fprintf(Stdout, "last: %s\n", sysinfo.Refresh.Last)
 	} else {
 		fmt.Fprintf(Stdout, "last: n/a\n")
 	}
-	if !hold.IsZero() {
-		fmt.Fprintf(Stdout, "hold: %s\n", x.fmtTime(hold))
-	}
-	// only show "next" if its after "hold" to not confuse users
-	if !next.IsZero() {
-		// Snapstate checks for holdTime.After(limitTime) so we need
-		// to check for before or equal here to be fully correct.
-		if next.Before(hold) || next.Equal(hold) {
-			fmt.Fprintf(Stdout, "next: %s (but held)\n", x.fmtTime(next))
-		} else {
-			fmt.Fprintf(Stdout, "next: %s\n", x.fmtTime(next))
-		}
+	if sysinfo.Refresh.Next != "" {
+		fmt.Fprintf(Stdout, "next: %s\n", sysinfo.Refresh.Next)
 	} else {
 		fmt.Fprintf(Stdout, "next: n/a\n")
 	}
@@ -723,7 +679,8 @@ func (x *cmdRefresh) showRefreshTimes() error {
 }
 
 func (x *cmdRefresh) listRefresh() error {
-	snaps, _, err := x.client.Find(&client.FindOptions{
+	cli := Client()
+	snaps, _, err := cli.Find(&client.FindOptions{
 		Refresh: true,
 	})
 	if err != nil {
@@ -736,14 +693,12 @@ func (x *cmdRefresh) listRefresh() error {
 
 	sort.Sort(snapsByName(snaps))
 
-	esc := x.getEscapes()
 	w := tabWriter()
 	defer w.Flush()
 
-	// TRANSLATORS: the %s is to insert a filler escape sequence (please keep it flush to the column header, with no extra spaces)
-	fmt.Fprintf(w, i18n.G("Name\tVersion\tRev\tPublisher%s\tNotes\n"), fillerPublisher(esc))
+	fmt.Fprintln(w, i18n.G("Name\tVersion\tRev\tDeveloper\tNotes"))
 	for _, snap := range snaps {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", snap.Name, snap.Version, snap.Revision, shortPublisher(esc, snap.Publisher), NotesFromRemote(snap, nil))
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", snap.Name, snap.Version, snap.Revision, snap.Developer, NotesFromRemote(snap, nil))
 	}
 
 	return nil
@@ -759,14 +714,14 @@ func (x *cmdRefresh) Execute([]string) error {
 
 	if x.Time {
 		if x.asksForMode() || x.asksForChannel() {
-			return errors.New(i18n.G("--time does not take mode or channel flags"))
+			return errors.New(i18n.G("--time does not take mode nor channel flags"))
 		}
 		return x.showRefreshTimes()
 	}
 
 	if x.List {
-		if len(x.Positional.Snaps) > 0 || x.asksForMode() || x.asksForChannel() {
-			return errors.New(i18n.G("--list does not accept additional arguments"))
+		if x.asksForMode() || x.asksForChannel() {
+			return errors.New(i18n.G("--list does not take mode nor channel flags"))
 		}
 
 		return x.listRefresh()
@@ -784,8 +739,6 @@ func (x *cmdRefresh) Execute([]string) error {
 			Channel:          x.Channel,
 			IgnoreValidation: x.IgnoreValidation,
 			Revision:         x.Revision,
-			CohortKey:        x.Cohort,
-			LeaveCohort:      x.LeaveCohort,
 		}
 		x.setModes(opts)
 		return x.refreshOne(names[0], opts)
@@ -829,6 +782,7 @@ func (x *cmdTry) Execute([]string) error {
 	if err := x.validateMode(); err != nil {
 		return err
 	}
+	cli := Client()
 	name := x.Positional.SnapDir
 	opts := &client.SnapOptions{}
 	x.setModes(opts)
@@ -852,21 +806,21 @@ func (x *cmdTry) Execute([]string) error {
 		return fmt.Errorf(i18n.G("cannot get full path for %q: %v"), name, err)
 	}
 
-	changeID, err := x.client.Try(path, opts)
+	changeID, err := cli.Try(path, opts)
+	if e, ok := err.(*client.Error); ok && e.Kind == client.ErrorKindNotSnap {
+		return fmt.Errorf(i18n.G(`%q does not contain an unpacked snap.
+
+Try "snapcraft prime" in your project directory, then "snap try" again.`), path)
+	}
 	if err != nil {
-		msg, err := errorToCmdMessage(name, err, opts)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(Stderr, msg)
-		return nil
+		return err
 	}
 
-	chg, err := x.wait(changeID)
+	chg, err := x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
 	if err != nil {
-		if err == noWait {
-			return nil
-		}
 		return err
 	}
 
@@ -879,7 +833,7 @@ func (x *cmdTry) Execute([]string) error {
 	name = snapName
 
 	// show output as speced
-	snaps, err := x.client.List([]string{name}, nil)
+	snaps, err := cli.List([]string{name}, nil)
 	if err != nil {
 		return err
 	}
@@ -902,17 +856,19 @@ type cmdEnable struct {
 }
 
 func (x *cmdEnable) Execute([]string) error {
+	cli := Client()
 	name := string(x.Positional.Snap)
 	opts := &client.SnapOptions{}
-	changeID, err := x.client.Enable(name, opts)
+	changeID, err := cli.Enable(name, opts)
 	if err != nil {
 		return err
 	}
 
-	if _, err := x.wait(changeID); err != nil {
-		if err == noWait {
-			return nil
-		}
+	_, err = x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
@@ -929,17 +885,19 @@ type cmdDisable struct {
 }
 
 func (x *cmdDisable) Execute([]string) error {
+	cli := Client()
 	name := string(x.Positional.Snap)
 	opts := &client.SnapOptions{}
-	changeID, err := x.client.Disable(name, opts)
+	changeID, err := cli.Disable(name, opts)
 	if err != nil {
 		return err
 	}
 
-	if _, err := x.wait(changeID); err != nil {
-		if err == noWait {
-			return nil
-		}
+	_, err = x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
@@ -976,22 +934,24 @@ func (x *cmdRevert) Execute(args []string) error {
 		return err
 	}
 
+	cli := Client()
 	name := string(x.Positional.Snap)
 	opts := &client.SnapOptions{Revision: x.Revision}
 	x.setModes(opts)
-	changeID, err := x.client.Revert(name, opts)
+	changeID, err := cli.Revert(name, opts)
 	if err != nil {
 		return err
 	}
 
-	if _, err := x.wait(changeID); err != nil {
-		if err == noWait {
-			return nil
-		}
+	_, err = x.wait(cli, changeID)
+	if err == noWait {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
-	return showDone(x.client, []string{name}, "revert", nil, nil)
+	return showDone([]string{name}, "revert")
 }
 
 var shortSwitchHelp = i18n.G("Switches snap to a different channel")
@@ -1001,11 +961,7 @@ doing a refresh.
 `)
 
 type cmdSwitch struct {
-	waitMixin
 	channelMixin
-
-	Cohort      string `long:"cohort"`
-	LeaveCohort bool   `long:"leave-cohort"`
 
 	Positional struct {
 		Snap installedSnapName `positional-arg-name:"<snap>" required:"1"`
@@ -1016,95 +972,53 @@ func (x cmdSwitch) Execute(args []string) error {
 	if err := x.setChannelFromCommandline(); err != nil {
 		return err
 	}
+	if x.Channel == "" {
+		return fmt.Errorf("missing --channel=<channel-name> parameter")
+	}
 
+	cli := Client()
 	name := string(x.Positional.Snap)
 	channel := string(x.Channel)
-
-	switchCohort := x.Cohort != ""
-	switchChannel := x.Channel != ""
-
-	// we have three boolean things to check, meaning 2³=8 possibilities
-	// of which 3 are errors (which is why we look at the errors first).
-	// the 5 valid cases are handled by showDone.
-	if switchCohort && x.LeaveCohort {
-		// this one counts as two (no channel filter)
-		return fmt.Errorf(i18n.G("cannot specify both --cohort and --leave-cohort"))
-	}
-	if !switchCohort && !x.LeaveCohort && !switchChannel {
-		return fmt.Errorf(i18n.G("nothing to switch; specify --channel (and/or one of --cohort/--leave-cohort)"))
-	}
-
 	opts := &client.SnapOptions{
-		Channel:     channel,
-		CohortKey:   x.Cohort,
-		LeaveCohort: x.LeaveCohort,
+		Channel: channel,
 	}
-	changeID, err := x.client.Switch(name, opts)
+	changeID, err := cli.Switch(name, opts)
 	if err != nil {
 		return err
 	}
 
-	if _, err := x.wait(changeID); err != nil {
-		if err == noWait {
-			return nil
-		}
+	if _, err = wait(cli, changeID); err != nil {
 		return err
 	}
 
-	return showDone(x.client, []string{name}, "switch", opts, nil)
+	fmt.Fprintf(Stdout, i18n.G("%q switched to the %q channel\n"), name, channel)
+	return nil
 }
 
 func init() {
 	addCommand("remove", shortRemoveHelp, longRemoveHelp, func() flags.Commander { return &cmdRemove{} },
-		waitDescs.also(map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"revision": i18n.G("Remove only the given revision"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"purge": i18n.G("Remove the snap without saving a snapshot of its data"),
-		}), nil)
+		waitDescs.also(map[string]string{"revision": i18n.G("Remove only the given revision")}), nil)
 	addCommand("install", shortInstallHelp, longInstallHelp, func() flags.Commander { return &cmdInstall{} },
-		colorDescs.also(waitDescs).also(channelDescs).also(modeDescs).also(map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"revision": i18n.G("Install the given revision of a snap, to which you must have developer access"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"dangerous": i18n.G("Install the given snap file even if there are no pre-acknowledged signatures for it, meaning it was not verified and could be dangerous (--devmode implies this)"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+		waitDescs.also(channelDescs).also(modeDescs).also(map[string]string{
+			"revision":        i18n.G("Install the given revision of a snap, to which you must have developer access"),
+			"dangerous":       i18n.G("Install the given snap file even if there are no pre-acknowledged signatures for it, meaning it was not verified and could be dangerous (--devmode implies this)"),
 			"force-dangerous": i18n.G("Alias for --dangerous (DEPRECATED)"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"unaliased": i18n.G("Install the given snap without enabling its automatic aliases"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"name": i18n.G("Install the snap file under the given instance name"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"cohort": i18n.G("Install the snap in the given cohort"),
+			"unaliased":       i18n.G("Install the given snap without enabling its automatic aliases"),
 		}), nil)
 	addCommand("refresh", shortRefreshHelp, longRefreshHelp, func() flags.Commander { return &cmdRefresh{} },
-		colorDescs.also(waitDescs).also(channelDescs).also(modeDescs).also(timeDescs).also(map[string]string{
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"amend": i18n.G("Allow refresh attempt on snap unknown to the store"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"revision": i18n.G("Refresh to the given revision, to which you must have developer access"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"list": i18n.G("Show the new versions of snaps that would be updated with the next refresh"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"time": i18n.G("Show auto refresh information but do not perform a refresh"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+		waitDescs.also(channelDescs).also(modeDescs).also(map[string]string{
+			"amend":             i18n.G("Allow refresh attempt on snap unknown to the store"),
+			"revision":          i18n.G("Refresh to the given revision"),
+			"list":              i18n.G("Show available snaps for refresh but do not perform a refresh"),
+			"time":              i18n.G("Show auto refresh information but do not perform a refresh"),
 			"ignore-validation": i18n.G("Ignore validation by other snaps blocking the refresh"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"cohort": i18n.G("Refresh the snap into the given cohort"),
-			// TRANSLATORS: This should not start with a lowercase letter.
-			"leave-cohort": i18n.G("Refresh the snap out of its cohort"),
 		}), nil)
 	addCommand("try", shortTryHelp, longTryHelp, func() flags.Commander { return &cmdTry{} }, waitDescs.also(modeDescs), nil)
 	addCommand("enable", shortEnableHelp, longEnableHelp, func() flags.Commander { return &cmdEnable{} }, waitDescs, nil)
 	addCommand("disable", shortDisableHelp, longDisableHelp, func() flags.Commander { return &cmdDisable{} }, waitDescs, nil)
 	addCommand("revert", shortRevertHelp, longRevertHelp, func() flags.Commander { return &cmdRevert{} }, waitDescs.also(modeDescs).also(map[string]string{
-		// TRANSLATORS: This should not start with a lowercase letter.
-		"revision": i18n.G("Revert to the given revision"),
+		"revision": "Revert to the given revision",
 	}), nil)
-	addCommand("switch", shortSwitchHelp, longSwitchHelp, func() flags.Commander { return &cmdSwitch{} }, waitDescs.also(channelDescs).also(map[string]string{
-		// TRANSLATORS: This should not start with a lowercase letter.
-		"cohort": i18n.G("Switch the snap into the given cohort"),
-		// TRANSLATORS: This should not start with a lowercase letter.
-		"leave-cohort": i18n.G("Switch the snap out of its cohort"),
-	}), nil)
+	addCommand("switch", shortSwitchHelp, longSwitchHelp, func() flags.Commander { return &cmdSwitch{} }, nil, nil)
+
 }

@@ -29,8 +29,6 @@ import (
 //
 // It does not work with regexps that cross newlines; in fact it will
 // probably not work if the data written isn't line-orineted.
-//
-// If Regexp is not set (or nil), it matches whole non-empty lines.
 type MatchCounter struct {
 	// Regexp to use to find matches in the stream
 	Regexp *regexp.Regexp
@@ -39,54 +37,34 @@ type MatchCounter struct {
 
 	count   int
 	matches []string
-	partial bytes.Buffer
+	partial []byte
 }
 
 func (w *MatchCounter) Write(p []byte) (int, error) {
 	n := len(p)
-	if w.partial.Len() > 0 {
+	if len(w.partial) > 0 {
 		idx := bytes.IndexByte(p, '\n')
 		if idx < 0 {
-			// no newline yet, carry on accumulating
-			w.partial.Write(p)
+			w.partial = append(w.partial, p...)
 			return n, nil
 		}
 		idx++
-		w.partial.Write(p[:idx])
-		w.check(w.partial.Bytes())
+		w.check(append(w.partial, p[:idx]...))
 		p = p[idx:]
+		w.partial = nil
 	}
-	w.partial.Reset()
 	idx := bytes.LastIndexByte(p, '\n')
 	if idx < 0 {
-		w.partial.Write(p)
+		w.partial = p
 		return n, nil
 	}
 	idx++
-	w.partial.Write(p[idx:])
+	w.partial = p[idx:]
 	w.check(p[:idx])
 	return n, nil
 }
 
 func (w *MatchCounter) check(p []byte) {
-	if w.Regexp == nil {
-		for {
-			idx := bytes.IndexByte(p, '\n')
-			if idx < 0 {
-				return
-			}
-			if idx == 0 {
-				// empty line
-				p = p[1:]
-				continue
-			}
-			if w.N < 0 || len(w.matches) < w.N {
-				w.matches = append(w.matches, string(p[:idx]))
-			}
-			w.count++
-			p = p[idx+1:]
-		}
-	}
 	matches := w.Regexp.FindAll(p, -1)
 	for _, match := range matches {
 		if w.N >= 0 && len(w.matches) >= w.N {

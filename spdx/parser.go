@@ -25,11 +25,13 @@ import (
 	"strings"
 )
 
+type operator string
+
 const (
-	opUNSET = ""
-	opAND   = "AND"
-	opOR    = "OR"
-	opWITH  = "WITH"
+	opUNSET operator = ""
+	opAND            = "AND"
+	opOR             = "OR"
+	opWITH           = "WITH"
 )
 
 func isOperator(tok string) bool {

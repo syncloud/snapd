@@ -53,14 +53,14 @@ var _ = Suite(&ProcessControlInterfaceSuite{
 
 func (s *ProcessControlInterfaceSuite) SetUpTest(c *C) {
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "process-control",
 		Interface: "process-control",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, procctlMockPlugSnapInfoYaml, nil)
 	s.plugInfo = plugSnap.Plugs["process-control"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *ProcessControlInterfaceSuite) TestName(c *C) {
@@ -69,6 +69,13 @@ func (s *ProcessControlInterfaceSuite) TestName(c *C) {
 
 func (s *ProcessControlInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "process-control",
+		Interface: "process-control",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"process-control slots are reserved for the core snap")
 }
 
 func (s *ProcessControlInterfaceSuite) TestSanitizePlug(c *C) {

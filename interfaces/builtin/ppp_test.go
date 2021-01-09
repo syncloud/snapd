@@ -68,6 +68,14 @@ func (s *PppInterfaceSuite) TestName(c *C) {
 
 func (s *PppInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "ppp",
+		Interface: "ppp",
+	}
+
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"ppp slots are reserved for the core snap")
 }
 
 func (s *PppInterfaceSuite) TestSanitizePlug(c *C) {
@@ -107,7 +115,8 @@ func (s *PppInterfaceSuite) TestStaticInfo(c *C) {
 }
 
 func (s *PppInterfaceSuite) TestAutoConnect(c *C) {
-	c.Assert(s.iface.AutoConnect(s.plugInfo, s.slotInfo), Equals, true)
+	// FIXME: fix AutoConnect methods to use ConnectedPlug/Slot
+	c.Assert(s.iface.AutoConnect(&interfaces.Plug{PlugInfo: s.plugInfo}, &interfaces.Slot{SlotInfo: s.slotInfo}), Equals, true)
 }
 
 func (s *PppInterfaceSuite) TestInterfaces(c *C) {

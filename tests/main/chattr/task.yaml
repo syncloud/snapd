@@ -1,18 +1,9 @@
 summary: test chattr
-
 # ubuntu-core doesn't have go :-)
 # ppc64el disabled because of https://github.com/snapcore/snapd/issues/2503
-systems: [-ubuntu-core-*, -ubuntu-*-ppc64el]
-
-environment:
-    # an empty $topsrcdir/tests/go.mod seems to break importing or building go
-    # packages referenced by their import paths while under the tests directory,
-    # need to disable go modules supportfor this test
-    GO111MODULE: off
-
+systems: [-ubuntu-core-16-*, -ubuntu-*-ppc64el]
 prepare: |
   go build -o toggle ./toggle.go
-
 execute: |
   touch foo
   # no immutable flag:
@@ -23,3 +14,6 @@ execute: |
   test "$(./toggle foo)" = "immutable -> mutable"
   # no immutable flag again:
   lsattr foo | MATCH -v i
+restore: |
+    rm -f foo
+    rm -f toggle

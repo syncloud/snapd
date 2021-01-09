@@ -43,12 +43,12 @@ const timeserverControlConnectedPlugAppArmor = `
 /etc/systemd/timesyncd.conf rw,
 
 # Introspection of org.freedesktop.timedate1
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/timedate1
     interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
+    member=Introspect
+    peer=(label=unconfined),
 
 dbus (send)
     bus=system
@@ -58,12 +58,12 @@ dbus (send)
     peer=(label=unconfined),
 
 # Read all properties from timedate1
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/timedate1
     interface=org.freedesktop.DBus.Properties
-    member=Get{,All},
+    member=Get{,All}
+    peer=(label=unconfined),
 
 # Receive timedate1 property changed events
 dbus (receive)
@@ -95,5 +95,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  timeserverControlBaseDeclarationSlots,
 		connectedPlugAppArmor: timeserverControlConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

@@ -48,9 +48,6 @@ apps:
   docker:
     command: bin/run
     slots: [ docker ]
-  fwupd:
-    command: bin/run
-    slots: [ fwupd ]
   location-control:
     command: bin/run
     slots: [ location-control ]

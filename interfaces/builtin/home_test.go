@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -51,14 +51,14 @@ apps:
   plugs: [home]
 `
 	s.slotInfo = &snap.SlotInfo{
-		Snap:      &snap.Info{SuggestedName: "core", SnapType: snap.TypeOS},
+		Snap:      &snap.Info{SuggestedName: "core", Type: snap.TypeOS},
 		Name:      "home",
 		Interface: "home",
 	}
-	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil, nil)
+	s.slot = interfaces.NewConnectedSlot(s.slotInfo, nil)
 	plugSnap := snaptest.MockInfo(c, mockPlugSnapInfo, nil)
 	s.plugInfo = plugSnap.Plugs["home"]
-	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil, nil)
+	s.plug = interfaces.NewConnectedPlug(s.plugInfo, nil)
 }
 
 func (s *HomeInterfaceSuite) TestName(c *C) {
@@ -67,108 +67,26 @@ func (s *HomeInterfaceSuite) TestName(c *C) {
 
 func (s *HomeInterfaceSuite) TestSanitizeSlot(c *C) {
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, s.slotInfo), IsNil)
+	slot := &snap.SlotInfo{
+		Snap:      &snap.Info{SuggestedName: "some-snap"},
+		Name:      "home",
+		Interface: "home",
+	}
+	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches,
+		"home slots are reserved for the core snap")
 }
 
-func (s *HomeInterfaceSuite) TestSanitizePlugNoAttrib(c *C) {
+func (s *HomeInterfaceSuite) TestSanitizePlug(c *C) {
 	c.Assert(interfaces.BeforePreparePlug(s.iface, s.plugInfo), IsNil)
 }
 
-func (s *HomeInterfaceSuite) TestSanitizePlugWithAttrib(c *C) {
-	const mockSnapYaml = `name: home-plug-snap
-version: 1.0
-plugs:
- home:
-  read: all
-`
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
-	plug := info.Plugs["home"]
-	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), IsNil)
-}
-
-func (s *HomeInterfaceSuite) TestSanitizePlugWithBadAttrib(c *C) {
-	const mockSnapYaml = `name: home-plug-snap
-version: 1.0
-plugs:
- home:
-  read: bad
-`
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
-	plug := info.Plugs["home"]
-	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), ErrorMatches,
-		`home plug requires "read" be 'all'`)
-}
-
-func (s *HomeInterfaceSuite) TestSanitizePlugWithEmptyAttrib(c *C) {
-	const mockSnapYaml = `name: home-plug-snap
-version: 1.0
-plugs:
- home:
-  read: ""
-`
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
-	plug := info.Plugs["home"]
-	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), ErrorMatches,
-		`home plug requires "read" be 'all'`)
-}
-
-func (s *HomeInterfaceSuite) TestSanitizePlugWithBadAttribOwner(c *C) {
-	const mockSnapYaml = `name: home-plug-snap
-version: 1.0
-plugs:
- home:
-  read: owner
-`
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
-	plug := info.Plugs["home"]
-	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), ErrorMatches,
-		`home plug requires "read" be 'all'`)
-}
-
-func (s *HomeInterfaceSuite) TestSanitizePlugWithBadAttribDict(c *C) {
-	const mockSnapYaml = `name: home-plug-snap
-version: 1.0
-plugs:
- home:
-  read:
-   all: bad
-   bad: all
-`
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
-	plug := info.Plugs["home"]
-	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), ErrorMatches,
-		`home plug requires "read" be 'all'`)
-}
-
-func (s *HomeInterfaceSuite) TestConnectedPlugAppArmorWithoutAttrib(c *C) {
+func (s *HomeInterfaceSuite) TestUsedSecuritySystems(c *C) {
+	// connected plugs have a non-nil security snippet for apparmor
 	apparmorSpec := &apparmor.Specification{}
 	err := apparmorSpec.AddConnectedPlug(s.iface, s.plug, s.slot)
 	c.Assert(err, IsNil)
 	c.Assert(apparmorSpec.SecurityTags(), DeepEquals, []string{"snap.other.app"})
 	c.Check(apparmorSpec.SnippetForTag("snap.other.app"), testutil.Contains, `owner @{HOME}/ r,`)
-	c.Check(apparmorSpec.SnippetForTag("snap.other.app"), testutil.Contains, `audit deny @{HOME}/bin/{,**} wl,`)
-	c.Check(apparmorSpec.SnippetForTag("snap.other.app"), Not(testutil.Contains), `# Allow non-owner read`)
-}
-
-func (s *HomeInterfaceSuite) TestConnectedPlugAppArmorWithAttribAll(c *C) {
-	const mockSnapYaml = `name: home-plug-snap
-version: 1.0
-plugs:
- home:
-  read: all
-apps:
- app2:
-  command: foo
-`
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
-	plug := interfaces.NewConnectedPlug(info.Plugs["home"], nil, nil)
-
-	apparmorSpec := &apparmor.Specification{}
-	err := apparmorSpec.AddConnectedPlug(s.iface, plug, s.slot)
-	c.Assert(err, IsNil)
-	c.Assert(apparmorSpec.SecurityTags(), DeepEquals, []string{"snap.home-plug-snap.app2"})
-	c.Check(apparmorSpec.SnippetForTag("snap.home-plug-snap.app2"), testutil.Contains, `audit deny @{HOME}/bin/{,**} wl,`)
-	c.Check(apparmorSpec.SnippetForTag("snap.home-plug-snap.app2"), testutil.Contains, `owner @{HOME}/ r,`)
-	c.Check(apparmorSpec.SnippetForTag("snap.home-plug-snap.app2"), testutil.Contains, `# Allow non-owner read`)
 }
 
 func (s *HomeInterfaceSuite) TestInterfaces(c *C) {

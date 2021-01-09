@@ -72,6 +72,10 @@ var hidrawUDevSymlinkPattern = regexp.MustCompile("^/dev/hidraw-[a-z0-9]+$")
 
 // BeforePrepareSlot checks validity of the defined slot
 func (iface *hidrawInterface) BeforePrepareSlot(slot *snap.SlotInfo) error {
+	if err := sanitizeSlotReservedForOSOrGadget(iface, slot); err != nil {
+		return err
+	}
+
 	// Check slot has a path attribute identify hidraw device
 	path, ok := slot.Attrs["path"].(string)
 	if !ok || path == "" {
@@ -185,7 +189,7 @@ SUBSYSTEM=="hidraw", SUBSYSTEMS=="usb", ATTRS{idVendor}=="%04x", ATTRS{idProduct
 	return nil
 }
 
-func (iface *hidrawInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *hidrawInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

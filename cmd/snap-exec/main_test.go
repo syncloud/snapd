@@ -30,7 +30,6 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/snapcore/snapd/dirs"
-	"github.com/snapcore/snapd/release"
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/snap/snaptest"
 	"github.com/snapcore/snapd/testutil"
@@ -62,33 +61,18 @@ apps:
   command: run-app cmd-arg1 $SNAP_DATA
   stop-command: stop-app
   post-stop-command: post-stop-app
-  completer: you/complete/me
   environment:
    BASE_PATH: /some/path
    LD_LIBRARY_PATH: ${BASE_PATH}/lib
    MY_PATH: $PATH
- app2:
-  command: run-app2
-  stop-command: stop-app2
-  post-stop-command: post-stop-app2
-  command-chain: [chain1, chain2]
  nostop:
   command: nostop
 `)
-
-var mockClassicYaml = append([]byte("confinement: classic\n"), mockYaml...)
 
 var mockHookYaml = []byte(`name: snapname
 version: 1.0
 hooks:
  configure:
-`)
-
-var mockHookCommandChainYaml = []byte(`name: snapname
-version: 1.0
-hooks:
- configure:
-  command-chain: [chain1, chain2]
 `)
 
 var binaryTemplate = `#!/bin/sh
@@ -171,51 +155,6 @@ func (s *snapExecSuite) TestSnapExecAppIntegration(c *C) {
 	c.Check(execEnv, testutil.Contains, fmt.Sprintf("MY_PATH=%s", os.Getenv("PATH")))
 }
 
-func (s *snapExecSuite) TestSnapExecAppCommandChainIntegration(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	snaptest.MockSnap(c, string(mockYaml), &snap.SideInfo{
-		Revision: snap.R("42"),
-	})
-
-	execArgv0 := ""
-	execArgs := []string{}
-	restore := snapExec.MockSyscallExec(func(argv0 string, argv []string, env []string) error {
-		execArgv0 = argv0
-		execArgs = argv
-		return nil
-	})
-	defer restore()
-
-	chain1_path := fmt.Sprintf("%s/snapname/42/chain1", dirs.SnapMountDir)
-	chain2_path := fmt.Sprintf("%s/snapname/42/chain2", dirs.SnapMountDir)
-	app_path := fmt.Sprintf("%s/snapname/42/run-app2", dirs.SnapMountDir)
-	stop_path := fmt.Sprintf("%s/snapname/42/stop-app2", dirs.SnapMountDir)
-	post_stop_path := fmt.Sprintf("%s/snapname/42/post-stop-app2", dirs.SnapMountDir)
-
-	for _, t := range []struct {
-		cmd      string
-		args     []string
-		expected []string
-	}{
-		// Normal command
-		{expected: []string{chain1_path, chain2_path, app_path}},
-		{args: []string{"arg1", "arg2"}, expected: []string{chain1_path, chain2_path, app_path, "arg1", "arg2"}},
-
-		// Stop command
-		{cmd: "stop", expected: []string{chain1_path, chain2_path, stop_path}},
-		{cmd: "stop", args: []string{"arg1", "arg2"}, expected: []string{chain1_path, chain2_path, stop_path, "arg1", "arg2"}},
-
-		// Post-stop command
-		{cmd: "post-stop", expected: []string{chain1_path, chain2_path, post_stop_path}},
-		{cmd: "post-stop", args: []string{"arg1", "arg2"}, expected: []string{chain1_path, chain2_path, post_stop_path, "arg1", "arg2"}},
-	} {
-		err := snapExec.ExecApp("snapname.app2", "42", t.cmd, t.args)
-		c.Assert(err, IsNil)
-		c.Check(execArgv0, Equals, t.expected[0])
-		c.Check(execArgs, DeepEquals, t.expected)
-	}
-}
-
 func (s *snapExecSuite) TestSnapExecHookIntegration(c *C) {
 	dirs.SetRootDir(c.MkDir())
 	snaptest.MockSnap(c, string(mockHookYaml), &snap.SideInfo{
@@ -236,31 +175,6 @@ func (s *snapExecSuite) TestSnapExecHookIntegration(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(execArgv0, Equals, fmt.Sprintf("%s/snapname/42/meta/hooks/configure", dirs.SnapMountDir))
 	c.Check(execArgs, DeepEquals, []string{execArgv0})
-}
-
-func (s *snapExecSuite) TestSnapExecHookCommandChainIntegration(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	snaptest.MockSnap(c, string(mockHookCommandChainYaml), &snap.SideInfo{
-		Revision: snap.R("42"),
-	})
-
-	execArgv0 := ""
-	execArgs := []string{}
-	restore := snapExec.MockSyscallExec(func(argv0 string, argv []string, env []string) error {
-		execArgv0 = argv0
-		execArgs = argv
-		return nil
-	})
-	defer restore()
-
-	chain1_path := fmt.Sprintf("%s/snapname/42/chain1", dirs.SnapMountDir)
-	chain2_path := fmt.Sprintf("%s/snapname/42/chain2", dirs.SnapMountDir)
-	hook_path := fmt.Sprintf("%s/snapname/42/meta/hooks/configure", dirs.SnapMountDir)
-
-	err := snapExec.ExecHook("snapname", "42", "configure")
-	c.Assert(err, IsNil)
-	c.Check(execArgv0, Equals, chain1_path)
-	c.Check(execArgs, DeepEquals, []string{chain1_path, chain2_path, hook_path})
 }
 
 func (s *snapExecSuite) TestSnapExecHookMissingHookIntegration(c *C) {
@@ -397,14 +311,6 @@ func (s *snapExecSuite) TestSnapExecShellIntegration(c *C) {
 	c.Check(execArgv0, Equals, "/bin/bash")
 	c.Check(execArgs, DeepEquals, []string{execArgv0, "-c", "echo foo"})
 	c.Check(execEnv, testutil.Contains, "LD_LIBRARY_PATH=/some/path/lib")
-
-	// launch and verify shell still runs the command chain
-	err = snapExec.ExecApp("snapname.app2", "42", "shell", []string{"-c", "echo foo"})
-	c.Assert(err, IsNil)
-	chain1 := fmt.Sprintf("%s/snapname/42/chain1", dirs.SnapMountDir)
-	chain2 := fmt.Sprintf("%s/snapname/42/chain2", dirs.SnapMountDir)
-	c.Check(execArgv0, Equals, chain1)
-	c.Check(execArgs, DeepEquals, []string{chain1, chain2, "/bin/bash", "-c", "echo foo"})
 }
 
 func (s *snapExecSuite) TestSnapExecAppIntegrationWithVars(c *C) {
@@ -468,137 +374,4 @@ func (s *snapExecSuite) TestSnapExecExpandEnvCmdArgs(c *C) {
 		c.Check(snapExec.ExpandEnvCmdArgs(t.args, t.env), DeepEquals, t.expected)
 
 	}
-}
-
-func (s *snapExecSuite) TestSnapExecCompleteError(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	snaptest.MockSnap(c, string(mockYaml), &snap.SideInfo{
-		Revision: snap.R("42"),
-	})
-
-	restore := snapExec.MockOsReadlink(func(p string) (string, error) {
-		c.Assert(p, Equals, "/proc/self/exe")
-		return "", fmt.Errorf("fail")
-	})
-	defer restore()
-
-	// setup env
-	os.Setenv("SNAP_DATA", "/var/snap/snapname/42")
-	defer os.Unsetenv("SNAP_DATA")
-
-	// launch and verify its run the right way
-	err := snapExec.ExecApp("snapname.app", "42", "complete", []string{"foo"})
-	c.Assert(err, ErrorMatches, "cannot find completion helper: fail")
-}
-
-func (s *snapExecSuite) TestSnapExecCompleteConfined(c *C) {
-	dirs.SetRootDir(c.MkDir())
-	snaptest.MockSnap(c, string(mockYaml), &snap.SideInfo{
-		Revision: snap.R("42"),
-	})
-
-	execArgv0 := ""
-	execArgs := []string{}
-	restore := snapExec.MockSyscallExec(func(argv0 string, argv []string, env []string) error {
-		execArgv0 = argv0
-		execArgs = argv
-		return nil
-	})
-	defer restore()
-
-	restore = snapExec.MockOsReadlink(func(p string) (string, error) {
-		c.Assert(p, Equals, "/proc/self/exe")
-		// as if running inside the snap mount namespace
-		return "/usr/lib/snapd/snap-exec", nil
-	})
-	defer restore()
-
-	// setup env
-	os.Setenv("SNAP_DATA", "/var/snap/snapname/42")
-	defer os.Unsetenv("SNAP_DATA")
-
-	// launch and verify its run the right way
-	err := snapExec.ExecApp("snapname.app", "42", "complete", []string{"foo"})
-	c.Assert(err, IsNil)
-	c.Check(execArgv0, Equals, "/bin/bash")
-	c.Check(execArgs, DeepEquals, []string{execArgv0,
-		dirs.CompletionHelperInCore,
-		filepath.Join(dirs.SnapMountDir, "snapname/42/you/complete/me"),
-		"foo"})
-}
-
-func (s *snapExecSuite) TestSnapExecCompleteClassicReexec(c *C) {
-	restore := release.MockReleaseInfo(&release.OS{ID: "ubuntu"})
-	defer restore()
-	dirs.SetRootDir(c.MkDir())
-	snaptest.MockSnap(c, string(mockClassicYaml), &snap.SideInfo{
-		Revision: snap.R("42"),
-	})
-
-	execArgv0 := ""
-	execArgs := []string{}
-	restore = snapExec.MockSyscallExec(func(argv0 string, argv []string, env []string) error {
-		execArgv0 = argv0
-		execArgs = argv
-		return nil
-	})
-	defer restore()
-
-	restore = snapExec.MockOsReadlink(func(p string) (string, error) {
-		c.Assert(p, Equals, "/proc/self/exe")
-		// as if it's reexeced from the snap
-		return filepath.Join(dirs.SnapMountDir, "core/current", dirs.CoreLibExecDir, "snap-exec"), nil
-	})
-	defer restore()
-
-	// setup env
-	os.Setenv("SNAP_DATA", "/var/snap/snapname/42")
-	defer os.Unsetenv("SNAP_DATA")
-
-	// launch and verify its run the right way
-	err := snapExec.ExecApp("snapname.app", "42", "complete", []string{"foo"})
-	c.Assert(err, IsNil)
-	c.Check(execArgv0, Equals, "/bin/bash")
-	c.Check(execArgs, DeepEquals, []string{execArgv0,
-		filepath.Join(dirs.SnapMountDir, "core/current", dirs.CompletionHelperInCore),
-		filepath.Join(dirs.SnapMountDir, "snapname/42/you/complete/me"),
-		"foo"})
-}
-
-func (s *snapExecSuite) TestSnapExecCompleteClassicNoReexec(c *C) {
-	restore := release.MockReleaseInfo(&release.OS{ID: "centos"})
-	defer restore()
-	dirs.SetRootDir(c.MkDir())
-	snaptest.MockSnap(c, string(mockClassicYaml), &snap.SideInfo{
-		Revision: snap.R("42"),
-	})
-
-	execArgv0 := ""
-	execArgs := []string{}
-	restore = snapExec.MockSyscallExec(func(argv0 string, argv []string, env []string) error {
-		execArgv0 = argv0
-		execArgs = argv
-		return nil
-	})
-	defer restore()
-
-	restore = snapExec.MockOsReadlink(func(p string) (string, error) {
-		c.Assert(p, Equals, "/proc/self/exe")
-		// running from distro libexecdir
-		return filepath.Join(dirs.DistroLibExecDir, "snap-exec"), nil
-	})
-	defer restore()
-
-	// setup env
-	os.Setenv("SNAP_DATA", "/var/snap/snapname/42")
-	defer os.Unsetenv("SNAP_DATA")
-
-	// launch and verify its run the right way
-	err := snapExec.ExecApp("snapname.app", "42", "complete", []string{"foo"})
-	c.Assert(err, IsNil)
-	c.Check(execArgv0, Equals, "/bin/bash")
-	c.Check(execArgs, DeepEquals, []string{execArgv0,
-		filepath.Join(dirs.DistroLibExecDir, "etelpmoc.sh"),
-		filepath.Join(dirs.SnapMountDir, "snapname/42/you/complete/me"),
-		"foo"})
 }

@@ -55,7 +55,7 @@ func BootstrapAccountForTest(authorityID string) *Account {
 				"type":         "account",
 				"authority-id": authorityID,
 				"account-id":   authorityID,
-				"validation":   "verified",
+				"validation":   "certified",
 			},
 		},
 		timestamp: time.Now().UTC(),
@@ -190,8 +190,4 @@ type featureExposer interface {
 
 func RuleFeature(rule featureExposer, flabel string) bool {
 	return rule.feature(flabel)
-}
-
-func (b *Batch) DoPrecheck(db *Database) error {
-	return b.precheck(db)
 }

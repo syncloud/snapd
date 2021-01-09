@@ -48,5 +48,6 @@ func init() {
 		baseDeclarationSlots:  framebufferBaseDeclarationSlots,
 		connectedPlugAppArmor: framebufferConnectedPlugAppArmor,
 		connectedPlugUDev:     framebufferConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

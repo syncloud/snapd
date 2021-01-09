@@ -22,23 +22,13 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+
+	"github.com/snapcore/snapd/store"
 )
 
-// BuyOptions specifies parameters to buy from the store.
-type BuyOptions struct {
-	SnapID   string  `json:"snap-id"`
-	Price    float64 `json:"price"`
-	Currency string  `json:"currency"` // ISO 4217 code as string
-}
-
-// BuyResult holds the state of a buy attempt.
-type BuyResult struct {
-	State string `json:"state,omitempty"`
-}
-
-func (client *Client) Buy(opts *BuyOptions) (*BuyResult, error) {
+func (client *Client) Buy(opts *store.BuyOptions) (*store.BuyResult, error) {
 	if opts == nil {
-		opts = &BuyOptions{}
+		opts = &store.BuyOptions{}
 	}
 
 	var body bytes.Buffer
@@ -46,7 +36,7 @@ func (client *Client) Buy(opts *BuyOptions) (*BuyResult, error) {
 		return nil, err
 	}
 
-	var result BuyResult
+	var result store.BuyResult
 	_, err := client.doSync("POST", "/v2/buy", nil, nil, &body, &result)
 
 	if err != nil {

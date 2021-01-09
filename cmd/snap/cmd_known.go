@@ -23,16 +23,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jessevdk/go-flags"
-
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/i18n"
 	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/store"
+
+	"github.com/jessevdk/go-flags"
 )
 
 type cmdKnown struct {
-	clientMixin
 	KnownOptions struct {
 		// XXX: how to get a list of assert types for completion?
 		AssertTypeName assertTypeName `required:"true"`
@@ -42,7 +41,7 @@ type cmdKnown struct {
 	Remote bool `long:"remote"`
 }
 
-var shortKnownHelp = i18n.G("Show known assertions of the provided type")
+var shortKnownHelp = i18n.G("Shows known assertions of the provided type")
 var longKnownHelp = i18n.G(`
 The known command shows known assertions of the provided type.
 If header=value pairs are provided after the assertion type, the assertions
@@ -52,19 +51,16 @@ shown must also have the specified headers matching the provided values.
 func init() {
 	addCommand("known", shortKnownHelp, longKnownHelp, func() flags.Commander {
 		return &cmdKnown{}
-	}, map[string]string{
-		// TRANSLATORS: This should not start with a lowercase letter.
-		"remote": i18n.G("Query the store for the assertion, via snapd if possible"),
-	}, []argDesc{
+	}, nil, []argDesc{
 		{
-			// TRANSLATORS: This needs to begin with < and end with >
+			// TRANSLATORS: This needs to be wrapped in <>s.
 			name: i18n.G("<assertion type>"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+			// TRANSLATORS: This should probably not start with a lowercase letter.
 			desc: i18n.G("Assertion type name"),
 		}, {
-			// TRANSLATORS: This needs to begin with < and end with >
+			// TRANSLATORS: This needs to be wrapped in <>s.
 			name: i18n.G("<header filter>"),
-			// TRANSLATORS: This should not start with a lowercase letter.
+			// TRANSLATORS: This should probably not start with a lowercase letter.
 			desc: i18n.G("Constrain listing to those matching header=value"),
 		},
 	})
@@ -76,7 +72,7 @@ func downloadAssertion(typeName string, headers map[string]string) ([]asserts.As
 	var user *auth.UserState
 
 	// FIXME: set auth context
-	var storeCtx store.DeviceAndAuthContext
+	var authContext auth.AuthContext
 
 	at := asserts.Type(typeName)
 	if at == nil {
@@ -87,7 +83,7 @@ func downloadAssertion(typeName string, headers map[string]string) ([]asserts.As
 		return nil, fmt.Errorf("cannot query remote assertion: %v", err)
 	}
 
-	sto := storeNew(nil, storeCtx)
+	sto := storeNew(nil, authContext)
 	as, err := sto.Assertion(at, primaryKeys, user)
 	if err != nil {
 		return nil, err
@@ -113,12 +109,10 @@ func (x *cmdKnown) Execute(args []string) error {
 
 	var assertions []asserts.Assertion
 	var err error
-	switch {
-	case x.Remote:
+	if x.Remote {
 		assertions, err = downloadAssertion(string(x.KnownOptions.AssertTypeName), headers)
-	default:
-		// default is to look only local
-		assertions, err = x.client.Known(string(x.KnownOptions.AssertTypeName), headers, nil)
+	} else {
+		assertions, err = Client().Known(string(x.KnownOptions.AssertTypeName), headers)
 	}
 	if err != nil {
 		return err

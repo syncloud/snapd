@@ -81,7 +81,7 @@ const networkStatusConnectedPlugAppArmor = `
 # Allow all access to NetworkingStatus service
 dbus (send)
     bus=system
-    interface=com.ubuntu.connectivity1.NetworkingStatus{,*}
+    interface=com.ubuntu.connectivity1.NetworkingStatus{,/**}
     path=/com/ubuntu/connectivity1/NetworkingStatus
     peer=(label=###SLOT_SECURITY_TAGS###),
 
@@ -144,7 +144,7 @@ func (iface *networkStatusInterface) DBusPermanentSlot(spec *dbus.Specification,
 	return nil
 }
 
-func (iface *networkStatusInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *networkStatusInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

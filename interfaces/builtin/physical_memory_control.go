@@ -52,5 +52,6 @@ func init() {
 		baseDeclarationSlots:  physicalMemoryControlBaseDeclarationSlots,
 		connectedPlugAppArmor: physicalMemoryControlConnectedPlugAppArmor,
 		connectedPlugUDev:     physicalMemoryControlConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

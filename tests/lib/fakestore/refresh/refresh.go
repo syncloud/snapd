@@ -67,7 +67,7 @@ func MakeFakeRefreshForSnaps(snaps []string, blobDir string) error {
 		for i, k := range ref.Type.PrimaryKey {
 			headers[k] = ref.PrimaryKey[i]
 		}
-		as, err := cli.Known(ref.Type.Name, headers, nil)
+		as, err := cli.Known(ref.Type.Name, headers)
 		if err != nil {
 			return nil, err
 		}

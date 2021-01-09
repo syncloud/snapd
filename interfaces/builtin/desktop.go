@@ -108,14 +108,6 @@ dbus (receive)
     member={ActionInvoked,NotificationClosed}
     peer=(label=unconfined),
 
-# DesktopAppInfo Launched
-dbus (send)
-    bus=session
-    path=/org/gtk/gio/DesktopAppInfo
-    interface=org.gtk.gio.DesktopAppInfo
-    member=Launched
-    peer=(label=unconfined),
-
 # Allow requesting interest in receiving media key events. This tells Gnome
 # settings that our application should be notified when key events we are
 # interested in are pressed, and allows us to receive those events.
@@ -134,6 +126,7 @@ dbus (send)
 # Allow use of snapd's internal 'xdg-open'
 /usr/bin/xdg-open ixr,
 /usr/share/applications/{,*} r,
+/usr/bin/dbus-send ixr,
 dbus (send)
     bus=session
     path=/
@@ -146,7 +139,7 @@ dbus (send)
     bus=session
     path=/io/snapcraft/Launcher
     interface=io.snapcraft.Launcher
-    member={OpenURL,OpenFile}
+    member=OpenURL
     peer=(label=unconfined),
 
 # Allow checking status, activating and locking the screensaver
@@ -174,34 +167,13 @@ dbus (receive)
 
 # Allow use of snapd's internal 'xdg-settings'
 /usr/bin/xdg-settings ixr,
+/usr/bin/dbus-send ixr,
 dbus (send)
     bus=session
     path=/io/snapcraft/Settings
     interface=io.snapcraft.Settings
     member={Check,Get,Set}
     peer=(label=unconfined),
-
-## Allow access to xdg-document-portal file system.  Access control is
-## handled by bind mounting a snap-specific sub-tree to this location.
-owner /run/user/[0-9]*/doc/ r,
-owner /run/user/[0-9]*/doc/** rw,
-
-# Allow access to xdg-desktop-portal and xdg-document-portal
-dbus (receive, send)
-    bus=session
-    interface=org.freedesktop.portal.*
-    path=/org/freedesktop/portal/{desktop,documents}{,/**}
-    peer=(label=unconfined),
-
-dbus (receive, send)
-    bus=session
-    interface=org.freedesktop.DBus.Properties
-    path=/org/freedesktop/portal/{desktop,documents}{,/**}
-    peer=(label=unconfined),
-
-# These accesses are noisy and applications can't do anything with the found
-# icon files, so explicitly deny to silence the denials
-deny /var/lib/snapd/desktop/icons/ r,
 `
 
 type desktopInterface struct{}
@@ -218,74 +190,42 @@ func (iface *desktopInterface) StaticInfo() interfaces.StaticInfo {
 	}
 }
 
-func (iface *desktopInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *desktopInterface) BeforePrepareSlot(slot *snap.SlotInfo) error {
+	return sanitizeSlotReservedForOS(iface, slot)
+}
+
+func (iface *desktopInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }
 
-func (iface *desktopInterface) fontconfigDirs() []string {
-	fontDirs := []string{
-		dirs.SystemFontsDir,
-		dirs.SystemLocalFontsDir,
-	}
-	return append(fontDirs, dirs.SystemFontconfigCacheDirs...)
-}
-
 func (iface *desktopInterface) AppArmorConnectedPlug(spec *apparmor.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
 	spec.AddSnippet(desktopConnectedPlugAppArmor)
-
-	// Allow mounting document portal
-	emit := spec.AddUpdateNSf
-	emit("  # Mount the document portal\n")
-	emit("  mount options=(bind) /run/user/[0-9]*/doc/by-app/snap.%s/ -> /run/user/[0-9]*/doc/,\n", plug.Snap().InstanceName())
-	emit("  umount /run/user/[0-9]*/doc/,\n\n")
-
-	if !release.OnClassic {
-		// We only need the font mount rules on classic systems
-		return nil
-	}
-
-	// Allow mounting fonts
-	for _, dir := range iface.fontconfigDirs() {
-		source := "/var/lib/snapd/hostfs" + dir
-		target := dirs.StripRootDir(dir)
-		emit("  # Read-only access to %s\n", target)
-		emit("  mount options=(bind) %s/ -> %s/,\n", source, target)
-		emit("  remount options=(bind, ro) %s/,\n", target)
-		emit("  umount %s/,\n\n", target)
-	}
-
 	return nil
 }
 
 func (iface *desktopInterface) MountConnectedPlug(spec *mount.Specification, plug *interfaces.ConnectedPlug, slot *interfaces.ConnectedSlot) error {
-	appId := "snap." + plug.Snap().InstanceName()
-	spec.AddUserMountEntry(osutil.MountEntry{
-		Name:    "$XDG_RUNTIME_DIR/doc/by-app/" + appId,
-		Dir:     "$XDG_RUNTIME_DIR/doc",
-		Options: []string{"bind", "rw", osutil.XSnapdIgnoreMissing()},
-	})
-
 	if !release.OnClassic {
-		// We only need the font mount rules on classic systems
+		// There is nothing to expose on an all-snaps system
 		return nil
 	}
 
-	for _, dir := range iface.fontconfigDirs() {
+	fontconfigDirs := []string{
+		dirs.SystemFontsDir,
+		dirs.SystemLocalFontsDir,
+		dirs.SystemFontconfigCacheDir,
+	}
+
+	for _, dir := range fontconfigDirs {
 		if !osutil.IsDirectory(dir) {
 			continue
 		}
-		// Since /etc/fonts/fonts.conf in the snap mount ns is the same
-		// as on the host, we need to preserve the original directory
-		// paths for the fontconfig runtime to poke the correct
-		// locations
 		spec.AddMountEntry(osutil.MountEntry{
 			Name:    "/var/lib/snapd/hostfs" + dir,
 			Dir:     dirs.StripRootDir(dir),
 			Options: []string{"bind", "ro"},
 		})
 	}
-
 	return nil
 }
 

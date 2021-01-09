@@ -70,5 +70,6 @@ func init() {
 		baseDeclarationPlugs:  snapdControlBaseDeclarationPlugs,
 		baseDeclarationSlots:  snapdControlBaseDeclarationSlots,
 		connectedPlugAppArmor: snapdControlConnectedPlugAppArmor,
+		reservedForOS:         true,
 	}})
 }

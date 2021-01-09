@@ -48,96 +48,79 @@ const bluezPermanentSlotAppArmor = `
 # Description: Allow operating as the bluez service. This gives privileged
 # access to the system.
 
-network bluetooth,
+  network bluetooth,
 
-capability net_admin,
-capability net_bind_service,
+  capability net_admin,
+  capability net_bind_service,
 
-# libudev
-network netlink raw,
+  # libudev
+  network netlink raw,
 
-# File accesses
-/sys/bus/usb/drivers/btusb/     r,
-/sys/bus/usb/drivers/btusb/**   r,
-/sys/class/bluetooth/           r,
-/sys/devices/**/bluetooth/      rw,
-/sys/devices/**/bluetooth/**    rw,
-/sys/devices/**/id/chassis_type r,
+  # File accesses
+  /sys/bus/usb/drivers/btusb/     r,
+  /sys/bus/usb/drivers/btusb/**   r,
+  /sys/class/bluetooth/           r,
+  /sys/devices/**/bluetooth/      rw,
+  /sys/devices/**/bluetooth/**    rw,
+  /sys/devices/**/id/chassis_type r,
 
-# TODO: use snappy hardware assignment for this once LP: #1498917 is fixed
-/dev/rfkill rw,
+  # TODO: use snappy hardware assignment for this once LP: #1498917 is fixed
+  /dev/rfkill rw,
 
-# DBus accesses
-#include <abstractions/dbus-strict>
-dbus (send)
-   bus=system
-   path=/org/freedesktop/DBus
-   interface=org.freedesktop.DBus
-   member={Request,Release}Name
-   peer=(name=org.freedesktop.DBus, label=unconfined),
+  # DBus accesses
+  #include <abstractions/dbus-strict>
+  dbus (send)
+     bus=system
+     path=/org/freedesktop/DBus
+     interface=org.freedesktop.DBus
+     member={Request,Release}Name
+     peer=(name=org.freedesktop.DBus, label=unconfined),
 
-dbus (send)
-  bus=system
-  path=/org/freedesktop/*
-  interface=org.freedesktop.DBus.Properties
-  peer=(label=unconfined),
-
-# Allow binding the service to the requested connection name
-dbus (bind)
+  dbus (send)
     bus=system
-    name="org.bluez",
-
-# Allow binding the service to the requested connection name
-dbus (bind)
-    bus=system
-    name="org.bluez.obex",
-
-# Allow binding the service to the requested connection name
-dbus (bind)
-    bus=system
-    name="org.bluez.mesh",
-
-# Allow traffic to/from our interface with any method for unconfined clients
-# to talk to our bluez services. For the org.bluez interface we don't specify
-# an Object Path since according to the bluez specification these can be
-# anything (https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc).
-dbus (receive, send)
-    bus=system
-    interface=org.bluez.*
-    peer=(label=unconfined),
-dbus (receive, send)
-    bus=system
-    path=/org/bluez{,/**}
-    interface=org.freedesktop.DBus.*
-    peer=(label=unconfined),
-
-# Allow traffic to/from org.freedesktop.DBus for bluez service. This rule is
-# not snap-specific and grants privileged access to the org.freedesktop.DBus
-# on the system bus.
-dbus (receive, send)
-    bus=system
-    path=/
-    interface=org.freedesktop.DBus.*
-    peer=(label=unconfined),
-
-# Allow access to hostname system service
-dbus (receive, send)
-    bus=system
-    path=/org/freedesktop/hostname1
+    path=/org/freedesktop/*
     interface=org.freedesktop.DBus.Properties
     peer=(label=unconfined),
 
-# do not use peer=(label=unconfined) here since this is DBus activated
-dbus (send)
-    bus=system
-    path=/org/freedesktop/hostname1
-    interface=org.freedesktop.DBus.Properties
-    member="Get{,All}",
-dbus (send)
-    bus=system
-    path=/org/freedesktop/hostname1
-    interface=org.freedesktop.DBus.Introspectable
-    member=Introspect,
+  # Allow binding the service to the requested connection name
+  dbus (bind)
+      bus=system
+      name="org.bluez",
+
+  # Allow binding the service to the requested connection name
+  dbus (bind)
+      bus=system
+      name="org.bluez.obex",
+
+  # Allow traffic to/from our interface with any method for unconfined clients
+  # to talk to our bluez services. For the org.bluez interface we don't specify
+  # an Object Path since according to the bluez specification these can be
+  # anything (https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc).
+  dbus (receive, send)
+      bus=system
+      interface=org.bluez.*
+      peer=(label=unconfined),
+  dbus (receive, send)
+      bus=system
+      path=/org/bluez{,/**}
+      interface=org.freedesktop.DBus.*
+      peer=(label=unconfined),
+
+  # Allow traffic to/from org.freedesktop.DBus for bluez service. This rule is
+  # not snap-specific and grants privileged access to the org.freedesktop.DBus
+  # on the system bus.
+  dbus (receive, send)
+      bus=system
+      path=/
+      interface=org.freedesktop.DBus.*
+      peer=(label=unconfined),
+
+  # Allow access to hostname system service
+  dbus (receive, send)
+      bus=system
+      path=/org/freedesktop/hostname1
+      interface=org.freedesktop.DBus.Properties
+      peer=(label=unconfined),
 `
 
 const bluezConnectedSlotAppArmor = `
@@ -168,10 +151,6 @@ dbus (send)
     bus=system
     peer=(name=org.bluez.obex, label=unconfined),
 
-dbus (send)
-    bus=system
-    peer=(name=org.bluez.mesh, label=unconfined),
-
 dbus (receive)
     bus=system
     path=/
@@ -200,10 +179,8 @@ const bluezPermanentSlotDBus = `
 <policy user="root">
     <allow own="org.bluez"/>
     <allow own="org.bluez.obex"/>
-    <allow own="org.bluez.mesh"/>
     <allow send_destination="org.bluez"/>
     <allow send_destination="org.bluez.obex"/>
-    <allow send_destination="org.bluez.mesh"/>
     <allow send_interface="org.bluez.Agent1"/>
     <allow send_interface="org.bluez.MediaEndpoint1"/>
     <allow send_interface="org.bluez.MediaPlayer1"/>
@@ -214,14 +191,6 @@ const bluezPermanentSlotDBus = `
     <allow send_interface="org.bluez.CyclingSpeedWatcher1"/>
     <allow send_interface="org.bluez.GattCharacteristic1"/>
     <allow send_interface="org.bluez.GattDescriptor1"/>
-    <allow send_interface="org.bluez.mesh.Element1"/>
-    <allow send_interface="org.bluez.mesh.Application1"/>
-    <allow send_interface="org.bluez.mesh.ProvisionAgent1"/>
-    <allow send_interface="org.bluez.mesh.Provisioner1"/>
-    <allow send_interface="org.bluez.mesh.Attention1"/>
-    <allow send_interface="org.bluez.mesh.Network1"/>
-    <allow send_interface="org.bluez.mesh.Node1"/>
-    <allow send_interface="org.bluez.mesh.Management1"/>
     <allow send_interface="org.freedesktop.DBus.ObjectManager"/>
     <allow send_interface="org.freedesktop.DBus.Properties"/>
 </policy>
@@ -293,7 +262,7 @@ func (iface *bluezInterface) SecCompPermanentSlot(spec *seccomp.Specification, s
 	return nil
 }
 
-func (iface *bluezInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *bluezInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

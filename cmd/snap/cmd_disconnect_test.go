@@ -32,7 +32,7 @@ import (
 
 func (s *SnapSuite) TestDisconnectHelp(c *C) {
 	msg := `Usage:
-  snap.test disconnect [disconnect-OPTIONS] [<snap>:<plug>] [<snap>:<slot>]
+  snap.test [OPTIONS] disconnect [<snap>:<plug>] [<snap>:<slot>]
 
 The disconnect command disconnects a plug from a slot.
 It may be called in the following ways:
@@ -46,11 +46,15 @@ $ snap disconnect <snap>:<slot or plug>
 Disconnects everything from the provided plug or slot.
 The snap name may be omitted for the core snap.
 
-[disconnect command options]
-      --no-wait          Do not wait for the operation to finish but just print
-                         the change id.
+Application Options:
+      --version            Print the version and exit
+
+Help Options:
+  -h, --help               Show this help message
 `
-	s.testSubCommandHelp(c, "disconnect", msg)
+	rest, err := Parser().ParseArgs([]string{"disconnect", "--help"})
+	c.Assert(err.Error(), Equals, msg)
+	c.Assert(rest, DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestDisconnectExplicitEverything(c *C) {
@@ -73,7 +77,6 @@ func (s *SnapSuite) TestDisconnectExplicitEverything(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -82,7 +85,7 @@ func (s *SnapSuite) TestDisconnectExplicitEverything(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"disconnect", "producer:plug", "consumer:slot"})
+	rest, err := Parser().ParseArgs([]string{"disconnect", "producer:plug", "consumer:slot"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	c.Assert(s.Stdout(), Equals, "")
@@ -109,7 +112,6 @@ func (s *SnapSuite) TestDisconnectEverythingFromSpecificSlot(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -118,7 +120,7 @@ func (s *SnapSuite) TestDisconnectEverythingFromSpecificSlot(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"disconnect", "consumer:slot"})
+	rest, err := Parser().ParseArgs([]string{"disconnect", "consumer:slot"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	c.Assert(s.Stdout(), Equals, "")
@@ -145,7 +147,6 @@ func (s *SnapSuite) TestDisconnectEverythingFromSpecificSnapPlugOrSlot(c *C) {
 					},
 				},
 			})
-			w.WriteHeader(202)
 			fmt.Fprintln(w, `{"type":"async", "status-code": 202, "change": "zzz"}`)
 		case "/v2/changes/zzz":
 			c.Check(r.Method, Equals, "GET")
@@ -154,7 +155,7 @@ func (s *SnapSuite) TestDisconnectEverythingFromSpecificSnapPlugOrSlot(c *C) {
 			c.Fatalf("unexpected path %q", r.URL.Path)
 		}
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"disconnect", "consumer:plug-or-slot"})
+	rest, err := Parser().ParseArgs([]string{"disconnect", "consumer:plug-or-slot"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	c.Assert(s.Stdout(), Equals, "")
@@ -165,7 +166,7 @@ func (s *SnapSuite) TestDisconnectEverythingFromSpecificSnap(c *C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
 		c.Fatalf("expected nothing to reach the server")
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"disconnect", "consumer"})
+	rest, err := Parser().ParseArgs([]string{"disconnect", "consumer"})
 	c.Assert(err, ErrorMatches, `please provide the plug or slot name to disconnect from snap "consumer"`)
 	c.Assert(rest, DeepEquals, []string{"consumer"})
 	c.Assert(s.Stdout(), Equals, "")
@@ -175,7 +176,7 @@ func (s *SnapSuite) TestDisconnectEverythingFromSpecificSnap(c *C) {
 func (s *SnapSuite) TestDisconnectCompletion(c *C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/v2/connections":
+		case "/v2/interfaces":
 			c.Assert(r.Method, Equals, "GET")
 			EncodeResponseBody(c, w, map[string]interface{}{
 				"type":   "sync",
@@ -189,7 +190,7 @@ func (s *SnapSuite) TestDisconnectCompletion(c *C) {
 	defer os.Unsetenv("GO_FLAGS_COMPLETION")
 
 	expected := []flags.Completion{}
-	parser := Parser(Client())
+	parser := Parser()
 	parser.CompletionHandler = func(obtained []flags.Completion) {
 		c.Check(obtained, DeepEquals, expected)
 	}

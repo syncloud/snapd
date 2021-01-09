@@ -120,22 +120,22 @@ apps:
 
 func (s *DbusInterfaceSuite) SetUpTest(c *C) {
 	s.sessionSlotInfo = s.snapInfo.Slots["test-session-slot"]
-	s.sessionSlot = interfaces.NewConnectedSlot(s.sessionSlotInfo, nil, nil)
+	s.sessionSlot = interfaces.NewConnectedSlot(s.sessionSlotInfo, nil)
 	s.systemSlotInfo = s.snapInfo.Slots["test-system-slot"]
-	s.systemSlot = interfaces.NewConnectedSlot(s.systemSlotInfo, nil, nil)
+	s.systemSlot = interfaces.NewConnectedSlot(s.systemSlotInfo, nil)
 	s.connectedSessionSlotInfo = s.snapInfo.Slots["test-session-connected-slot"]
-	s.connectedSessionSlot = interfaces.NewConnectedSlot(s.connectedSessionSlotInfo, nil, nil)
+	s.connectedSessionSlot = interfaces.NewConnectedSlot(s.connectedSessionSlotInfo, nil)
 	s.connectedSystemSlotInfo = s.snapInfo.Slots["test-system-connected-slot"]
-	s.connectedSystemSlot = interfaces.NewConnectedSlot(s.connectedSystemSlotInfo, nil, nil)
+	s.connectedSystemSlot = interfaces.NewConnectedSlot(s.connectedSystemSlotInfo, nil)
 
 	s.sessionPlugInfo = s.snapInfo.Plugs["test-session-plug"]
-	s.sessionPlug = interfaces.NewConnectedPlug(s.sessionPlugInfo, nil, nil)
+	s.sessionPlug = interfaces.NewConnectedPlug(s.sessionPlugInfo, nil)
 	s.systemPlugInfo = s.snapInfo.Plugs["test-system-plug"]
-	s.systemPlug = interfaces.NewConnectedPlug(s.systemPlugInfo, nil, nil)
+	s.systemPlug = interfaces.NewConnectedPlug(s.systemPlugInfo, nil)
 	s.connectedSessionPlugInfo = s.snapInfo.Plugs["test-session-connected-plug"]
-	s.connectedSessionPlug = interfaces.NewConnectedPlug(s.connectedSessionPlugInfo, nil, nil)
+	s.connectedSessionPlug = interfaces.NewConnectedPlug(s.connectedSessionPlugInfo, nil)
 	s.connectedSystemPlugInfo = s.snapInfo.Plugs["test-system-connected-plug"]
-	s.connectedSystemPlug = interfaces.NewConnectedPlug(s.connectedSystemPlugInfo, nil, nil)
+	s.connectedSystemPlug = interfaces.NewConnectedPlug(s.connectedSystemPlugInfo, nil)
 }
 
 func (s *DbusInterfaceSuite) TestName(c *C) {
@@ -143,64 +143,68 @@ func (s *DbusInterfaceSuite) TestName(c *C) {
 }
 
 func (s *DbusInterfaceSuite) TestValidSessionBusName(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: session
   name: org.dbus-snap.session-a
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), IsNil)
 }
 
 func (s *DbusInterfaceSuite) TestValidSystemBusName(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: system
   name: org.dbus-snap.system-a
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), IsNil)
 }
 
 func (s *DbusInterfaceSuite) TestValidFullBusName(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: system
   name: org.dbus-snap.foo.bar.baz.n0rf_qux
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), IsNil)
 }
 
 func (s *DbusInterfaceSuite) TestNonexistentBusName(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: nonexistent
   name: org.dbus-snap
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches, "bus 'nonexistent' must be one of 'session' or 'system'")
@@ -209,80 +213,85 @@ slots:
 // If this test is failing, be sure to verify the AppArmor rules for binding to
 // a well-known name to avoid overlaps.
 func (s *DbusInterfaceSuite) TestInvalidBusNameEndsWithDashInt(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: session
   name: org.dbus-snap.session-12345
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), ErrorMatches, "DBus bus name must not end with -NUMBER")
 }
 
 func (s *DbusInterfaceSuite) TestSanitizeSlotSystem(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: system
   name: org.dbus-snap.system
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), IsNil)
 }
 
 func (s *DbusInterfaceSuite) TestSanitizeSlotSession(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 slots:
  dbus-slot:
   interface: dbus
   bus: session
   name: org.dbus-snap.session
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	slot := info.Slots["dbus-slot"]
 	c.Assert(interfaces.BeforePrepareSlot(s.iface, slot), IsNil)
 }
 
 func (s *DbusInterfaceSuite) TestSanitizePlugSystem(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 plugs:
  dbus-plug:
   interface: dbus
   bus: system
   name: org.dbus-snap.system
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	plug := info.Plugs["dbus-plug"]
 	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), IsNil)
 }
 
 func (s *DbusInterfaceSuite) TestSanitizePlugSession(c *C) {
-	var mockSnapYaml = `name: dbus-snap
+	var mockSnapYaml = []byte(`name: dbus-snap
 version: 1.0
 plugs:
  dbus-plug:
   interface: dbus
   bus: session
   name: org.dbus-snap.session
-`
+`)
 
-	info := snaptest.MockInfo(c, mockSnapYaml, nil)
+	info, err := snap.InfoFromSnapYaml(mockSnapYaml)
+	c.Assert(err, IsNil)
 
 	plug := info.Plugs["dbus-plug"]
 	c.Assert(interfaces.BeforePreparePlug(s.iface, plug), IsNil)
@@ -509,11 +518,11 @@ slots:
 `
 
 	plugInfo := snaptest.MockInfo(c, plugYaml, nil)
-	matchingPlug := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil, nil)
+	matchingPlug := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil)
 
 	slotInfo := snaptest.MockInfo(c, slotYaml, nil)
-	matchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil, nil)
-	nonmatchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["that"], nil, nil)
+	matchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil)
+	nonmatchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["that"], nil)
 
 	apparmorSpec := &apparmor.Specification{}
 	err := apparmorSpec.AddConnectedPlug(s.iface, matchingPlug, matchingSlot)
@@ -558,11 +567,11 @@ slots:
 `
 
 	plugInfo := snaptest.MockInfo(c, plugYaml, nil)
-	matchingPlug := interfaces.NewConnectedPlug(plugInfo.Plugs["that"], nil, nil)
+	matchingPlug := interfaces.NewConnectedPlug(plugInfo.Plugs["that"], nil)
 
 	slotInfo := snaptest.MockInfo(c, slotYaml, nil)
-	matchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["that"], nil, nil)
-	nonmatchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil, nil)
+	matchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["that"], nil)
+	nonmatchingSlot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil)
 
 	apparmorSpec := &apparmor.Specification{}
 	err := apparmorSpec.AddConnectedPlug(s.iface, matchingPlug, matchingSlot)
@@ -611,12 +620,12 @@ slots:
 `
 
 	plugInfo := snaptest.MockInfo(c, plugYaml, nil)
-	matchingPlug1 := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil, nil)
-	matchingPlug2 := interfaces.NewConnectedPlug(plugInfo.Plugs["that"], nil, nil)
+	matchingPlug1 := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil)
+	matchingPlug2 := interfaces.NewConnectedPlug(plugInfo.Plugs["that"], nil)
 
 	slotInfo := snaptest.MockInfo(c, slotYaml, nil)
-	matchingSlot1 := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil, nil)
-	matchingSlot2 := interfaces.NewConnectedSlot(slotInfo.Slots["that"], nil, nil)
+	matchingSlot1 := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil)
+	matchingSlot2 := interfaces.NewConnectedSlot(slotInfo.Slots["that"], nil)
 
 	apparmorSpec := &apparmor.Specification{}
 	err := apparmorSpec.AddConnectedPlug(s.iface, matchingPlug1, matchingSlot1)
@@ -654,10 +663,10 @@ slots:
 `
 
 	plugInfo := snaptest.MockInfo(c, plugYaml, nil)
-	plug := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil, nil)
+	plug := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil)
 
 	slotInfo := snaptest.MockInfo(c, slotYaml, nil)
-	slot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil, nil)
+	slot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil)
 
 	apparmorSpec := &apparmor.Specification{}
 	err := apparmorSpec.AddConnectedPlug(s.iface, plug, slot)
@@ -684,10 +693,10 @@ slots:
 `
 
 	plugInfo := snaptest.MockInfo(c, plugYaml, nil)
-	plug := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil, nil)
+	plug := interfaces.NewConnectedPlug(plugInfo.Plugs["this"], nil)
 
 	slotInfo := snaptest.MockInfo(c, slotYaml, nil)
-	slot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil, nil)
+	slot := interfaces.NewConnectedSlot(slotInfo.Slots["this"], nil)
 
 	apparmorSpec := &apparmor.Specification{}
 	err := apparmorSpec.AddConnectedPlug(s.iface, plug, slot)

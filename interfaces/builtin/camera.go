@@ -33,28 +33,16 @@ const cameraConnectedPlugAppArmor = `
 # Until we have proper device assignment, allow access to all cameras
 /dev/video[0-9]* rw,
 
-# VideoCore cameras (shared device with VideoCore/EGL)
-/dev/vchiq rw,
-
 # Allow detection of cameras. Leaks plugged in USB device info
 /sys/bus/usb/devices/ r,
-/sys/devices/pci**/usb*/**/busnum r,
-/sys/devices/pci**/usb*/**/devnum r,
 /sys/devices/pci**/usb*/**/idVendor r,
 /sys/devices/pci**/usb*/**/idProduct r,
-/sys/devices/pci**/usb*/**/interface r,
-/sys/devices/pci**/usb*/**/modalias r,
-/sys/devices/pci**/usb*/**/speed r,
 /run/udev/data/c81:[0-9]* r, # video4linux (/dev/video*, etc)
-/run/udev/data/+usb:* r,
 /sys/class/video4linux/ r,
 /sys/devices/pci**/usb*/**/video4linux/** r,
 `
 
-var cameraConnectedPlugUDev = []string{
-	`KERNEL=="video[0-9]*"`,
-	`KERNEL=="vchiq"`,
-}
+var cameraConnectedPlugUDev = []string{`KERNEL=="video[0-9]*"`}
 
 func init() {
 	registerIface(&commonInterface{
@@ -65,5 +53,6 @@ func init() {
 		baseDeclarationSlots:  cameraBaseDeclarationSlots,
 		connectedPlugAppArmor: cameraConnectedPlugAppArmor,
 		connectedPlugUDev:     cameraConnectedPlugUDev,
+		reservedForOS:         true,
 	})
 }

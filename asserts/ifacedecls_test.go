@@ -22,15 +22,12 @@ package asserts_test
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	. "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/snap"
-
-	"github.com/snapcore/snapd/testutil"
 )
 
 var (
@@ -38,18 +35,9 @@ var (
 	_ = Suite(&plugSlotRulesSuite{})
 )
 
-type attrConstraintsSuite struct {
-	testutil.BaseTest
-}
+type attrConstraintsSuite struct{}
 
-type attrerObject map[string]interface{}
-
-func (o attrerObject) Lookup(path string) (interface{}, bool) {
-	v, ok := o[path]
-	return v, ok
-}
-
-func attrs(yml string) *attrerObject {
+func attrs(yml string) map[string]interface{} {
 	var attrs map[string]interface{}
 	err := yaml.Unmarshal([]byte(yml), &attrs)
 	if err != nil {
@@ -64,26 +52,11 @@ func attrs(yml string) *attrerObject {
 	if err != nil {
 		panic(err)
 	}
-
-	// NOTE: it's important to go through snap yaml here even though we're really interested in Attrs only,
-	// as InfoFromSnapYaml normalizes yaml values.
 	info, err := snap.InfoFromSnapYaml(snapYaml)
 	if err != nil {
 		panic(err)
 	}
-
-	var ao attrerObject
-	ao = info.Plugs["plug"].Attrs
-	return &ao
-}
-
-func (s *attrConstraintsSuite) SetUpTest(c *C) {
-	s.BaseTest.SetUpTest(c)
-	s.BaseTest.AddCleanup(snap.MockSanitizePlugsSlots(func(snapInfo *snap.Info) {}))
-}
-
-func (s *attrConstraintsSuite) TearDownTest(c *C) {
-	s.BaseTest.TearDownTest(c)
+	return info.Plugs["plug"].Attrs
 }
 
 func (s *attrConstraintsSuite) TestSimple(c *C) {
@@ -95,27 +68,24 @@ func (s *attrConstraintsSuite) TestSimple(c *C) {
 	cstrs, err := asserts.CompileAttributeConstraints(m["attrs"].(map[string]interface{}))
 	c.Assert(err, IsNil)
 
-	plug := attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": "FOO",
 		"bar": "BAR",
 		"baz": "BAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, IsNil)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": "FOO",
 		"bar": "BAZ",
 		"baz": "BAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `attribute "bar" value "BAZ" does not match \^\(BAR\)\$`)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": "FOO",
 		"baz": "BAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `attribute "bar" has constraints but is unset`)
 }
 
@@ -127,34 +97,29 @@ func (s *attrConstraintsSuite) TestSimpleAnchorsVsRegexpAlt(c *C) {
 	cstrs, err := asserts.CompileAttributeConstraints(m["attrs"].(map[string]interface{}))
 	c.Assert(err, IsNil)
 
-	plug := attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"bar": "BAR",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, IsNil)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"bar": "BARR",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `attribute "bar" value "BARR" does not match \^\(BAR|BAZ\)\$`)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"bar": "BBAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `attribute "bar" value "BAZZ" does not match \^\(BAR|BAZ\)\$`)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"bar": "BABAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `attribute "bar" value "BABAZ" does not match \^\(BAR|BAZ\)\$`)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"bar": "BARAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `attribute "bar" value "BARAZ" does not match \^\(BAR|BAZ\)\$`)
 }
 
@@ -221,28 +186,25 @@ func (s *attrConstraintsSuite) TestAlternative(c *C) {
 	cstrs, err := asserts.CompileAttributeConstraints(m["attrs"].([]interface{}))
 	c.Assert(err, IsNil)
 
-	plug := attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": "FOO",
 		"bar": "BAR",
 		"baz": "BAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, IsNil)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": "FOO",
 		"bar": "BAZ",
 		"baz": "BAZ",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, IsNil)
 
-	plug = attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": "FOO",
 		"bar": "BARR",
 		"baz": "BAR",
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, ErrorMatches, `no alternative matches: attribute "bar" value "BARR" does not match \^\(BAR\)\$`)
 }
 
@@ -299,11 +261,10 @@ bar: true
 `), nil)
 	c.Check(err, IsNil)
 
-	plug := attrerObject(map[string]interface{}{
+	err = cstrs.Check(map[string]interface{}{
 		"foo": int64(1),
 		"bar": true,
-	})
-	err = cstrs.Check(plug, nil)
+	}, nil)
 	c.Check(err, IsNil)
 }
 
@@ -487,22 +448,15 @@ func (s *attrConstraintsSuite) TestNeverMatchAttributeConstraints(c *C) {
 type plugSlotRulesSuite struct{}
 
 func checkAttrs(c *C, attrs *asserts.AttributeConstraints, witness, expected string) {
-	plug := attrerObject(map[string]interface{}{
+	c.Check(attrs.Check(map[string]interface{}{
 		witness: "XYZ",
-	})
-	c.Check(attrs.Check(plug, nil), ErrorMatches, fmt.Sprintf(`attribute "%s".*does not match.*`, witness))
-	plug = attrerObject(map[string]interface{}{
+	}, nil), ErrorMatches, fmt.Sprintf(`attribute "%s".*does not match.*`, witness))
+	c.Check(attrs.Check(map[string]interface{}{
 		witness: expected,
-	})
-	c.Check(attrs.Check(plug, nil), IsNil)
+	}, nil), IsNil)
 }
 
-var (
-	sideArityAny = asserts.SideArityConstraint{N: -1}
-	sideArityOne = asserts.SideArityConstraint{N: 1}
-)
-
-func checkBoolPlugConnConstraints(c *C, subrule string, cstrs []*asserts.PlugConnectionConstraints, always bool) {
+func checkBoolPlugConnConstraints(c *C, cstrs []*asserts.PlugConnectionConstraints, always bool) {
 	expected := asserts.NeverMatchAttributes
 	if always {
 		expected = asserts.AlwaysMatchAttributes
@@ -511,24 +465,12 @@ func checkBoolPlugConnConstraints(c *C, subrule string, cstrs []*asserts.PlugCon
 	cstrs1 := cstrs[0]
 	c.Check(cstrs1.PlugAttributes, Equals, expected)
 	c.Check(cstrs1.SlotAttributes, Equals, expected)
-	if strings.HasPrefix(subrule, "deny-") {
-		undef := asserts.SideArityConstraint{}
-		c.Check(cstrs1.SlotsPerPlug, Equals, undef)
-		c.Check(cstrs1.PlugsPerSlot, Equals, undef)
-	} else {
-		c.Check(cstrs1.PlugsPerSlot, Equals, sideArityAny)
-		if strings.HasSuffix(subrule, "-auto-connection") {
-			c.Check(cstrs1.SlotsPerPlug, Equals, sideArityOne)
-		} else {
-			c.Check(cstrs1.SlotsPerPlug, Equals, sideArityAny)
-		}
-	}
 	c.Check(cstrs1.SlotSnapIDs, HasLen, 0)
 	c.Check(cstrs1.SlotPublisherIDs, HasLen, 0)
 	c.Check(cstrs1.SlotSnapTypes, HasLen, 0)
 }
 
-func checkBoolSlotConnConstraints(c *C, subrule string, cstrs []*asserts.SlotConnectionConstraints, always bool) {
+func checkBoolSlotConnConstraints(c *C, cstrs []*asserts.SlotConnectionConstraints, always bool) {
 	expected := asserts.NeverMatchAttributes
 	if always {
 		expected = asserts.AlwaysMatchAttributes
@@ -537,18 +479,6 @@ func checkBoolSlotConnConstraints(c *C, subrule string, cstrs []*asserts.SlotCon
 	cstrs1 := cstrs[0]
 	c.Check(cstrs1.PlugAttributes, Equals, expected)
 	c.Check(cstrs1.SlotAttributes, Equals, expected)
-	if strings.HasPrefix(subrule, "deny-") {
-		undef := asserts.SideArityConstraint{}
-		c.Check(cstrs1.SlotsPerPlug, Equals, undef)
-		c.Check(cstrs1.PlugsPerSlot, Equals, undef)
-	} else {
-		c.Check(cstrs1.PlugsPerSlot, Equals, sideArityAny)
-		if strings.HasSuffix(subrule, "-auto-connection") {
-			c.Check(cstrs1.SlotsPerPlug, Equals, sideArityOne)
-		} else {
-			c.Check(cstrs1.SlotsPerPlug, Equals, sideArityAny)
-		}
-	}
 	c.Check(cstrs1.PlugSnapIDs, HasLen, 0)
 	c.Check(cstrs1.PlugPublisherIDs, HasLen, 0)
 	c.Check(cstrs1.PlugSnapTypes, HasLen, 0)
@@ -705,11 +635,11 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleShortcutTrue(c *C) {
 	c.Assert(rule.DenyInstallation, HasLen, 1)
 	c.Check(rule.DenyInstallation[0].PlugAttributes, Equals, asserts.NeverMatchAttributes)
 	// connection subrules
-	checkBoolPlugConnConstraints(c, "allow-connection", rule.AllowConnection, true)
-	checkBoolPlugConnConstraints(c, "deny-connection", rule.DenyConnection, false)
+	checkBoolPlugConnConstraints(c, rule.AllowConnection, true)
+	checkBoolPlugConnConstraints(c, rule.DenyConnection, false)
 	// auto-connection subrules
-	checkBoolPlugConnConstraints(c, "allow-auto-connection", rule.AllowAutoConnection, true)
-	checkBoolPlugConnConstraints(c, "deny-auto-connection", rule.DenyAutoConnection, false)
+	checkBoolPlugConnConstraints(c, rule.AllowAutoConnection, true)
+	checkBoolPlugConnConstraints(c, rule.DenyAutoConnection, false)
 }
 
 func (s *plugSlotRulesSuite) TestCompilePlugRuleShortcutFalse(c *C) {
@@ -722,11 +652,11 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleShortcutFalse(c *C) {
 	c.Assert(rule.DenyInstallation, HasLen, 1)
 	c.Check(rule.DenyInstallation[0].PlugAttributes, Equals, asserts.AlwaysMatchAttributes)
 	// connection subrules
-	checkBoolPlugConnConstraints(c, "allow-connection", rule.AllowConnection, false)
-	checkBoolPlugConnConstraints(c, "deny-connection", rule.DenyConnection, true)
+	checkBoolPlugConnConstraints(c, rule.AllowConnection, false)
+	checkBoolPlugConnConstraints(c, rule.DenyConnection, true)
 	// auto-connection subrules
-	checkBoolPlugConnConstraints(c, "allow-auto-connection", rule.AllowAutoConnection, false)
-	checkBoolPlugConnConstraints(c, "deny-auto-connection", rule.DenyAutoConnection, true)
+	checkBoolPlugConnConstraints(c, rule.AllowAutoConnection, false)
+	checkBoolPlugConnConstraints(c, rule.DenyAutoConnection, true)
 }
 
 func (s *plugSlotRulesSuite) TestCompilePlugRuleDefaults(c *C) {
@@ -743,12 +673,12 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleDefaults(c *C) {
 	c.Assert(rule.DenyInstallation, HasLen, 1)
 	c.Check(rule.DenyInstallation[0].PlugAttributes, Equals, asserts.NeverMatchAttributes)
 	// connection subrules
-	checkBoolPlugConnConstraints(c, "allow-connection", rule.AllowConnection, true)
-	checkBoolPlugConnConstraints(c, "deny-connection", rule.DenyConnection, false)
+	checkBoolPlugConnConstraints(c, rule.AllowConnection, true)
+	checkBoolPlugConnConstraints(c, rule.DenyConnection, false)
 	// auto-connection subrules
-	checkBoolPlugConnConstraints(c, "allow-auto-connection", rule.AllowAutoConnection, true)
+	checkBoolPlugConnConstraints(c, rule.AllowAutoConnection, true)
 	// ... but deny-auto-connection is on
-	checkBoolPlugConnConstraints(c, "deny-auto-connection", rule.DenyAutoConnection, true)
+	checkBoolPlugConnConstraints(c, rule.DenyAutoConnection, true)
 }
 
 func (s *plugSlotRulesSuite) TestCompilePlugRuleInstalationConstraintsIDConstraints(c *C) {
@@ -805,65 +735,6 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleInstallationConstraintsOnClassic
 	c.Assert(err, IsNil)
 
 	c.Check(rule.AllowInstallation[0].OnClassic, DeepEquals, &asserts.OnClassicConstraint{Classic: true, SystemIDs: []string{"ubuntu", "debian"}})
-}
-
-func (s *plugSlotRulesSuite) TestCompilePlugRuleInstallationConstraintsDeviceScope(c *C) {
-	m, err := asserts.ParseHeaders([]byte(`iface:
-  allow-installation: true`))
-	c.Assert(err, IsNil)
-
-	rule, err := asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-	c.Assert(err, IsNil)
-
-	c.Check(rule.AllowInstallation[0].DeviceScope, IsNil)
-
-	tests := []struct {
-		rule     string
-		expected asserts.DeviceScopeConstraint
-	}{
-		{`iface:
-  allow-installation:
-    on-store:
-      - my-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store"}}},
-		{`iface:
-  allow-installation:
-    on-store:
-      - my-store
-      - other-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store", "other-store"}}},
-		{`iface:
-  allow-installation:
-    on-brand:
-      - my-brand
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT`, asserts.DeviceScopeConstraint{Brand: []string{"my-brand", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT"}}},
-		{`iface:
-  allow-installation:
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-		{`iface:
-  allow-installation:
-    on-store:
-      - store1
-      - store2
-    on-brand:
-      - my-brand
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{
-			Store: []string{"store1", "store2"},
-			Brand: []string{"my-brand"},
-			Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-	}
-
-	for _, t := range tests {
-		m, err = asserts.ParseHeaders([]byte(t.rule))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowInstallation[0].DeviceScope, DeepEquals, &t.expected)
-	}
 }
 
 func (s *plugSlotRulesSuite) TestCompilePlugRuleConnectionConstraintsIDConstraints(c *C) {
@@ -925,143 +796,6 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleConnectionConstraintsOnClassic(c
 	c.Assert(err, IsNil)
 
 	c.Check(rule.AllowConnection[0].OnClassic, DeepEquals, &asserts.OnClassicConstraint{Classic: true, SystemIDs: []string{"ubuntu", "debian"}})
-}
-
-func (s *plugSlotRulesSuite) TestCompilePlugRuleConnectionConstraintsDeviceScope(c *C) {
-	m, err := asserts.ParseHeaders([]byte(`iface:
-  allow-connection: true`))
-	c.Assert(err, IsNil)
-
-	rule, err := asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-	c.Assert(err, IsNil)
-
-	c.Check(rule.AllowInstallation[0].DeviceScope, IsNil)
-
-	tests := []struct {
-		rule     string
-		expected asserts.DeviceScopeConstraint
-	}{
-		{`iface:
-  allow-connection:
-    on-store:
-      - my-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store"}}},
-		{`iface:
-  allow-connection:
-    on-store:
-      - my-store
-      - other-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store", "other-store"}}},
-		{`iface:
-  allow-connection:
-    on-brand:
-      - my-brand
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT`, asserts.DeviceScopeConstraint{Brand: []string{"my-brand", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT"}}},
-		{`iface:
-  allow-connection:
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-		{`iface:
-  allow-connection:
-    on-store:
-      - store1
-      - store2
-    on-brand:
-      - my-brand
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{
-			Store: []string{"store1", "store2"},
-			Brand: []string{"my-brand"},
-			Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-	}
-
-	for _, t := range tests {
-		m, err = asserts.ParseHeaders([]byte(t.rule))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowConnection[0].DeviceScope, DeepEquals, &t.expected)
-	}
-}
-
-func (s *plugSlotRulesSuite) TestCompilePlugRuleConnectionConstraintsSideArityConstraints(c *C) {
-	m, err := asserts.ParseHeaders([]byte(`iface:
-  allow-auto-connection: true`))
-	c.Assert(err, IsNil)
-
-	rule, err := asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-	c.Assert(err, IsNil)
-
-	// defaults
-	c.Check(rule.AllowAutoConnection[0].SlotsPerPlug, Equals, asserts.SideArityConstraint{N: 1})
-	c.Check(rule.AllowAutoConnection[0].PlugsPerSlot.Any(), Equals, true)
-
-	c.Check(rule.AllowConnection[0].SlotsPerPlug.Any(), Equals, true)
-	c.Check(rule.AllowConnection[0].PlugsPerSlot.Any(), Equals, true)
-
-	// test that the arity constraints get normalized away to any
-	// under allow-connection
-	// see https://forum.snapcraft.io/t/plug-slot-declaration-rules-greedy-plugs/12438
-	allowConnTests := []string{
-		`iface:
-  allow-connection:
-    slots-per-plug: 1
-    plugs-per-slot: 2`,
-		`iface:
-  allow-connection:
-    slots-per-plug: *
-    plugs-per-slot: 1`,
-		`iface:
-  allow-connection:
-    slots-per-plug: 2
-    plugs-per-slot: *`,
-	}
-
-	for _, t := range allowConnTests {
-		m, err = asserts.ParseHeaders([]byte(t))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowConnection[0].SlotsPerPlug.Any(), Equals, true)
-		c.Check(rule.AllowConnection[0].PlugsPerSlot.Any(), Equals, true)
-	}
-
-	// test that under allow-auto-connection:
-	// slots-per-plug can be * (any) or otherwise gets normalized to 1
-	// plugs-per-slot gets normalized to any (*)
-	// see https://forum.snapcraft.io/t/plug-slot-declaration-rules-greedy-plugs/12438
-	allowAutoConnTests := []struct {
-		rule         string
-		slotsPerPlug asserts.SideArityConstraint
-	}{
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: 1
-    plugs-per-slot: 2`, sideArityOne},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: *
-    plugs-per-slot: 1`, sideArityAny},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: 2
-    plugs-per-slot: *`, sideArityOne},
-	}
-
-	for _, t := range allowAutoConnTests {
-		m, err = asserts.ParseHeaders([]byte(t.rule))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompilePlugRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowAutoConnection[0].SlotsPerPlug, Equals, t.slotsPerPlug)
-		c.Check(rule.AllowAutoConnection[0].PlugsPerSlot.Any(), Equals, true)
-	}
 }
 
 func (s *plugSlotRulesSuite) TestCompilePlugRuleConnectionConstraintsAttributesDefault(c *C) {
@@ -1126,67 +860,21 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleErrors(c *C) {
 		{`iface:
   allow-connection:
     slot-snap-ids:
-      - foo`, `allow-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `allow-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, on-classic`},
 		{`iface:
   deny-connection:
     slot-snap-ids:
-      - foo`, `deny-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `deny-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, on-classic`},
 		{`iface:
   allow-auto-connection:
     slot-snap-ids:
-      - foo`, `allow-auto-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `allow-auto-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, on-classic`},
 		{`iface:
   deny-auto-connection:
     slot-snap-ids:
-      - foo`, `deny-auto-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `deny-auto-connection in plug rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, slot-snap-type, slot-publisher-id, slot-snap-id, on-classic`},
 		{`iface:
   allow-connect: true`, `plug rule for interface "iface" must specify at least one of allow-installation, deny-installation, allow-connection, deny-connection, allow-auto-connection, deny-auto-connection`},
-		{`iface:
-  allow-installation:
-    on-store: true`, `on-store in allow-installation in plug rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-installation:
-    on-store: store1`, `on-store in allow-installation in plug rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-installation:
-    on-store:
-      - zoom!`, `on-store in allow-installation in plug rule for interface \"iface\" contains an invalid element: \"zoom!\"`},
-		{`iface:
-  allow-connection:
-    on-brand: true`, `on-brand in allow-connection in plug rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-connection:
-    on-brand: brand1`, `on-brand in allow-connection in plug rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-connection:
-    on-brand:
-      - zoom!`, `on-brand in allow-connection in plug rule for interface \"iface\" contains an invalid element: \"zoom!\"`},
-		{`iface:
-  allow-auto-connection:
-    on-model: true`, `on-model in allow-auto-connection in plug rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-auto-connection:
-    on-model: foo/bar`, `on-model in allow-auto-connection in plug rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-auto-connection:
-    on-model:
-      - foo/!qz`, `on-model in allow-auto-connection in plug rule for interface \"iface\" contains an invalid element: \"foo/!qz"`},
-		{`iface:
-  allow-installation:
-    slots-per-plug: 1`, `allow-installation in plug rule for interface "iface" cannot specify a slots-per-plug constraint, they apply only to allow-\*connection`},
-		{`iface:
-  deny-connection:
-    slots-per-plug: 1`, `deny-connection in plug rule for interface "iface" cannot specify a slots-per-plug constraint, they apply only to allow-\*connection`},
-		{`iface:
-  allow-auto-connection:
-    plugs-per-slot: any`, `plugs-per-slot in allow-auto-connection in plug rule for interface "iface" must be an integer >=1 or \*`},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: 0`, `slots-per-plug in allow-auto-connection in plug rule for interface "iface" must be an integer >=1 or \*`},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug:
-      what: 1`, `slots-per-plug in allow-auto-connection in plug rule for interface "iface" must be an integer >=1 or \*`},
 	}
 
 	for _, t := range tests {
@@ -1197,14 +885,6 @@ func (s *plugSlotRulesSuite) TestCompilePlugRuleErrors(c *C) {
 		c.Check(err, ErrorMatches, t.err, Commentf(t.stanza))
 	}
 }
-
-var (
-	deviceScopeConstrs = map[string][]interface{}{
-		"on-store": {"store"},
-		"on-brand": {"brand"},
-		"on-model": {"brand/model"},
-	}
-)
 
 func (s *plugSlotRulesSuite) TestPlugRuleFeatures(c *C) {
 	combos := []struct {
@@ -1235,8 +915,6 @@ func (s *plugSlotRulesSuite) TestPlugRuleFeatures(c *C) {
 			c.Assert(err, IsNil)
 			c.Check(asserts.RuleFeature(rule, "dollar-attr-constraints"), Equals, false, Commentf("%v", ruleMap))
 
-			c.Check(asserts.RuleFeature(rule, "device-scope-constraints"), Equals, false, Commentf("%v", ruleMap))
-
 			attrConstraintMap["a"] = "$MISSING"
 			rule, err = asserts.CompilePlugRule("iface", ruleMap)
 			c.Assert(err, IsNil)
@@ -1248,20 +926,6 @@ func (s *plugSlotRulesSuite) TestPlugRuleFeatures(c *C) {
 			c.Assert(err, IsNil)
 			c.Check(asserts.RuleFeature(rule, "dollar-attr-constraints"), Equals, true, Commentf("%v", ruleMap))
 
-			c.Check(asserts.RuleFeature(rule, "device-scope-constraints"), Equals, false, Commentf("%v", ruleMap))
-
-		}
-
-		for deviceScopeConstr, value := range deviceScopeConstrs {
-			ruleMap := map[string]interface{}{
-				combo.subrule: map[string]interface{}{
-					deviceScopeConstr: value,
-				},
-			}
-
-			rule, err := asserts.CompilePlugRule("iface", ruleMap)
-			c.Assert(err, IsNil)
-			c.Check(asserts.RuleFeature(rule, "device-scope-constraints"), Equals, true, Commentf("%v", ruleMap))
 		}
 	}
 }
@@ -1417,11 +1081,11 @@ func (s *plugSlotRulesSuite) TestCompileSlotRuleShortcutTrue(c *C) {
 	c.Assert(rule.DenyInstallation, HasLen, 1)
 	c.Check(rule.DenyInstallation[0].SlotAttributes, Equals, asserts.NeverMatchAttributes)
 	// connection subrules
-	checkBoolSlotConnConstraints(c, "allow-connection", rule.AllowConnection, true)
-	checkBoolSlotConnConstraints(c, "deny-connection", rule.DenyConnection, false)
+	checkBoolSlotConnConstraints(c, rule.AllowConnection, true)
+	checkBoolSlotConnConstraints(c, rule.DenyConnection, false)
 	// auto-connection subrules
-	checkBoolSlotConnConstraints(c, "allow-auto-connection", rule.AllowAutoConnection, true)
-	checkBoolSlotConnConstraints(c, "deny-auto-connection", rule.DenyAutoConnection, false)
+	checkBoolSlotConnConstraints(c, rule.AllowAutoConnection, true)
+	checkBoolSlotConnConstraints(c, rule.DenyAutoConnection, false)
 }
 
 func (s *plugSlotRulesSuite) TestCompileSlotRuleShortcutFalse(c *C) {
@@ -1434,11 +1098,11 @@ func (s *plugSlotRulesSuite) TestCompileSlotRuleShortcutFalse(c *C) {
 	c.Assert(rule.DenyInstallation, HasLen, 1)
 	c.Check(rule.DenyInstallation[0].SlotAttributes, Equals, asserts.AlwaysMatchAttributes)
 	// connection subrules
-	checkBoolSlotConnConstraints(c, "allwo-connection", rule.AllowConnection, false)
-	checkBoolSlotConnConstraints(c, "deny-connection", rule.DenyConnection, true)
+	checkBoolSlotConnConstraints(c, rule.AllowConnection, false)
+	checkBoolSlotConnConstraints(c, rule.DenyConnection, true)
 	// auto-connection subrules
-	checkBoolSlotConnConstraints(c, "allow-auto-connection", rule.AllowAutoConnection, false)
-	checkBoolSlotConnConstraints(c, "deny-auto-connection", rule.DenyAutoConnection, true)
+	checkBoolSlotConnConstraints(c, rule.AllowAutoConnection, false)
+	checkBoolSlotConnConstraints(c, rule.DenyAutoConnection, true)
 }
 
 func (s *plugSlotRulesSuite) TestCompileSlotRuleDefaults(c *C) {
@@ -1455,12 +1119,12 @@ func (s *plugSlotRulesSuite) TestCompileSlotRuleDefaults(c *C) {
 	c.Assert(rule.DenyInstallation, HasLen, 1)
 	c.Check(rule.DenyInstallation[0].SlotAttributes, Equals, asserts.NeverMatchAttributes)
 	// connection subrules
-	checkBoolSlotConnConstraints(c, "allow-connection", rule.AllowConnection, true)
-	checkBoolSlotConnConstraints(c, "deny-connection", rule.DenyConnection, false)
+	checkBoolSlotConnConstraints(c, rule.AllowConnection, true)
+	checkBoolSlotConnConstraints(c, rule.DenyConnection, false)
 	// auto-connection subrules
-	checkBoolSlotConnConstraints(c, "allow-auto-connection", rule.AllowAutoConnection, true)
+	checkBoolSlotConnConstraints(c, rule.AllowAutoConnection, true)
 	// ... but deny-auto-connection is on
-	checkBoolSlotConnConstraints(c, "deny-auto-connection", rule.DenyAutoConnection, true)
+	checkBoolSlotConnConstraints(c, rule.DenyAutoConnection, true)
 }
 
 func (s *plugSlotRulesSuite) TestCompileSlotRuleInstallationConstraintsIDConstraints(c *C) {
@@ -1517,65 +1181,6 @@ func (s *plugSlotRulesSuite) TestCompileSlotRuleInstallationConstraintsOnClassic
 	c.Assert(err, IsNil)
 
 	c.Check(rule.AllowInstallation[0].OnClassic, DeepEquals, &asserts.OnClassicConstraint{Classic: true, SystemIDs: []string{"ubuntu", "debian"}})
-}
-
-func (s *plugSlotRulesSuite) TestCompileSlotRuleInstallationConstraintsDeviceScope(c *C) {
-	m, err := asserts.ParseHeaders([]byte(`iface:
-  allow-installation: true`))
-	c.Assert(err, IsNil)
-
-	rule, err := asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-	c.Assert(err, IsNil)
-
-	c.Check(rule.AllowInstallation[0].DeviceScope, IsNil)
-
-	tests := []struct {
-		rule     string
-		expected asserts.DeviceScopeConstraint
-	}{
-		{`iface:
-  allow-installation:
-    on-store:
-      - my-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store"}}},
-		{`iface:
-  allow-installation:
-    on-store:
-      - my-store
-      - other-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store", "other-store"}}},
-		{`iface:
-  allow-installation:
-    on-brand:
-      - my-brand
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT`, asserts.DeviceScopeConstraint{Brand: []string{"my-brand", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT"}}},
-		{`iface:
-  allow-installation:
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-		{`iface:
-  allow-installation:
-    on-store:
-      - store1
-      - store2
-    on-brand:
-      - my-brand
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{
-			Store: []string{"store1", "store2"},
-			Brand: []string{"my-brand"},
-			Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-	}
-
-	for _, t := range tests {
-		m, err = asserts.ParseHeaders([]byte(t.rule))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowInstallation[0].DeviceScope, DeepEquals, &t.expected)
-	}
 }
 
 func (s *plugSlotRulesSuite) TestCompileSlotRuleConnectionConstraintsIDConstraints(c *C) {
@@ -1638,143 +1243,6 @@ func (s *plugSlotRulesSuite) TestCompileSlotRuleConnectionConstraintsOnClassic(c
 	c.Check(rule.AllowConnection[0].OnClassic, DeepEquals, &asserts.OnClassicConstraint{Classic: true, SystemIDs: []string{"ubuntu", "debian"}})
 }
 
-func (s *plugSlotRulesSuite) TestCompileSlotRuleConnectionConstraintsDeviceScope(c *C) {
-	m, err := asserts.ParseHeaders([]byte(`iface:
-  allow-connection: true`))
-	c.Assert(err, IsNil)
-
-	rule, err := asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-	c.Assert(err, IsNil)
-
-	c.Check(rule.AllowConnection[0].DeviceScope, IsNil)
-
-	tests := []struct {
-		rule     string
-		expected asserts.DeviceScopeConstraint
-	}{
-		{`iface:
-  allow-connection:
-    on-store:
-      - my-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store"}}},
-		{`iface:
-  allow-connection:
-    on-store:
-      - my-store
-      - other-store`, asserts.DeviceScopeConstraint{Store: []string{"my-store", "other-store"}}},
-		{`iface:
-  allow-connection:
-    on-brand:
-      - my-brand
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT`, asserts.DeviceScopeConstraint{Brand: []string{"my-brand", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT"}}},
-		{`iface:
-  allow-connection:
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-		{`iface:
-  allow-connection:
-    on-store:
-      - store1
-      - store2
-    on-brand:
-      - my-brand
-    on-model:
-      - my-brand/bar
-      - s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz`, asserts.DeviceScopeConstraint{
-			Store: []string{"store1", "store2"},
-			Brand: []string{"my-brand"},
-			Model: []string{"my-brand/bar", "s9zGdwb16ysLeRW6nRivwZS5r9puP8JT/baz"}}},
-	}
-
-	for _, t := range tests {
-		m, err = asserts.ParseHeaders([]byte(t.rule))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowConnection[0].DeviceScope, DeepEquals, &t.expected)
-	}
-}
-
-func (s *plugSlotRulesSuite) TestCompileSlotRuleConnectionConstraintsSideArityConstraints(c *C) {
-	m, err := asserts.ParseHeaders([]byte(`iface:
-  allow-auto-connection: true`))
-	c.Assert(err, IsNil)
-
-	rule, err := asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-	c.Assert(err, IsNil)
-
-	// defaults
-	c.Check(rule.AllowAutoConnection[0].SlotsPerPlug, Equals, asserts.SideArityConstraint{N: 1})
-	c.Check(rule.AllowAutoConnection[0].PlugsPerSlot.Any(), Equals, true)
-
-	c.Check(rule.AllowConnection[0].SlotsPerPlug.Any(), Equals, true)
-	c.Check(rule.AllowConnection[0].PlugsPerSlot.Any(), Equals, true)
-
-	// test that the arity constraints get normalized away to any
-	// under allow-connection
-	// see https://forum.snapcraft.io/t/plug-slot-declaration-rules-greedy-plugs/12438
-	allowConnTests := []string{
-		`iface:
-  allow-connection:
-    slots-per-plug: 1
-    plugs-per-slot: 2`,
-		`iface:
-  allow-connection:
-    slots-per-plug: *
-    plugs-per-slot: 1`,
-		`iface:
-  allow-connection:
-    slots-per-plug: 2
-    plugs-per-slot: *`,
-	}
-
-	for _, t := range allowConnTests {
-		m, err = asserts.ParseHeaders([]byte(t))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowConnection[0].SlotsPerPlug.Any(), Equals, true)
-		c.Check(rule.AllowConnection[0].PlugsPerSlot.Any(), Equals, true)
-	}
-
-	// test that under allow-auto-connection:
-	// slots-per-plug can be * (any) or otherwise gets normalized to 1
-	// plugs-per-slot gets normalized to any (*)
-	// see https://forum.snapcraft.io/t/plug-slot-declaration-rules-greedy-plugs/12438
-	allowAutoConnTests := []struct {
-		rule         string
-		slotsPerPlug asserts.SideArityConstraint
-	}{
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: 1
-    plugs-per-slot: 2`, sideArityOne},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: *
-    plugs-per-slot: 1`, sideArityAny},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: 2
-    plugs-per-slot: *`, sideArityOne},
-	}
-
-	for _, t := range allowAutoConnTests {
-		m, err = asserts.ParseHeaders([]byte(t.rule))
-		c.Assert(err, IsNil)
-
-		rule, err = asserts.CompileSlotRule("iface", m["iface"].(map[string]interface{}))
-		c.Assert(err, IsNil)
-
-		c.Check(rule.AllowAutoConnection[0].SlotsPerPlug, Equals, t.slotsPerPlug)
-		c.Check(rule.AllowAutoConnection[0].PlugsPerSlot.Any(), Equals, true)
-	}
-}
-
 func (s *plugSlotRulesSuite) TestCompileSlotRuleErrors(c *C) {
 	tests := []struct {
 		stanza string
@@ -1831,67 +1299,21 @@ func (s *plugSlotRulesSuite) TestCompileSlotRuleErrors(c *C) {
 		{`iface:
   allow-connection:
     plug-snap-ids:
-      - foo`, `allow-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `allow-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, on-classic`},
 		{`iface:
   deny-connection:
     plug-snap-ids:
-      - foo`, `deny-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `deny-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, on-classic`},
 		{`iface:
   allow-auto-connection:
     plug-snap-ids:
-      - foo`, `allow-auto-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `allow-auto-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, on-classic`},
 		{`iface:
   deny-auto-connection:
     plug-snap-ids:
-      - foo`, `deny-auto-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, slots-per-plug, plugs-per-slot, on-classic, on-store, on-brand, on-model`},
+      - foo`, `deny-auto-connection in slot rule for interface "iface" must specify at least one of plug-attributes, slot-attributes, plug-snap-type, plug-publisher-id, plug-snap-id, on-classic`},
 		{`iface:
   allow-connect: true`, `slot rule for interface "iface" must specify at least one of allow-installation, deny-installation, allow-connection, deny-connection, allow-auto-connection, deny-auto-connection`},
-		{`iface:
-  allow-installation:
-    on-store: true`, `on-store in allow-installation in slot rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-installation:
-    on-store: store1`, `on-store in allow-installation in slot rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-installation:
-    on-store:
-      - zoom!`, `on-store in allow-installation in slot rule for interface \"iface\" contains an invalid element: \"zoom!\"`},
-		{`iface:
-  allow-connection:
-    on-brand: true`, `on-brand in allow-connection in slot rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-connection:
-    on-brand: brand1`, `on-brand in allow-connection in slot rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-connection:
-    on-brand:
-      - zoom!`, `on-brand in allow-connection in slot rule for interface \"iface\" contains an invalid element: \"zoom!\"`},
-		{`iface:
-  allow-auto-connection:
-    on-model: true`, `on-model in allow-auto-connection in slot rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-auto-connection:
-    on-model: foo/bar`, `on-model in allow-auto-connection in slot rule for interface \"iface\" must be a list of strings`},
-		{`iface:
-  allow-auto-connection:
-    on-model:
-      - foo//bar`, `on-model in allow-auto-connection in slot rule for interface \"iface\" contains an invalid element: \"foo//bar"`},
-		{`iface:
-  allow-installation:
-    slots-per-plug: 1`, `allow-installation in slot rule for interface "iface" cannot specify a slots-per-plug constraint, they apply only to allow-\*connection`},
-		{`iface:
-  deny-auto-connection:
-    slots-per-plug: 1`, `deny-auto-connection in slot rule for interface "iface" cannot specify a slots-per-plug constraint, they apply only to allow-\*connection`},
-		{`iface:
-  allow-auto-connection:
-    plugs-per-slot: any`, `plugs-per-slot in allow-auto-connection in slot rule for interface "iface" must be an integer >=1 or \*`},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug: 0`, `slots-per-plug in allow-auto-connection in slot rule for interface "iface" must be an integer >=1 or \*`},
-		{`iface:
-  allow-auto-connection:
-    slots-per-plug:
-      what: 1`, `slots-per-plug in allow-auto-connection in slot rule for interface "iface" must be an integer >=1 or \*`},
 	}
 
 	for _, t := range tests {
@@ -1930,101 +1352,11 @@ func (s *plugSlotRulesSuite) TestSlotRuleFeatures(c *C) {
 			c.Assert(err, IsNil)
 			c.Check(asserts.RuleFeature(rule, "dollar-attr-constraints"), Equals, false, Commentf("%v", ruleMap))
 
-			c.Check(asserts.RuleFeature(rule, "device-scope-constraints"), Equals, false, Commentf("%v", ruleMap))
-
 			attrConstraintMap["a"] = "$PLUG(a)"
 			rule, err = asserts.CompileSlotRule("iface", ruleMap)
 			c.Assert(err, IsNil)
 			c.Check(asserts.RuleFeature(rule, "dollar-attr-constraints"), Equals, true, Commentf("%v", ruleMap))
 
-			c.Check(asserts.RuleFeature(rule, "device-scope-constraints"), Equals, false, Commentf("%v", ruleMap))
-		}
-
-		for deviceScopeConstr, value := range deviceScopeConstrs {
-			ruleMap := map[string]interface{}{
-				combo.subrule: map[string]interface{}{
-					deviceScopeConstr: value,
-				},
-			}
-
-			rule, err := asserts.CompileSlotRule("iface", ruleMap)
-			c.Assert(err, IsNil)
-			c.Check(asserts.RuleFeature(rule, "device-scope-constraints"), Equals, true, Commentf("%v", ruleMap))
-		}
-	}
-}
-
-func (s *plugSlotRulesSuite) TestValidOnStoreBrandModel(c *C) {
-	tests := []struct {
-		constr string
-		value  string
-		valid  bool
-	}{
-		{"on-store", "", false},
-		{"on-store", "foo", true},
-		{"on-store", "F_o-O88", true},
-		{"on-store", "foo!", false},
-		{"on-store", "foo.", false},
-		{"on-store", "foo/", false},
-		{"on-brand", "", false},
-		// custom set brands (length 2-28)
-		{"on-brand", "dwell", true},
-		{"on-brand", "Dwell", false},
-		{"on-brand", "dwell-88", true},
-		{"on-brand", "dwell_88", false},
-		{"on-brand", "dwell.88", false},
-		{"on-brand", "dwell:88", false},
-		{"on-brand", "dwell!88", false},
-		{"on-brand", "a", false},
-		{"on-brand", "ab", true},
-		{"on-brand", "0123456789012345678901234567", true},
-		// snappy id brands (fixed length 32)
-		{"on-brand", "01234567890123456789012345678", false},
-		{"on-brand", "012345678901234567890123456789", false},
-		{"on-brand", "0123456789012345678901234567890", false},
-		{"on-brand", "01234567890123456789012345678901", true},
-		{"on-brand", "abcdefghijklmnopqrstuvwxyz678901", true},
-		{"on-brand", "ABCDEFGHIJKLMNOPQRSTUVWCYZ678901", true},
-		{"on-brand", "ABCDEFGHIJKLMNOPQRSTUVWCYZ678901X", false},
-		{"on-brand", "ABCDEFGHIJKLMNOPQ!STUVWCYZ678901", false},
-		{"on-brand", "ABCDEFGHIJKLMNOPQ_STUVWCYZ678901", false},
-		{"on-brand", "ABCDEFGHIJKLMNOPQ-STUVWCYZ678901", false},
-		{"on-model", "", false},
-		{"on-model", "/", false},
-		{"on-model", "dwell/dwell1", true},
-		{"on-model", "dwell", false},
-		{"on-model", "dwell/", false},
-		{"on-model", "dwell//dwell1", false},
-		{"on-model", "dwell/-dwell1", false},
-		{"on-model", "dwell/dwell1-", false},
-		{"on-model", "dwell/dwell1-23", true},
-		{"on-model", "dwell/dwell1!", false},
-		{"on-model", "dwell/dwe_ll1", false},
-		{"on-model", "dwell/dwe.ll1", false},
-	}
-
-	check := func(constr, value string, valid bool) {
-		ruleMap := map[string]interface{}{
-			"allow-auto-connection": map[string]interface{}{
-				constr: []interface{}{value},
-			},
-		}
-
-		_, err := asserts.CompilePlugRule("iface", ruleMap)
-		if valid {
-			c.Check(err, IsNil, Commentf("%v", ruleMap))
-		} else {
-			c.Check(err, ErrorMatches, fmt.Sprintf(`%s in allow-auto-connection in plug rule for interface "iface" contains an invalid element: %q`, constr, value), Commentf("%v", ruleMap))
-		}
-	}
-
-	for _, t := range tests {
-		check(t.constr, t.value, t.valid)
-
-		if t.constr == "on-brand" {
-			// reuse and double check all brands also in the context of on-model!
-
-			check("on-model", t.value+"/foo", t.valid)
 		}
 	}
 }

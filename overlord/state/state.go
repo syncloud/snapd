@@ -57,10 +57,6 @@ func (data customData) get(key string, value interface{}) error {
 	return nil
 }
 
-func (data customData) has(key string) bool {
-	return data[key] != nil
-}
-
 func (data customData) set(key string, value interface{}) {
 	if value == nil {
 		delete(data, key)
@@ -80,9 +76,6 @@ const (
 	RestartUnset RestartType = iota
 	RestartDaemon
 	RestartSystem
-	// RestartSocket will restart the daemon so that it goes into
-	// socket activation mode.
-	RestartSocket
 )
 
 // State represents an evolving system state that persists across restarts.
@@ -101,19 +94,17 @@ type State struct {
 	lastChangeId int
 	lastLaneId   int
 
-	backend  Backend
-	data     customData
-	changes  map[string]*Change
-	tasks    map[string]*Task
-	warnings map[string]*Warning
+	backend Backend
+	data    customData
+	changes map[string]*Change
+	tasks   map[string]*Task
 
 	modified bool
 
 	cache map[interface{}]interface{}
 
-	restarting RestartType
+	restarting bool
 	restartLck sync.Mutex
-	bootID     string
 }
 
 // New returns a new empty state.
@@ -123,7 +114,6 @@ func New(backend Backend) *State {
 		data:     make(customData),
 		changes:  make(map[string]*Change),
 		tasks:    make(map[string]*Task),
-		warnings: make(map[string]*Warning),
 		modified: true,
 		cache:    make(map[interface{}]interface{}),
 	}
@@ -159,10 +149,9 @@ func (s *State) unlock() {
 }
 
 type marshalledState struct {
-	Data     map[string]*json.RawMessage `json:"data"`
-	Changes  map[string]*Change          `json:"changes"`
-	Tasks    map[string]*Task            `json:"tasks"`
-	Warnings []*Warning                  `json:"warnings,omitempty"`
+	Data    map[string]*json.RawMessage `json:"data"`
+	Changes map[string]*Change          `json:"changes"`
+	Tasks   map[string]*Task            `json:"tasks"`
 
 	LastChangeId int `json:"last-change-id"`
 	LastTaskId   int `json:"last-task-id"`
@@ -173,10 +162,9 @@ type marshalledState struct {
 func (s *State) MarshalJSON() ([]byte, error) {
 	s.reading()
 	return json.Marshal(marshalledState{
-		Data:     s.data,
-		Changes:  s.changes,
-		Tasks:    s.tasks,
-		Warnings: s.flattenWarnings(),
+		Data:    s.data,
+		Changes: s.changes,
+		Tasks:   s.tasks,
 
 		LastTaskId:   s.lastTaskId,
 		LastChangeId: s.lastChangeId,
@@ -195,7 +183,6 @@ func (s *State) UnmarshalJSON(data []byte) error {
 	s.data = unmarshalled.Data
 	s.changes = unmarshalled.Changes
 	s.tasks = unmarshalled.Tasks
-	s.unflattenWarnings(unmarshalled.Warnings)
 	s.lastChangeId = unmarshalled.LastChangeId
 	s.lastTaskId = unmarshalled.LastTaskId
 	s.lastLaneId = unmarshalled.LastLaneId
@@ -256,61 +243,23 @@ func (s *State) EnsureBefore(d time.Duration) {
 }
 
 // RequestRestart asks for a restart of the managing process.
-// The state needs to be locked to request a RestartSystem.
 func (s *State) RequestRestart(t RestartType) {
 	if s.backend != nil {
-		if t == RestartSystem {
-			if s.bootID == "" {
-				panic("internal error: cannot request a system restart if current boot ID was not provided via VerifyReboot")
-			}
-			s.Set("system-restart-from-boot-id", s.bootID)
-		}
-		s.restartLck.Lock()
-		s.restarting = t
-		s.restartLck.Unlock()
 		s.backend.RequestRestart(t)
+		s.restartLck.Lock()
+		s.restarting = true
+		s.restartLck.Unlock()
 	}
 }
 
-// Restarting returns whether a restart was requested with RequestRestart and of which type.
-func (s *State) Restarting() (bool, RestartType) {
+// Restarting returns whether a restart was requested with RequestRestart
+func (s *State) Restarting() bool {
 	s.restartLck.Lock()
 	defer s.restartLck.Unlock()
-	return s.restarting != RestartUnset, s.restarting
+	return s.restarting
 }
 
-var ErrExpectedReboot = errors.New("expected reboot did not happen")
-
-// VerifyReboot checks if the state rembers that a system restart was
-// requested and whether it succeeded based on the provided current
-// boot id.  It returns ErrExpectedReboot if the expected reboot did
-// not happen yet.  It must be called early in the usage of state and
-// before an RequestRestart with RestartSystem is attempted.
-// It must be called with the state lock held.
-func (s *State) VerifyReboot(curBootID string) error {
-	var fromBootID string
-	err := s.Get("system-restart-from-boot-id", &fromBootID)
-	if err != nil && err != ErrNoState {
-		return err
-	}
-	s.bootID = curBootID
-	if fromBootID == "" {
-		return nil
-	}
-	if fromBootID == curBootID {
-		return ErrExpectedReboot
-	}
-	// we rebooted alright
-	s.ClearReboot()
-	return nil
-}
-
-// ClearReboot clears state information about tracking requested reboots.
-func (s *State) ClearReboot() {
-	s.Set("system-restart-from-boot-id", nil)
-}
-
-func MockRestarting(s *State, restarting RestartType) RestartType {
+func MockRestarting(s *State, restarting bool) bool {
 	s.restartLck.Lock()
 	defer s.restartLck.Unlock()
 	old := s.restarting
@@ -437,16 +386,12 @@ func (s *State) tasksIn(tids []string) []*Task {
 	return res
 }
 
-// Prune does several cleanup tasks to the in-memory state:
-//
-//  * it removes changes that became ready for more than pruneWait and aborts
-//    tasks spawned for more than abortWait.
-//
-//  * it removes tasks unlinked to changes after pruneWait. When there are more
-//    changes than the limit set via "maxReadyChanges" those changes in ready
-//    state will also removed even if they are below the pruneWait duration.
-//
-//  * it removes expired warnings.
+// Prune removes changes that became ready for more than pruneWait
+// and aborts tasks spawned for more than abortWait.
+// It also removes tasks unlinked to changes after pruneWait. When
+// there are more changes than the limit set via "maxReadyChanges"
+// those changes in ready state will also removed even if they are below
+// the pruneWait duration.
 func (s *State) Prune(pruneWait, abortWait time.Duration, maxReadyChanges int) {
 	now := time.Now()
 	pruneLimit := now.Add(-pruneWait)
@@ -466,12 +411,6 @@ func (s *State) Prune(pruneWait, abortWait time.Duration, maxReadyChanges int) {
 			break
 		}
 		readyChangesCount++
-	}
-
-	for k, w := range s.warnings {
-		if w.ExpiredBefore(now) {
-			delete(s.warnings, k)
-		}
 	}
 
 	for _, chg := range changes {
@@ -514,7 +453,7 @@ func ReadState(backend Backend, r io.Reader) (*State, error) {
 	d := json.NewDecoder(r)
 	err := d.Decode(&s)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read state: %s", err)
+		return nil, err
 	}
 	s.backend = backend
 	s.modified = false

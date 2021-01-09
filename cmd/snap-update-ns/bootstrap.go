@@ -73,13 +73,6 @@ func BootstrapError() error {
 	return fmt.Errorf("%s", C.GoString(C.bootstrap_msg))
 }
 
-// This function is here to make clearing the boostrap errors accessible
-// from the tests.
-func clearBootstrapError() {
-	C.bootstrap_msg = nil
-	C.bootstrap_errno = 0
-}
-
 // END IMPORTANT
 
 func makeArgv(args []string) []*C.char {
@@ -97,38 +90,28 @@ func freeArgv(argv []*C.char) {
 	}
 }
 
-// validateInstanceName checks if snap instance name is valid.
+// validateSnapName checks if snap name is valid.
 // This also sets bootstrap_msg on failure.
-//
-// This function is here only to make the C.validate_instance_name
-// code testable from go.
-func validateInstanceName(instanceName string) int {
-	cStr := C.CString(instanceName)
+func validateSnapName(snapName string) int {
+	cStr := C.CString(snapName)
 	defer C.free(unsafe.Pointer(cStr))
-	return int(C.validate_instance_name(cStr))
+	return int(C.validate_snap_name(cStr))
 }
 
 // processArguments parses commnad line arguments.
 // The argument cmdline is a string with embedded
 // NUL bytes, separating particular arguments.
-//
-// This function is here only to make the C.validate_instance_name
-// code testable from go.
-func processArguments(args []string) (snapName string, shouldSetNs bool, processUserFstab bool, uid uint) {
+func processArguments(args []string) (snapName string, shouldSetNs bool) {
 	argv := makeArgv(args)
 	defer freeArgv(argv)
 
 	var snapNameOut *C.char
 	var shouldSetNsOut C.bool
-	var processUserFstabOut C.bool
-	var uidOut C.ulong
-	C.process_arguments(C.int(len(args)), &argv[0], &snapNameOut, &shouldSetNsOut, &processUserFstabOut, &uidOut)
+	C.process_arguments(C.int(len(args)), &argv[0], &snapNameOut, &shouldSetNsOut)
 	if snapNameOut != nil {
 		snapName = C.GoString(snapNameOut)
 	}
 	shouldSetNs = bool(shouldSetNsOut)
-	processUserFstab = bool(processUserFstabOut)
-	uid = uint(uidOut)
 
-	return snapName, shouldSetNs, processUserFstab, uid
+	return snapName, shouldSetNs
 }

@@ -19,7 +19,7 @@
 
 package builtin
 
-const passwordManagerServiceSummary = `allows access to common password manager services`
+const passwordManagerServiceSummary = `allow access to common password manager services`
 
 const passwordManagerBaseDeclarationSlots = `
   password-manager-service:
@@ -64,7 +64,7 @@ dbus (receive, send)
     peer=(label=unconfined),
 
 # KWallet's client API is still in use in KDE/Plasma. It's DBus API relies upon
-# member data for access to its 'folders' and 'entries' and it therefore does
+# member data for access to its 'folders' and 'entries' and is therefore does
 # not allow for application isolation via AppArmor. For details, see:
 # - https://cgit.kde.org/kdelibs.git/tree/kdeui/util/kwallet.h?h=v4.14.33
 #
@@ -88,5 +88,6 @@ func init() {
 		implicitOnClassic:     true,
 		baseDeclarationSlots:  passwordManagerBaseDeclarationSlots,
 		connectedPlugAppArmor: passwordManagerServiceConnectedPlugAppArmor,
+		reservedForOS:         true,
 	})
 }

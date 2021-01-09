@@ -10,18 +10,25 @@ summary: |
     A snap declaring a plug on this interface must be able to read files in /sys/{block,bus,class,devices}
 
 prepare: |
-    #shellcheck source=tests/lib/snaps.sh
-    . "$TESTSLIB/snaps.sh"
-
     echo "Given a snap declaring a plug on the hardware-observe interface is installed"
-    install_local hardware-observe-consumer
+    snap pack $TESTSLIB/snaps/hardware-observe-consumer
+    snap install --dangerous hardware-observe-consumer_1.0_all.snap
+
+restore: |
+    rm -f hardware-observe-consumer_1.0_all.snap hw.error
 
 execute: |
-    echo "The interface is not connected by default"
-    snap interfaces -i hardware-observe | MATCH '^- +hardware-observe-consumer:hardware-observe'
+    CONNECTED_PATTERN=":hardware-observe +hardware-observe-consumer"
+    DISCONNECTED_PATTERN="(?s).*?\n- +hardware-observe-consumer:hardware-observe"
+
+    echo "Then it is not connected by default"
+    snap interfaces | grep -Pzq "$DISCONNECTED_PATTERN"
+
+    echo "==================================="
 
     echo "When the plug is connected"
     snap connect hardware-observe-consumer:hardware-observe
+    snap interfaces | MATCH "$CONNECTED_PATTERN"
 
     echo "Then the snap is able to read hardware information"
     hardware-observe-consumer.consumer
@@ -29,6 +36,8 @@ execute: |
     if [ "$(snap debug confinement)" = partial ] ; then
         exit 0
     fi
+
+    echo "==================================="
 
     echo "When the plug is disconnected"
     snap disconnect hardware-observe-consumer:hardware-observe

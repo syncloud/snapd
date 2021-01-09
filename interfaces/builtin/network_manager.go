@@ -79,7 +79,6 @@ network packet,
 /sys/devices/**/**/net/**/dev_id r,
 /sys/devices/virtual/net/**/phys_port_id r,
 /sys/devices/virtual/net/**/dev_id r,
-/sys/devices/**/net/**/ifindex r,
 
 /dev/rfkill rw,
 
@@ -107,18 +106,21 @@ network packet,
 
 # Needed to use resolvconf from core
 /sbin/resolvconf ixr,
-/run/resolvconf/{,**} rk,
+/run/resolvconf/{,**} r,
 /run/resolvconf/** w,
 /etc/resolvconf/{,**} r,
 /lib/resolvconf/* ix,
-# NM peeks into ifupdown configuration
-/run/network/ifstate* r,
 # Required by resolvconf
 /bin/run-parts ixr,
 /etc/resolvconf/update.d/* ix,
 
 #include <abstractions/nameservice>
 /run/systemd/resolve/stub-resolv.conf r,
+
+# Explicitly deny plugging snaps from ptracing the slot to silence noisy
+# denials. Neither the NetworkManager service nor nmcli require ptrace
+# trace for full functionality.
+deny ptrace (trace) peer=###PLUG_SECURITY_TAGS###,
 
 # DBus accesses
 #include <abstractions/dbus-strict>
@@ -140,13 +142,6 @@ dbus send
      interface="org.freedesktop.resolve1.Manager"
      member="Resolve{Address,Hostname,Record,Service}"
      peer=(name="org.freedesktop.resolve1"),
-
-dbus (send)
-     bus=system
-     path="/org/freedesktop/resolve1"
-     interface="org.freedesktop.resolve1.Manager"
-     member="SetLink{DNS,Domains}"
-     peer=(label=unconfined),
 
 dbus (send)
    bus=system
@@ -195,33 +190,20 @@ dbus (receive, send)
     path=/org/freedesktop/hostname1
     interface=org.freedesktop.DBus.Properties
     peer=(label=unconfined),
-# do not use peer=(label=unconfined) here since this is DBus activated
-dbus (send)
-    bus=system
-    path=/org/freedesktop/hostname1
-    interface=org.freedesktop.DBus.Properties
-    member="Get{,All}",
-
 dbus(receive, send)
     bus=system
     path=/org/freedesktop/hostname1
     interface=org.freedesktop.hostname1
     member={Set,SetStatic}Hostname
     peer=(label=unconfined),
-# do not use peer=(label=unconfined) here since this is DBus activated
-dbus (send)
-    bus=system
-    path=/org/freedesktop/hostname1
-    interface=org.freedesktop.hostname1
-    member={Set,SetStatic}Hostname,
 
 # Sleep monitor inside NetworkManager needs this
-# do not use peer=(label=unconfined) here since this is DBus activated
 dbus (send)
     bus=system
     path=/org/freedesktop/login1
     member=Inhibit
-    interface=org.freedesktop.login1.Manager,
+    interface=org.freedesktop.login1.Manager
+    peer=(label=unconfined),
 dbus (receive)
     bus=system
     path=/org/freedesktop/login1
@@ -256,22 +238,6 @@ dbus (receive, send)
     bus=system
     path=/org/freedesktop/NetworkManager{,/**}
     peer=(label=###PLUG_SECURITY_TAGS###),
-
-# Later versions of NetworkManager implement org.freedesktop.DBus.ObjectManager
-# for clients to easily obtain all (and be alerted to added/removed) objects
-# from the service.
-dbus (receive, send)
-    bus=system
-    path=/org/freedesktop
-    interface=org.freedesktop.DBus.ObjectManager
-    peer=(label=###PLUG_SECURITY_TAGS###),
-
-# Explicitly deny ptrace to silence noisy denials. These denials happen when NM
-# tries to access /proc/<peer_pid>/stat.  What apparmor prevents is showing
-# internal process addresses that live in that file, but that has no adverse
-# effects for NetworkManager, which just wants to find out the start time of the
-# process.
-deny ptrace (trace) peer=###PLUG_SECURITY_TAGS###,
 `
 
 const networkManagerConnectedPlugAppArmor = `
@@ -285,31 +251,6 @@ dbus (receive, send)
     bus=system
     path=/org/freedesktop/NetworkManager{,/**}
     peer=(label=###SLOT_SECURITY_TAGS###),
-
-# NM implements org.freedesktop.DBus.ObjectManager too
-dbus (receive, send)
-    bus=system
-    path=/org/freedesktop
-    interface=org.freedesktop.DBus.ObjectManager
-    peer=(label=###SLOT_SECURITY_TAGS###),
-`
-
-const networkManagerConnectedPlugIntrospectionSnippet = `
-# Allow us to introspect the network-manager providing snap
-dbus (send)
-    bus=system
-    interface="org.freedesktop.DBus.Introspectable"
-    member="Introspect"
-    peer=(label=###SLOT_SECURITY_TAGS###),
-`
-
-const networkManagerConnectedSlotIntrospectionSnippet = `
-# Allow plugs to introspect us
-dbus (receive)
-    bus=system
-    interface="org.freedesktop.DBus.Introspectable"
-    member="Introspect"
-    peer=(label=###PLUG_SECURITY_TAGS###),
 `
 
 const networkManagerConnectedPlugSecComp = `
@@ -499,11 +440,6 @@ func (iface *networkManagerInterface) AppArmorConnectedPlug(spec *apparmor.Speci
 	}
 	snippet := strings.Replace(networkManagerConnectedPlugAppArmor, old, new, -1)
 	spec.AddSnippet(snippet)
-	if !release.OnClassic {
-		// See https://bugs.launchpad.net/snapd/+bug/1849291 for details.
-		snippet := strings.Replace(networkManagerConnectedPlugIntrospectionSnippet, old, new, -1)
-		spec.AddSnippet(snippet)
-	}
 	return nil
 }
 
@@ -512,11 +448,6 @@ func (iface *networkManagerInterface) AppArmorConnectedSlot(spec *apparmor.Speci
 	new := plugAppLabelExpr(plug)
 	snippet := strings.Replace(networkManagerConnectedSlotAppArmor, old, new, -1)
 	spec.AddSnippet(snippet)
-	if !release.OnClassic {
-		// See https://bugs.launchpad.net/snapd/+bug/1849291 for details.
-		snippet := strings.Replace(networkManagerConnectedSlotIntrospectionSnippet, old, new, -1)
-		spec.AddSnippet(snippet)
-	}
 	return nil
 }
 
@@ -545,7 +476,7 @@ func (iface *networkManagerInterface) SecCompConnectedPlug(spec *seccomp.Specifi
 	return nil
 }
 
-func (iface *networkManagerInterface) AutoConnect(*snap.PlugInfo, *snap.SlotInfo) bool {
+func (iface *networkManagerInterface) AutoConnect(*interfaces.Plug, *interfaces.Slot) bool {
 	// allow what declarations allowed
 	return true
 }

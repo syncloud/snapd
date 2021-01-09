@@ -33,21 +33,29 @@ import (
 
 func (s *SnapSuite) TestInterfaceHelp(c *C) {
 	msg := `Usage:
-  snap.test interface [interface-OPTIONS] [<interface>]
+  snap.test [OPTIONS] interface [interface-OPTIONS] [<interface>]
 
 The interface command shows details of snap interfaces.
 
 If no interface name is provided, a list of interface names with at least
 one connection is shown, or a list of all interfaces if --all is provided.
 
+Application Options:
+      --version          Print the version and exit
+
+Help Options:
+  -h, --help             Show this help message
+
 [interface command options]
-      --attrs          Show interface attributes
-      --all            Include unused interfaces
+          --attrs        Show interface attributes
+          --all          Include unused interfaces
 
 [interface command arguments]
-  <interface>:         Show details of a specific interface
+  <interface>:           Show details of a specific interface
 `
-	s.testSubCommandHelp(c, "interface", msg)
+	rest, err := Parser().ParseArgs([]string{"interface", "--help"})
+	c.Assert(err.Error(), Equals, msg)
+	c.Assert(rest, DeepEquals, []string{})
 }
 
 func (s *SnapSuite) TestInterfaceListEmpty(c *C) {
@@ -63,7 +71,7 @@ func (s *SnapSuite) TestInterfaceListEmpty(c *C) {
 			"result": []*client.Interface{},
 		})
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"interface"})
+	rest, err := Parser().ParseArgs([]string{"interface"})
 	c.Assert(err, ErrorMatches, "no interfaces currently connected")
 	c.Assert(rest, DeepEquals, []string{"interface"})
 	c.Assert(s.Stdout(), Equals, "")
@@ -83,7 +91,7 @@ func (s *SnapSuite) TestInterfaceListAllEmpty(c *C) {
 			"result": []*client.Interface{},
 		})
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"interface", "--all"})
+	rest, err := Parser().ParseArgs([]string{"interface", "--all"})
 	c.Assert(err, ErrorMatches, "no interfaces found")
 	c.Assert(rest, DeepEquals, []string{"--all"}) // XXX: feels like a bug in go-flags.
 	c.Assert(s.Stdout(), Equals, "")
@@ -109,7 +117,7 @@ func (s *SnapSuite) TestInterfaceList(c *C) {
 			}},
 		})
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"interface"})
+	rest, err := Parser().ParseArgs([]string{"interface"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	expectedStdout := "" +
@@ -142,7 +150,7 @@ func (s *SnapSuite) TestInterfaceListAll(c *C) {
 			}},
 		})
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"interface", "--all"})
+	rest, err := Parser().ParseArgs([]string{"interface", "--all"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	expectedStdout := "" +
@@ -172,11 +180,11 @@ func (s *SnapSuite) TestInterfaceDetails(c *C) {
 					{Snap: "deepin-music", Name: "network"},
 					{Snap: "http", Name: "network"},
 				},
-				Slots: []client.Slot{{Snap: "system", Name: "network"}},
+				Slots: []client.Slot{{Snap: "core", Name: "network"}},
 			}},
 		})
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"interface", "network"})
+	rest, err := Parser().ParseArgs([]string{"interface", "network"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	expectedStdout := "" +
@@ -187,7 +195,7 @@ func (s *SnapSuite) TestInterfaceDetails(c *C) {
 		"  - deepin-music\n" +
 		"  - http\n" +
 		"slots:\n" +
-		"  - system\n"
+		"  - core\n"
 	c.Assert(s.Stdout(), Equals, expectedStdout)
 	c.Assert(s.Stderr(), Equals, "")
 }
@@ -216,13 +224,12 @@ func (s *SnapSuite) TestInterfaceDetailsAndAttrs(c *C) {
 						"header":   "pin-array",
 						"location": "internal",
 						"path":     "/dev/ttyS0",
-						"number":   1,
 					},
 				}},
 			}},
 		})
 	})
-	rest, err := Parser(Client()).ParseArgs([]string{"interface", "--attrs", "serial-port"})
+	rest, err := Parser().ParseArgs([]string{"interface", "--attrs", "serial-port"})
 	c.Assert(err, IsNil)
 	c.Assert(rest, DeepEquals, []string{})
 	expectedStdout := "" +
@@ -234,7 +241,6 @@ func (s *SnapSuite) TestInterfaceDetailsAndAttrs(c *C) {
 		"  - gizmo-gadget:debug-serial-port (serial port for debugging):\n" +
 		"      header:   pin-array\n" +
 		"      location: internal\n" +
-		"      number:   1\n" +
 		"      path:     /dev/ttyS0\n"
 	c.Assert(s.Stdout(), Equals, expectedStdout)
 	c.Assert(s.Stderr(), Equals, "")
@@ -260,7 +266,7 @@ func (s *SnapSuite) TestInterfaceCompletion(c *C) {
 	defer os.Unsetenv("GO_FLAGS_COMPLETION")
 
 	expected := []flags.Completion{}
-	parser := Parser(Client())
+	parser := Parser()
 	parser.CompletionHandler = func(obtained []flags.Completion) {
 		c.Check(obtained, DeepEquals, expected)
 	}

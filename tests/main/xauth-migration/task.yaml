@@ -1,6 +1,5 @@
 summary: Check file XAUTHORITY env variable points to is migrated into the snap environment
-
-details: |
+description: |
     The XAUTHORITY environment variable points to a file which is located
     in HOME, /run or /tmp depending on the distribution and desktop being
     used. If the file ends up in /tmp then it wont be visible inside the
@@ -14,39 +13,37 @@ details: |
     inside `snap run`.
 
 execute: |
-    snap install test-snapd-sh
+    snap install test-snapd-tools
 
     ensure_xauth_path() {
         export XAUTHORITY="$1"
         # Get rid of things to ensure a clean test bed
-        rm -f /var/snap/test-snapd-sh/common/xauth-content /run/user/0/.Xauthority
-        snap run --shell test-snapd-sh.sh <<'EOF'
-    echo $XAUTHORITY > /var/snap/test-snapd-sh/common/xauth-content
+        rm -f /var/snap/test-snapd-tools/common/xauth-content /run/user/0/.Xauthority
+        snap run --shell test-snapd-tools.sh <<'EOF'
+    echo $XAUTHORITY > /var/snap/test-snapd-tools/common/xauth-content
     exit
     EOF
-        env_path="$(cat /var/snap/test-snapd-sh/common/xauth-content)"
+        env_path="$(cat /var/snap/test-snapd-tools/common/xauth-content)"
         test "$env_path" = "$2" || exit 1
-        test "$(sh256sum "$env_path")" = "$(sh256sum "$1")"
+        test "$(sh256sum $env_path)" = "$(sh256sum $1)"
         unset XAUTHORITY
     }
 
     mock_xauthority() {
         # Generate valid Xauthority file which `snap run` will accept
-        rm -f "$1"; touch "$1"
+        rm -f $1; touch $1
         for ((c=0; c<=$2; c++))
         do
-            {
-                # Family
-                echo -n -e \\x01\\x00
-                # Address
-                echo -n -e \\x00\\x04\\x73\\x6e\\x61\\x70
-                # Number
-                echo -n -e \\x00\\x01\\xff
-                # Name
-                echo -n -e \\x00\\x05\\x73\\x6e\\x61\\x70\\x64
-                # Data
-                echo -n -e \\x00\\x01\\xff
-            } >> "$1"
+            # Family
+            echo -n -e \\x01\\x00 >> $1
+            # Address
+            echo -n -e \\x00\\x04\\x73\\x6e\\x61\\x70 >> $1
+            # Number
+            echo -n -e \\x00\\x01\\xff >> $1
+            # Name
+            echo -n -e \\x00\\x05\\x73\\x6e\\x61\\x70\\x64 >> $1
+            # Data
+            echo -n -e \\x00\\x01\\xff >> $1
         done
     }
 

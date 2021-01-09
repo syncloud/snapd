@@ -21,7 +21,24 @@ package strutil
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
+)
+
+const (
+	reDigit           = "[0-9]"
+	reAlpha           = "[a-zA-Z]"
+	reDigitOrNonDigit = "[0-9]+|[^0-9]+"
+
+	reHasEpoch = "^[0-9]+:"
+)
+
+var (
+	matchDigit = regexp.MustCompile(reDigit).Match
+	matchAlpha = regexp.MustCompile(reAlpha).Match
+	findFrags  = regexp.MustCompile(reDigitOrNonDigit).FindAllString
+	matchEpoch = regexp.MustCompile(reHasEpoch).MatchString
 )
 
 // golang: seriously? that's sad!
@@ -32,7 +49,36 @@ func max(a, b int) int {
 	return a
 }
 
-//go:generate go run ./chrorder/main.go -package=strutil -output=chrorder.go
+// version number compare, inspired by the libapt/python-debian code
+func cmpInt(intA, intB int) int {
+	if intA < intB {
+		return -1
+	} else if intA > intB {
+		return 1
+	}
+	return 0
+}
+
+func chOrder(ch uint8) int {
+	// "~" is lower than everything else
+	if ch == '~' {
+		return -10
+	}
+	// empty is higher than "~" but lower than everything else
+	if ch == 0 {
+		return -5
+	}
+	if matchAlpha([]byte{ch}) {
+		return int(ch)
+	}
+
+	// can only happen if cmpString sets '0' because there is no fragment
+	if matchDigit([]byte{ch}) {
+		return 0
+	}
+
+	return int(ch) + 256
+}
 
 func cmpString(as, bs string) int {
 	for i := 0; i < max(len(as), len(bs)); i++ {
@@ -44,71 +90,29 @@ func cmpString(as, bs string) int {
 		if i < len(bs) {
 			b = bs[i]
 		}
-		if chOrder[a] < chOrder[b] {
+		if chOrder(a) < chOrder(b) {
 			return -1
 		}
-		if chOrder[a] > chOrder[b] {
+		if chOrder(a) > chOrder(b) {
 			return +1
 		}
 	}
 	return 0
 }
 
-func trimLeadingZeroes(a string) string {
-	for i := 0; i < len(a); i++ {
-		if a[i] != '0' {
-			return a[i:]
-		}
+func cmpFragment(a, b string) int {
+	intA, errA := strconv.Atoi(a)
+	intB, errB := strconv.Atoi(b)
+	if errA == nil && errB == nil {
+		return cmpInt(intA, intB)
 	}
-	return ""
+	res := cmpString(a, b)
+	//fmt.Println(a, b, res)
+	return res
 }
 
-// a and b both match /[0-9]+/
-func cmpNumeric(a, b string) int {
-	a = trimLeadingZeroes(a)
-	b = trimLeadingZeroes(b)
-
-	switch d := len(a) - len(b); {
-	case d > 0:
-		return 1
-	case d < 0:
-		return -1
-	}
-	for i := 0; i < len(a); i++ {
-		switch {
-		case a[i] > b[i]:
-			return 1
-		case a[i] < b[i]:
-			return -1
-		}
-	}
-	return 0
-}
-
-func matchEpoch(a string) bool {
-	if len(a) == 0 {
-		return false
-	}
-	if a[0] < '0' || a[0] > '9' {
-		return false
-	}
-	var i int
-	for i = 1; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
-	}
-	return i < len(a) && a[i] == ':'
-}
-
-func atMostOneDash(a string) bool {
-	seen := false
-	for i := 0; i < len(a); i++ {
-		if a[i] == '-' {
-			if seen {
-				return false
-			}
-			seen = true
-		}
-	}
-	return true
+func getFragments(a string) []string {
+	return findFrags(a, -1)
 }
 
 // VersionIsValid returns true if the given string is a valid
@@ -117,45 +121,32 @@ func VersionIsValid(a string) bool {
 	if matchEpoch(a) {
 		return false
 	}
-	return atMostOneDash(a)
-}
-
-func nextFrag(s string) (frag, rest string, numeric bool) {
-	if len(s) == 0 {
-		return "", "", false
+	if strings.Count(a, "-") > 1 {
+		return false
 	}
-
-	var i int
-	if s[0] >= '0' && s[0] <= '9' {
-		// is digit
-		for i = 1; i < len(s) && s[i] >= '0' && s[i] <= '9'; i++ {
-		}
-		numeric = true
-	} else {
-		// not digit
-		for i = 1; i < len(s) && (s[i] < '0' || s[i] > '9'); i++ {
-		}
-	}
-	return s[:i], s[i:], numeric
+	return true
 }
 
 func compareSubversion(va, vb string) int {
-	var a, b string
-	var anum, bnum bool
-	var res int
-	for res == 0 {
-		a, va, anum = nextFrag(va)
-		b, vb, bnum = nextFrag(vb)
-		if a == "" && b == "" {
-			break
+	fragsA := getFragments(va)
+	fragsB := getFragments(vb)
+
+	for i := 0; i < max(len(fragsA), len(fragsB)); i++ {
+		a := ""
+		b := ""
+		if i < len(fragsA) {
+			a = fragsA[i]
 		}
-		if anum && bnum {
-			res = cmpNumeric(a, b)
-		} else {
-			res = cmpString(a, b)
+		if i < len(fragsB) {
+			b = fragsB[i]
+		}
+		res := cmpFragment(a, b)
+		//fmt.Println(a, b, res)
+		if res != 0 {
+			return res
 		}
 	}
-	return res
+	return 0
 }
 
 // VersionCompare compare two version strings that follow the debian
@@ -173,24 +164,23 @@ func VersionCompare(va, vb string) (res int, err error) {
 		return 0, fmt.Errorf("invalid version %q", vb)
 	}
 
-	var sa, sb string
-	if ia := strings.IndexByte(va, '-'); ia < 0 {
-		sa = "0"
-	} else {
-		va, sa = va[:ia], va[ia+1:]
+	if !strings.Contains(va, "-") {
+		va += "-0"
 	}
-	if ib := strings.IndexByte(vb, '-'); ib < 0 {
-		sb = "0"
-	} else {
-		vb, sb = vb[:ib], vb[ib+1:]
+	if !strings.Contains(vb, "-") {
+		vb += "-0"
 	}
 
 	// the main version number (before the "-")
-	res = compareSubversion(va, vb)
+	mainA := strings.Split(va, "-")[0]
+	mainB := strings.Split(vb, "-")[0]
+	res = compareSubversion(mainA, mainB)
 	if res != 0 {
 		return res, nil
 	}
 
 	// the subversion revision behind the "-"
-	return compareSubversion(sa, sb), nil
+	revA := strings.Split(va, "-")[1]
+	revB := strings.Split(vb, "-")[1]
+	return compareSubversion(revA, revB), nil
 }

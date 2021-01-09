@@ -39,10 +39,7 @@ func mountNsPath(snapName string) string {
 func runNamespaceTool(toolName, snapName string) ([]byte, error) {
 	mntFile := mountNsPath(snapName)
 	if osutil.FileExists(mntFile) {
-		toolPath, err := cmd.InternalToolPath(toolName)
-		if err != nil {
-			return nil, err
-		}
+		toolPath := cmd.InternalToolPath(toolName)
 		cmd := exec.Command(toolPath, snapName)
 		output, err := cmd.CombinedOutput()
 		return output, err

@@ -21,7 +21,6 @@ package client
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,27 +30,15 @@ import (
 )
 
 type SnapOptions struct {
+	Amend            bool   `json:"amend,omitempty"`
 	Channel          string `json:"channel,omitempty"`
 	Revision         string `json:"revision,omitempty"`
-	CohortKey        string `json:"cohort-key,omitempty"`
-	LeaveCohort      bool   `json:"leave-cohort,omitempty"`
 	DevMode          bool   `json:"devmode,omitempty"`
 	JailMode         bool   `json:"jailmode,omitempty"`
 	Classic          bool   `json:"classic,omitempty"`
 	Dangerous        bool   `json:"dangerous,omitempty"`
 	IgnoreValidation bool   `json:"ignore-validation,omitempty"`
 	Unaliased        bool   `json:"unaliased,omitempty"`
-	Purge            bool   `json:"purge,omitempty"`
-	Amend            bool   `json:"amend,omitempty"`
-
-	Users []string `json:"users,omitempty"`
-}
-
-func writeFieldBool(mw *multipart.Writer, key string, val bool) error {
-	if !val {
-		return nil
-	}
-	return mw.WriteField(key, "true")
 }
 
 func (opts *SnapOptions) writeModeFields(mw *multipart.Writer) error {
@@ -65,16 +52,16 @@ func (opts *SnapOptions) writeModeFields(mw *multipart.Writer) error {
 		{"dangerous", opts.Dangerous},
 	}
 	for _, o := range fields {
-		if err := writeFieldBool(mw, o.f, o.b); err != nil {
+		if !o.b {
+			continue
+		}
+		err := mw.WriteField(o.f, "true")
+		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (opts *SnapOptions) writeOptionFields(mw *multipart.Writer) error {
-	return writeFieldBool(mw, "unaliased", opts.Unaliased)
 }
 
 type actionData struct {
@@ -87,7 +74,6 @@ type actionData struct {
 type multiActionData struct {
 	Action string   `json:"action"`
 	Snaps  []string `json:"snaps,omitempty"`
-	Users  []string `json:"users,omitempty"`
 }
 
 // Install adds the snap with the given name from the given channel (or
@@ -137,24 +123,6 @@ func (client *Client) Switch(name string, options *SnapOptions) (changeID string
 	return client.doSnapAction("switch", name, options)
 }
 
-// SnapshotMany snapshots many snaps (all, if names empty) for many users (all, if users is empty).
-func (client *Client) SnapshotMany(names []string, users []string) (setID uint64, changeID string, err error) {
-	result, changeID, err := client.doMultiSnapActionFull("snapshot", names, &SnapOptions{Users: users})
-	if err != nil {
-		return 0, "", err
-	}
-	if len(result) == 0 {
-		return 0, "", fmt.Errorf("server result does not contain snapshot set identifier")
-	}
-	var x struct {
-		SetID uint64 `json:"set-id"`
-	}
-	if err := json.Unmarshal(result, &x); err != nil {
-		return 0, "", err
-	}
-	return x.SetID, changeID, nil
-}
-
 var ErrDangerousNotApplicable = fmt.Errorf("dangerous option only meaningful when installing from a local file")
 
 func (client *Client) doSnapAction(actionName string, snapName string, options *SnapOptions) (changeID string, err error) {
@@ -182,34 +150,25 @@ func (client *Client) doMultiSnapAction(actionName string, snaps []string, optio
 	if options != nil {
 		return "", fmt.Errorf("cannot use options for multi-action") // (yet)
 	}
-	_, changeID, err = client.doMultiSnapActionFull(actionName, snaps, options)
-
-	return changeID, err
-}
-
-func (client *Client) doMultiSnapActionFull(actionName string, snaps []string, options *SnapOptions) (result json.RawMessage, changeID string, err error) {
 	action := multiActionData{
 		Action: actionName,
 		Snaps:  snaps,
 	}
-	if options != nil {
-		action.Users = options.Users
-	}
 	data, err := json.Marshal(&action)
 	if err != nil {
-		return nil, "", fmt.Errorf("cannot marshal multi-snap action: %s", err)
+		return "", fmt.Errorf("cannot marshal multi-snap action: %s", err)
 	}
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
 
-	return client.doAsyncFull("POST", "/v2/snaps", nil, headers, bytes.NewBuffer(data), doFlags{})
+	return client.doAsync("POST", "/v2/snaps", nil, headers, bytes.NewBuffer(data))
 }
 
-// InstallPath sideloads the snap with the given path under optional provided name,
-// returning the UUID of the background operation upon success.
-func (client *Client) InstallPath(path, name string, options *SnapOptions) (changeID string, err error) {
+// InstallPath sideloads the snap with the given path, returning the UUID
+// of the background operation upon success.
+func (client *Client) InstallPath(path string, options *SnapOptions) (changeID string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("cannot open: %q", path)
@@ -217,7 +176,6 @@ func (client *Client) InstallPath(path, name string, options *SnapOptions) (chan
 
 	action := actionData{
 		Action:      "install",
-		Name:        name,
 		SnapPath:    path,
 		SnapOptions: options,
 	}
@@ -230,7 +188,7 @@ func (client *Client) InstallPath(path, name string, options *SnapOptions) (chan
 		"Content-Type": mw.FormDataContentType(),
 	}
 
-	return client.doAsyncNoTimeout("POST", "/v2/snaps", nil, headers, pr)
+	return client.doAsync("POST", "/v2/snaps", nil, headers, pr)
 }
 
 // Try
@@ -286,11 +244,6 @@ func sendSnapFile(snapPath string, snapFile *os.File, pw *io.PipeWriter, mw *mul
 		return
 	}
 
-	if err := action.writeOptionFields(mw); err != nil {
-		pw.CloseWithError(err)
-		return
-	}
-
 	fw, err := mw.CreateFormFile("snap", filepath.Base(snapPath))
 	if err != nil {
 		pw.CloseWithError(err)
@@ -305,71 +258,4 @@ func sendSnapFile(snapPath string, snapFile *os.File, pw *io.PipeWriter, mw *mul
 
 	mw.Close()
 	pw.Close()
-}
-
-type snapRevisionOptions struct {
-	Channel   string `json:"channel,omitempty"`
-	Revision  string `json:"revision,omitempty"`
-	CohortKey string `json:"cohort-key,omitempty"`
-}
-
-type downloadAction struct {
-	SnapName string `json:"snap-name,omitempty"`
-	snapRevisionOptions
-}
-
-type DownloadInfo struct {
-	SuggestedFileName string
-	Size              int64
-	Sha3_384          string
-}
-
-// Download will stream the given snap to the client
-func (client *Client) Download(name string, options *SnapOptions) (dlInfo *DownloadInfo, r io.ReadCloser, err error) {
-	if options == nil {
-		options = &SnapOptions{}
-	}
-	action := downloadAction{
-		SnapName: name,
-		snapRevisionOptions: snapRevisionOptions{
-			Channel:   options.Channel,
-			CohortKey: options.CohortKey,
-			Revision:  options.Revision,
-		},
-	}
-	data, err := json.Marshal(&action)
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot marshal snap action: %s", err)
-	}
-	headers := map[string]string{
-		"Content-Type": "application/json",
-	}
-
-	// no deadline for downloads
-	ctx := context.Background()
-	rsp, err := client.raw(ctx, "POST", "/v2/download", nil, headers, bytes.NewBuffer(data))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if rsp.StatusCode != 200 {
-		var r response
-		defer rsp.Body.Close()
-		if err := decodeInto(rsp.Body, &r); err != nil {
-			return nil, nil, err
-		}
-		return nil, nil, r.err(client, rsp.StatusCode)
-	}
-	matches := contentDispositionMatcher(rsp.Header.Get("Content-Disposition"))
-	if matches == nil || matches[1] == "" {
-		return nil, nil, fmt.Errorf("cannot determine filename")
-	}
-
-	dlInfo = &DownloadInfo{
-		SuggestedFileName: matches[1],
-		Size:              rsp.ContentLength,
-		Sha3_384:          rsp.Header.Get("Snap-Sha3-384"),
-	}
-
-	return dlInfo, rsp.Body, nil
 }

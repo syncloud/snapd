@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2018 Canonical Ltd
+ * Copyright (C) 2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,12 +26,18 @@ import (
 
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/logger"
-	"github.com/snapcore/snapd/overlord/auth"
-	"github.com/snapcore/snapd/overlord/configstate/config"
 	"github.com/snapcore/snapd/overlord/state"
 )
 
-func alreadySeeded(tr config.Conf) (bool, error) {
+// CloudInfo holds the content for the optional "cloud" entry of core config
+// that reflects cloud information for the system if available.
+type CloudInfo struct {
+	Name             string `json:"name"`
+	Region           string `json:"region,omitempty"`
+	AvailabilityZone string `json:"availability-zone,omitempty"`
+}
+
+func alreadySeeded(tr Conf) (bool, error) {
 	st := tr.State()
 	st.Lock()
 	defer st.Unlock()
@@ -43,43 +49,7 @@ func alreadySeeded(tr config.Conf) (bool, error) {
 	return seeded, nil
 }
 
-type cloudInitInstanceData struct {
-	V1 struct {
-		Region           string
-		Name             string
-		AvailabilityZone string
-	}
-}
-
-func (c *cloudInitInstanceData) UnmarshalJSON(bs []byte) error {
-	var instanceDataJSON struct {
-		V1 struct {
-			Region string `json:"region"`
-			// these fields can come with - or _ as separators
-			Name                string `json:"cloud_name"`
-			AltName             string `json:"cloud-name"`
-			AvailabilityZone    string `json:"availability_zone"`
-			AltAvailabilityZone string `json:"availability-zone"`
-		} `json:"v1"`
-	}
-
-	if err := json.Unmarshal(bs, &instanceDataJSON); err != nil {
-		return err
-	}
-
-	c.V1.Region = instanceDataJSON.V1.Region
-	switch {
-	case instanceDataJSON.V1.Name != "":
-		c.V1.Name = instanceDataJSON.V1.Name
-		c.V1.AvailabilityZone = instanceDataJSON.V1.AvailabilityZone
-	case instanceDataJSON.V1.AltName != "":
-		c.V1.Name = instanceDataJSON.V1.AltName
-		c.V1.AvailabilityZone = instanceDataJSON.V1.AltAvailabilityZone
-	}
-	return nil
-}
-
-func setCloudInfoWhenSeeding(tr config.Conf) error {
+func setCloudInfoWhenSeeding(tr Conf) error {
 	// if we are during seeding try to capture cloud information
 	seeded, err := alreadySeeded(tr)
 	if err != nil {
@@ -99,8 +69,13 @@ func setCloudInfoWhenSeeding(tr config.Conf) error {
 		logger.Noticef("cannot read cloud instance information %q: %v", dirs.CloudInstanceDataFile, err)
 		return nil
 	}
-
-	var instanceData cloudInitInstanceData
+	var instanceData struct {
+		V1 struct {
+			Name             string `json:"cloud-name"`
+			Region           string `json:"region"`
+			AvailabilityZone string `json:"availability-zone"`
+		} `json:"v1"`
+	}
 	err = json.Unmarshal(data, &instanceData)
 	if err != nil {
 		logger.Noticef("cannot unmarshal cloud instance information %q: %v", dirs.CloudInstanceDataFile, err)
@@ -113,7 +88,7 @@ func setCloudInfoWhenSeeding(tr config.Conf) error {
 		return nil
 	}
 
-	tr.Set("core", "cloud", auth.CloudInfo{
+	tr.Set("core", "cloud", CloudInfo{
 		Name:             cloudName,
 		Region:           instanceData.V1.Region,
 		AvailabilityZone: instanceData.V1.AvailabilityZone,

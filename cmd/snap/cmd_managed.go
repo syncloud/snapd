@@ -27,15 +27,13 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-var shortIsManagedHelp = i18n.G("Print whether the system is managed")
+var shortIsManagedHelp = i18n.G("Prints whether system is managed")
 var longIsManagedHelp = i18n.G(`
 The managed command will print true or false informing whether
 snapd has registered users.
 `)
 
-type cmdIsManaged struct {
-	clientMixin
-}
+type cmdIsManaged struct{}
 
 func init() {
 	cmd := addCommand("managed", shortIsManagedHelp, longIsManagedHelp, func() flags.Commander { return &cmdIsManaged{} }, nil, nil)
@@ -47,7 +45,7 @@ func (cmd cmdIsManaged) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	sysinfo, err := cmd.client.SysInfo()
+	sysinfo, err := Client().SysInfo()
 	if err != nil {
 		return err
 	}

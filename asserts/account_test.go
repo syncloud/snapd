@@ -47,7 +47,7 @@ const accountExample = "type: account\n" +
 	"account-id: abc-123\n" +
 	"display-name: Nice User\n" +
 	"username: nice\n" +
-	"validation: verified\n" +
+	"validation: certified\n" +
 	"TSLINE" +
 	"body-length: 0\n" +
 	"sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij" +
@@ -65,7 +65,7 @@ func (s *accountSuite) TestDecodeOK(c *C) {
 	c.Check(account.AccountID(), Equals, "abc-123")
 	c.Check(account.DisplayName(), Equals, "Nice User")
 	c.Check(account.Username(), Equals, "nice")
-	c.Check(account.Validation(), Equals, "verified")
+	c.Check(account.IsCertified(), Equals, true)
 }
 
 func (s *accountSuite) TestOptional(c *C) {
@@ -83,13 +83,12 @@ func (s *accountSuite) TestOptional(c *C) {
 	}
 }
 
-func (s *accountSuite) TestValidation(c *C) {
+func (s *accountSuite) TestIsCertified(c *C) {
 	tests := []struct {
-		value      string
-		isVerified bool
+		value       string
+		isCertified bool
 	}{
-		{"certified", true}, // backward compat for hard-coded trusted assertions
-		{"verified", true},
+		{"certified", true},
 		{"unproven", false},
 		{"nonsense", false},
 	}
@@ -98,18 +97,14 @@ func (s *accountSuite) TestValidation(c *C) {
 	for _, test := range tests {
 		encoded := strings.Replace(
 			template,
-			"validation: verified\n",
+			"validation: certified\n",
 			fmt.Sprintf("validation: %s\n", test.value),
 			1,
 		)
 		assert, err := asserts.Decode([]byte(encoded))
 		c.Assert(err, IsNil)
 		account := assert.(*asserts.Account)
-		expected := test.value
-		if test.isVerified {
-			expected = "verified"
-		}
-		c.Check(account.Validation(), Equals, expected)
+		c.Check(account.IsCertified(), Equals, test.isCertified)
 	}
 }
 
@@ -126,8 +121,8 @@ func (s *accountSuite) TestDecodeInvalid(c *C) {
 		{"display-name: Nice User\n", "", `"display-name" header is mandatory`},
 		{"display-name: Nice User\n", "display-name: \n", `"display-name" header should not be empty`},
 		{"username: nice\n", "username:\n  - foo\n  - bar\n", `"username" header must be a string`},
-		{"validation: verified\n", "", `"validation" header is mandatory`},
-		{"validation: verified\n", "validation: \n", `"validation" header should not be empty`},
+		{"validation: certified\n", "", `"validation" header is mandatory`},
+		{"validation: certified\n", "validation: \n", `"validation" header should not be empty`},
 		{s.tsLine, "", `"timestamp" header is mandatory`},
 		{s.tsLine, "timestamp: \n", `"timestamp" header should not be empty`},
 		{s.tsLine, "timestamp: 12:30\n", `"timestamp" header is not a RFC3339 date: .*`},

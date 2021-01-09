@@ -1,13 +1,11 @@
 usr/bin/snap
-usr/bin/snapctl /usr/lib/snapd/
+usr/bin/snapctl
 usr/lib/snapd/system-shutdown
 usr/bin/snap-exec /usr/lib/snapd/
 usr/bin/snap-repair /usr/lib/snapd/
-usr/bin/snap-failure /usr/lib/snapd/
 usr/bin/snap-update-ns /usr/lib/snapd/
 usr/bin/snapd /usr/lib/snapd/
 usr/bin/snap-seccomp /usr/lib/snapd/
-usr/bin/snap-bootstrap /usr/lib/snapd/
 
 # bash completion
 data/completion/snap /usr/share/bash-completion/completions
@@ -19,8 +17,6 @@ data/udev/rules.d/66-snapd-autoimport.rules /lib/udev/rules.d
 data/info /usr/lib/snapd/
 # polkit actions
 data/polkit/io.snapcraft.snapd.policy /usr/share/polkit-1/actions/
-# apt hook
-data/apt/20snapd.conf /etc/apt/apt.conf.d/
 
 # snap-confine stuff
 etc/apparmor.d/usr.lib.snapd.snap-confine.real
@@ -28,7 +24,8 @@ usr/lib/snapd/snap-device-helper
 usr/lib/snapd/snap-mgmt
 usr/lib/snapd/snap-confine
 usr/lib/snapd/snap-discard-ns
-usr/share/man/
+usr/share/man/man1/snap-confine.1
+usr/share/man/man5/snap-discard-ns.5
 # for compatibility with ancient snap installs that wrote the shell based
 # wrapper scripts instead of the modern symlinks
 usr/bin/ubuntu-core-launcher
@@ -38,8 +35,3 @@ usr/lib/snapd/snap-gdb-shim
 
 # install squashfuse as snapfuse to ensure it is available in e.g. lxd
 vendor/github.com/snapcore/squashfuse/src/snapfuse usr/bin
-
-# use "usr/lib" here because apparently systemd looks only there
-usr/lib/systemd/system-environment-generators
-# but system generators end up in lib
-lib/systemd/system-generators

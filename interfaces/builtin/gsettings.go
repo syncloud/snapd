@@ -51,5 +51,6 @@ func init() {
 		implicitOnClassic:     true,
 		connectedPlugAppArmor: gsettingsConnectedPlugAppArmor,
 		baseDeclarationSlots:  gsettingsBaseDeclarationSlots,
+		reservedForOS:         true,
 	})
 }

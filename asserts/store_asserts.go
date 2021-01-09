@@ -26,12 +26,11 @@ import (
 )
 
 // Store holds a store assertion, defining the configuration needed to connect
-// a device to the store or relative to a non-default store.
+// a device to the store.
 type Store struct {
 	assertionBase
-	url            *url.URL
-	friendlyStores []string
-	timestamp      time.Time
+	url       *url.URL
+	timestamp time.Time
 }
 
 // Store returns the identifying name of the operator's store.
@@ -49,12 +48,6 @@ func (store *Store) URL() *url.URL {
 	return store.url
 }
 
-// FriendlyStores returns stores holding snaps that are also exposed
-// through this one.
-func (store *Store) FriendlyStores() []string {
-	return store.friendlyStores
-}
-
 // Location returns a summary of the store's location/purpose.
 func (store *Store) Location() string {
 	return store.HeaderString("location")
@@ -66,9 +59,7 @@ func (store *Store) Timestamp() time.Time {
 }
 
 func (store *Store) checkConsistency(db RODatabase, acck *AccountKey) error {
-	// Will be applied to a system's snapd or influence snapd
-	// policy decisions (via friendly-stores) so must be signed by a trusted
-	// authority!
+	// Will be applied to a system's snapd so must be signed by a trusted authority.
 	if !db.IsTrustedAccount(store.AuthorityID()) {
 		return fmt.Errorf("store assertion %q is not signed by a directly trusted authority: %s",
 			store.Store(), store.AuthorityID())
@@ -138,11 +129,6 @@ func assembleStore(assert assertionBase) (Assertion, error) {
 		return nil, err
 	}
 
-	friendlyStores, err := checkStringList(assert.headers, "friendly-stores")
-	if err != nil {
-		return nil, err
-	}
-
 	_, err = checkOptionalString(assert.headers, "location")
 	if err != nil {
 		return nil, err
@@ -154,9 +140,8 @@ func assembleStore(assert assertionBase) (Assertion, error) {
 	}
 
 	return &Store{
-		assertionBase:  assert,
-		url:            url,
-		friendlyStores: friendlyStores,
-		timestamp:      timestamp,
+		assertionBase: assert,
+		url:           url,
+		timestamp:     timestamp,
 	}, nil
 }

@@ -64,9 +64,6 @@ dbus send
 
 #include <abstractions/ssl_certs>
 
-# see loaded kernel modules
-@{PROC}/modules r,
-
 @{PROC}/@{pid}/net/ r,
 @{PROC}/@{pid}/net/** r,
 
@@ -102,7 +99,8 @@ dbus send
 network netlink dgram,
 
 # ip, et al
-/etc/iproute2/{,**} r,
+/etc/iproute2/ r,
+/etc/iproute2/* r,
 
 # ping - child profile would be nice but seccomp causes problems with that
 /{,usr/}{,s}bin/ping ixr,
@@ -159,5 +157,6 @@ func init() {
 		baseDeclarationSlots:  networkObserveBaseDeclarationSlots,
 		connectedPlugAppArmor: networkObserveConnectedPlugAppArmor,
 		connectedPlugSecComp:  networkObserveConnectedPlugSecComp,
+		reservedForOS:         true,
 	})
 }

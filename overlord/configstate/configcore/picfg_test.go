@@ -49,7 +49,6 @@ var mockConfigTxt = `
 # and your display can output without overscan
 #disable_overscan=1
 unrelated_options=are-kept
-#gpu_mem_512=true
 `
 
 func (s *piCfgSuite) SetUpTest(c *C) {
@@ -154,19 +153,5 @@ func (s *piCfgSuite) TestConfigurePiConfigIntegration(c *C) {
 	c.Assert(err, IsNil)
 
 	s.checkMockConfig(c, mockConfigTxt)
-}
 
-func (s *piCfgSuite) TestConfigurePiConfigRegression(c *C) {
-	restore := release.MockOnClassic(false)
-	defer restore()
-
-	err := configcore.Run(&mockConf{
-		state: s.state,
-		conf: map[string]interface{}{
-			"pi-config.gpu-mem-512": true,
-		},
-	})
-	c.Assert(err, IsNil)
-	expected := strings.Replace(mockConfigTxt, "#gpu_mem_512=true", "gpu_mem_512=true", -1)
-	s.checkMockConfig(c, expected)
 }

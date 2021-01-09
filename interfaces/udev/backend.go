@@ -1,7 +1,7 @@
 // -*- Mode: Go; indent-tabs-mode: t -*-
 
 /*
- * Copyright (C) 2016-2018 Canonical Ltd
+ * Copyright (C) 2016-2017 Canonical Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -34,9 +34,7 @@ import (
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/interfaces"
 	"github.com/snapcore/snapd/osutil"
-	"github.com/snapcore/snapd/sandbox/cgroup"
 	"github.com/snapcore/snapd/snap"
-	"github.com/snapcore/snapd/timings"
 )
 
 // Backend is responsible for maintaining udev rules.
@@ -64,21 +62,20 @@ func snapRulesFilePath(snapName string) string {
 // UDev has no concept of a complain mode so confinment options are ignored.
 //
 // If the method fails it should be re-tried (with a sensible strategy) by the caller.
-func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions, repo *interfaces.Repository, tm timings.Measurer) error {
-	snapName := snapInfo.InstanceName()
+func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions, repo *interfaces.Repository) error {
+	snapName := snapInfo.Name()
 	spec, err := repo.SnapSpecification(b.Name(), snapName)
 	if err != nil {
 		return fmt.Errorf("cannot obtain udev specification for snap %q: %s", snapName, err)
 	}
 	content := b.deriveContent(spec.(*Specification), snapInfo)
-	subsystemTriggers := spec.(*Specification).TriggeredSubsystems()
 
 	dir := dirs.SnapUdevRulesDir
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("cannot create directory for udev rules %q: %s", dir, err)
 	}
 
-	rulesFilePath := snapRulesFilePath(snapInfo.InstanceName())
+	rulesFilePath := snapRulesFilePath(snapInfo.Name())
 
 	if len(content) == 0 {
 		// Make sure that the rules file gets removed when we don't have any
@@ -87,10 +84,7 @@ func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions,
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		} else if err == nil {
-			// FIXME: somehow detect the interfaces that were
-			// disconnected and set subsystemTriggers appropriately.
-			// ATM, it is always going to be empty on disconnect.
-			return ReloadRules(subsystemTriggers)
+			return ReloadRules()
 		}
 		return nil
 	}
@@ -109,7 +103,7 @@ func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions,
 		buffer.WriteByte('\n')
 	}
 
-	rulesFileState := &osutil.MemoryFileState{
+	rulesFileState := &osutil.FileState{
 		Content: buffer.Bytes(),
 		Mode:    0644,
 	}
@@ -124,10 +118,7 @@ func (b *Backend) Setup(snapInfo *snap.Info, opts interfaces.ConfinementOptions,
 		return err
 	}
 
-	// FIXME: somehow detect the interfaces that were disconnected and set
-	// subsystemTriggers appropriately. ATM, it is always going to be empty
-	// on disconnect.
-	return ReloadRules(subsystemTriggers)
+	return ReloadRules()
 }
 
 // Remove removes udev rules specific to a given snap.
@@ -145,11 +136,7 @@ func (b *Backend) Remove(snapName string) error {
 	} else if err != nil {
 		return err
 	}
-
-	// FIXME: somehow detect the interfaces that were disconnected and set
-	// subsystemTriggers appropriately. ATM, it is always going to be empty
-	// on disconnect.
-	return ReloadRules(nil)
+	return ReloadRules()
 }
 
 func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (content []string) {
@@ -162,23 +149,4 @@ func (b *Backend) deriveContent(spec *Specification, snapInfo *snap.Info) (conte
 
 func (b *Backend) NewSpecification() interfaces.Specification {
 	return &Specification{}
-}
-
-// SandboxFeatures returns the list of features supported by snapd for mediating access to kernel devices.
-func (b *Backend) SandboxFeatures() []string {
-	commonFeatures := []string{
-		"tagging", /* Tagging dynamically associates new devices with specific snaps */
-	}
-	cgroupv1Features := []string{
-		"device-filtering", /* Snapd can limit device access for each snap */
-		"device-cgroup-v1", /* Snapd creates a device group (v1) for each snap */
-	}
-
-	if cgroup.IsUnified() {
-		// TODO: update v2 device cgroup is supported
-		return commonFeatures
-	}
-
-	features := append(cgroupv1Features, commonFeatures...)
-	return features
 }
