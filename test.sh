@@ -41,6 +41,7 @@ $SSH /installer.sh ${VERSION}
 
 code=0
 set +e
+$SSH snap refresh platform
 $SSH snap install files
 $SSH snap install mail
 code=$?
