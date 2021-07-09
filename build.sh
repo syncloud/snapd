@@ -11,7 +11,7 @@ VERSION=$1
 TESTS=$2
 GO_VERSION=1.9.7
 apt update
-apt install -y dpkg-dev libcap-dev libseccomp-dev xfslibs-dev
+apt install -y dpkg-dev libcap-dev libseccomp-dev xfslibs-dev squashfs-tools
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
