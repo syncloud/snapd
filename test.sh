@@ -13,6 +13,8 @@ ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 cd ${DIR}
 
+apt update
+apt install -y sshpass dpkg-dev
 attempts=100
 attempt=0
 
