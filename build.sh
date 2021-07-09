@@ -10,6 +10,8 @@ fi
 VERSION=$1
 TESTS=$2
 GO_VERSION=1.9.7
+apt update
+apt install -y dpkg-dev
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 apt install libcap-dev libseccomp-dev 	 xfslibs-dev
