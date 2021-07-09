@@ -11,10 +11,9 @@ VERSION=$1
 TESTS=$2
 GO_VERSION=1.9.7
 apt update
-apt install -y dpkg-dev
+apt install -y dpkg-dev libcap-dev libseccomp-dev xfslibs-dev
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
-apt install libcap-dev libseccomp-dev 	 xfslibs-dev
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
 export PATH=${PATH}:${GOPATH}/bin
 NAME=snapd
