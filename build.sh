@@ -11,24 +11,14 @@ VERSION=$1
 TESTS=$2
 GO_VERSION=1.9.7
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
-GO_ARCH=${ARCH}
-if [[ ${ARCH} == "armhf" ]]; then
-  GO_ARCH=armv6l
-fi
 
 apt install libcap-dev libseccomp-dev 	 xfslibs-dev
 export GOPATH=$( cd "$( dirname "${DIR}/../../../../.." )" && pwd )
-GOROOT=${GOPATH}/golang
-export PATH=${PATH}:$GOROOT/bin:${GOPATH}/bin
+export PATH=${PATH}:${GOPATH}/bin
 NAME=snapd
 BUILD_DIR=${GOPATH}/build/${NAME}
-
-export PATH=${GOROOT}/bin:$PATH
 cd ${GOPATH}
 
-wget https://dl.google.com/go/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz --progress dot:giga
-tar xf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
-mv go golang
 
 if [ ! -d "src/github.com/snapcore/snapd" ]; then
   echo "should be inside go path, src/github.com/snapcore/snapd"

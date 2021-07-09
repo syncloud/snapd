@@ -15,14 +15,14 @@ local build(arch) = {
     steps: [
         {
             name: "version",
-            image: "syncloud/build-deps-" + arch,
+            image: "debian:buster-slim",
             commands: [
                 "echo $(date +%y%m%d)$DRONE_BUILD_NUMBER > version"
             ]
         },
         {
             name: "build",
-            image: "syncloud/build-deps-" + arch,
+            image: "golang:1.9.7",
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "
@@ -30,7 +30,7 @@ local build(arch) = {
         },
         {
             name: "test",
-            image: "syncloud/build-deps-" + arch,
+            image: "debian:buster-slim",
             commands: [
               "VERSION=$(cat version)",
               "./test.sh $VERSION device"
@@ -38,7 +38,7 @@ local build(arch) = {
         },
         {
             name: "upload",
-            image: "syncloud/build-deps-" + arch,
+            image: "python:3.9-buster",
             environment: {
                 AWS_ACCESS_KEY_ID: {
                     from_secret: "AWS_ACCESS_KEY_ID"
@@ -49,7 +49,7 @@ local build(arch) = {
             },
             commands: [
               "VERSION=$(cat version)",
-              "pip2 install -r dev_requirements.txt",
+              "pip install syncloud-lib s3cmd",
               "syncloud-upload.sh " + name + " $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
             ]
         },
@@ -79,7 +79,7 @@ local build(arch) = {
     ],
     services: [{
         name: "device",
-        image: "syncloud/systemd-" + arch,
+        image: "syncloud/platform-jessie-" + arch,
         privileged: true,
         volumes: [
             {
@@ -114,5 +114,6 @@ local build(arch) = {
 
 [
     build("arm"),
-    build("amd64")
+    build("amd64"),
+    build("arm64")
 ]
