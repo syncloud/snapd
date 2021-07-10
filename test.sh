@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -38,16 +38,20 @@ $SCP install-snapd.sh root@${DEVICE_HOST}:/installer.sh
 $SCP snapd-${VERSION}-${ARCH}.tar.gz root@${DEVICE_HOST}:/
 
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
-
 $SSH /installer.sh ${VERSION}
 
-code=0
+$DIR/syncloud/testapp1/build.sh
+$DIR/syncloud/testapp2/build.sh
+$SSH $DIR/syncloud/testapp1/testapp1.snap root@${DEVICE_HOST}:/
+$SSH $DIR/syncloud/testapp2/testapp2.snap root@${DEVICE_HOST}:/
+
+#code=0
 set +e
-$SSH snap install platform
-$SSH snap install files
+$SSH snap install /testap1.snap --devmode
+$SSH snap install /testap2.snap --devmode
 code=$?
-$SSH snap refresh files
-code=$(( $code + $? ))
+#$SSH snap refresh files
+#code=$(( $code + $? ))
 set -e
 
 mkdir log
