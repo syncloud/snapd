@@ -10,7 +10,8 @@ fi
 VERSION=$1
 DEVICE_HOST=$2
 apt update
-apt install -y sshpass dpkg-dev
+apt install -y sshpass dpkg-dev squashfs-tools
+
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 cd ${DIR}
