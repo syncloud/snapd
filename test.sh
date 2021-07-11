@@ -43,8 +43,8 @@ $SSH /installer.sh ${VERSION}
 
 $DIR/syncloud/testapp1/build.sh
 $DIR/syncloud/testapp2/build.sh
-$SSH $DIR/syncloud/testapp1/testapp1.snap root@${DEVICE_HOST}:/
-$SSH $DIR/syncloud/testapp2/testapp2.snap root@${DEVICE_HOST}:/
+$SCP $DIR/syncloud/testapp1/testapp1.snap root@${DEVICE_HOST}:/
+$SCP $DIR/syncloud/testapp2/testapp2.snap root@${DEVICE_HOST}:/
 
 #code=0
 set +e
