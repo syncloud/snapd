@@ -830,7 +830,7 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 		Summary:         a.Summary,
 		Version:         version,
 		Type:            appType,
-		Architectures:   []string{"amd64", "armhf"},
+		Architectures:   []string{"amd64", "armhf", "arm64"},
 		Revision:        revision,
 		IconURL:         a.Icon,
 		Channel:         channel,
