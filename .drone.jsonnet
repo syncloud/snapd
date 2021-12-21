@@ -18,7 +18,7 @@ local build(arch) = {
         },
         {
             name: "build",
-            image: "golang:1.13",
+            image: "golang:1.17",
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "

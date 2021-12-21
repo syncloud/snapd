@@ -3,6 +3,7 @@
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 ARCH=$(uname -m)
 BUILD_DIR=${DIR}/build
+rm -rf ${BUILD_DIR}
 mkdir ${BUILD_DIR}
 
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
