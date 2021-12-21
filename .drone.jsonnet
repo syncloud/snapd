@@ -8,10 +8,6 @@ local build(arch) = {
         os: "linux",
         arch: arch
     },
-    workspace: {
-        base: "/go",
-        path: "src/github.com/snapcore/snapd"
-    },
     steps: [
         {
             name: "version",
@@ -22,7 +18,7 @@ local build(arch) = {
         },
         {
             name: "build",
-            image: "golang:1.9.7",
+            image: "golang:1.13",
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "
