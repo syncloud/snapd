@@ -253,10 +253,11 @@ func urlJoin(base *url.URL, paths ...string) *url.URL {
 	if len(paths) == 0 {
 		return base
 	}
-	base.RawQuery = ""
-	paths = append([]string{strings.TrimSuffix(base.Path, "/")}, paths...)
-	base.Path = strings.Join(paths, "/")
-	return base
+	url := *base
+	url.RawQuery = ""
+	paths = append([]string{strings.TrimSuffix(url.Path, "/")}, paths...)
+	url.Path = strings.Join(paths, "/")
+	return &url
 }
 
 // endpointURL clones a base URL and updates it with optional path and query.
@@ -537,6 +538,8 @@ func decodeStringBody(resp *http.Response) (string, error) {
 }
 
 func (s *Store) retryRequestString(ctx context.Context, reqOptions *requestOptions) (string, error) {
+	logger.Noticef("download: %v", reqOptions.URL.String())
+
 	var reply string
 	_, err := httputil.RetryRequest(reqOptions.URL.String(), func() (*http.Response, error) {
 		return s.doRequest(ctx, s.client, reqOptions)
@@ -547,7 +550,9 @@ func (s *Store) retryRequestString(ctx context.Context, reqOptions *requestOptio
 	}, defaultRetryStrategy)
 
 	if err != nil {
-		return "", fmt.Errorf("%v, url: %s", err, reqOptions.URL.String())
+		err := fmt.Errorf("%v, url: %s", err, reqOptions.URL.String())
+		logger.Noticef("download failed: %v", err)
+		return "", err
 	}
 
 	return reply, err
