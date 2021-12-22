@@ -50,6 +50,7 @@ $SCP $DIR/syncloud/testapp2/testapp2.snap root@${DEVICE_HOST}:/
 set +e
 $SSH snap install /testapp1.snap --devmode
 $SSH snap install /testapp2.snap --devmode
+$SSH snap install files
 code=$?
 #$SSH snap refresh files
 #code=$(( $code + $? ))

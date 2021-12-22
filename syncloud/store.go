@@ -23,8 +23,8 @@ package syncloud
 import (
 	"bytes"
 	"crypto"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -33,10 +33,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"strconv"
 
 	"github.com/snapcore/snapd/arch"
 	"github.com/snapcore/snapd/asserts"
@@ -50,11 +50,11 @@ import (
 	"github.com/snapcore/snapd/snap"
 	"github.com/snapcore/snapd/store"
 
+	"github.com/snapcore/snapd/dirs"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/retry.v1"
 	"io/ioutil"
-	"github.com/snapcore/snapd/dirs"
 )
 
 // TODO: better/shorter names are probably in order once fewer legacy places are using this
@@ -253,11 +253,10 @@ func urlJoin(base *url.URL, paths ...string) *url.URL {
 	if len(paths) == 0 {
 		return base
 	}
-	url := *base
-	url.RawQuery = ""
-	paths = append([]string{strings.TrimSuffix(url.Path, "/")}, paths...)
-	url.Path = strings.Join(paths, "/")
-	return &url
+	base.RawQuery = ""
+	paths = append([]string{strings.TrimSuffix(base.Path, "/")}, paths...)
+	base.Path = strings.Join(paths, "/")
+	return base
 }
 
 // endpointURL clones a base URL and updates it with optional path and query.
@@ -698,7 +697,7 @@ func (s *Store) downloadVersion(channel string, name string) (string, error) {
 
 	reqOptions := &requestOptions{
 		Method: "GET",
-		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, name + ".version"),
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, name+".version"),
 		Accept: halJsonContentType,
 	}
 
@@ -725,9 +724,9 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		return nil, err
 	}
 
-    version, err := s.downloadVersion(channel, snapSpec.Name)
-    if err != nil {
-    	return nil, ErrSnapNotFound
+	version, err := s.downloadVersion(channel, snapSpec.Name)
+	if err != nil {
+		return nil, ErrSnapNotFound
 	}
 
 	info := apps[snapSpec.Name].toInfo(s.cfg.StoreBaseURL, channel, version)
@@ -758,12 +757,12 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	}
 	var snaps []*snap.Info
 	for name, app := range apps {
-		if (search.Query == "*" || search.Query == "" || search.Query == name) {
-    		version, err := s.downloadVersion(channel, name)
-        	if err != nil {
-        		logger.Noticef("No version on the channel: %s", channel)
-        	} else {
-			    snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+		if search.Query == "*" || search.Query == "" || search.Query == name {
+			version, err := s.downloadVersion(channel, name)
+			if err != nil {
+				logger.Noticef("No version on the channel: %s", channel)
+			} else {
+				snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
 			}
 		}
 	}
@@ -771,8 +770,8 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	return snaps, nil
 }
 
-func (s *Store) parseChannel(channel string) (string) {
-	if (channel == "") {
+func (s *Store) parseChannel(channel string) string {
+	if channel == "" {
 		return "stable"
 	}
 	parts := strings.Split(channel, "/")
@@ -811,9 +810,9 @@ func deconstructSnapId(snapId string) (string, string) {
 	return parts[0], parts[1]
 }
 
-func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.Info) {
+func (a *App) toInfo(baseUrl *url.URL, channel string, version string) *snap.Info {
 	appType := snap.TypeApp
-	if (a.Required) {
+	if a.Required {
 		appType = snap.TypeBase
 	}
 
@@ -825,16 +824,16 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) (*snap.In
 	logger.Noticef("snapid: %s", snapId)
 
 	details := snapDetails{
-		SnapID:          snapId,
-		Name:            a.Name,
-		Summary:         a.Summary,
-		Version:         version,
-		Type:            appType,
-		Architectures:   []string{"amd64", "armhf", "arm64"},
-		Revision:        revision,
-		IconURL:         a.Icon,
-		Channel:         channel,
-		AnonDownloadURL: fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
+		SnapID:           snapId,
+		Name:             a.Name,
+		Summary:          a.Summary,
+		Version:          version,
+		Type:             appType,
+		Architectures:    []string{"amd64", "armhf", "arm64"},
+		Revision:         revision,
+		IconURL:          a.Icon,
+		Channel:          channel,
+		AnonDownloadURL:  fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
 		DownloadSha3_384: SHA3_384,
 	}
 
@@ -862,7 +861,7 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 		if err != nil {
 			return nil, err
 		}
-		if (!app.Enabled) {
+		if !app.Enabled {
 			continue
 		}
 		apps[app.Name] = app
@@ -1108,7 +1107,7 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 
 		//if sha3_384 != "" && sha3_384 != actualSha3 {
 		//	finalErr = HashError{name, actualSha3, sha3_384}
-	 //	}
+		//	}
 		break
 	}
 	return finalErr
@@ -1128,8 +1127,8 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	case "account-key":
 		body = string(publicKeyEnc)
 	case "snap-declaration":
-	 snapId := primaryKey[1]
- name, _ := deconstructSnapId(snapId)
+		snapId := primaryKey[1]
+		name, _ := deconstructSnapId(snapId)
 		headers = "" +
 			"series: " + primaryKey[0] + "\n" +
 			"snap-id: " + snapId + "\n" +
@@ -1157,7 +1156,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		"publisher-id: syncloud\n" +
 		"developer-id: syncloud\n" +
 		"account-id: syncloud\n" +
-	// "display-name: syncloud\n" +
+		// "display-name: syncloud\n" +
 		"revision: 1\n" +
 		"sign-key-sha3-384: " + SHA3_384 + "\n" +
 		"sha3-384: " + SHA3_384 + "\n" +
@@ -1178,7 +1177,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 
 	assertionText := content + string(signature[:]) + "\n"
 
- logger.Debugf("assertion response: \n%s", assertionText)
+	logger.Debugf("assertion response: \n%s", assertionText)
 
 	asrt, e := asserts.Decode([]byte(assertionText))
 
