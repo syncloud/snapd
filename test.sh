@@ -54,6 +54,7 @@ code=$?
 #$SSH snap refresh files
 #code=$(( $code + $? ))
 set -e
+$SSH snap install files
 
 mkdir log
 $SSH snap changes > log/snap.changes.log   
