@@ -9,6 +9,7 @@ fi
 
 VERSION=$1
 TESTS=$2
+apt-get clean
 apt update
 apt install -y dpkg-dev libcap-dev libseccomp-dev xfslibs-dev squashfs-tools
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
