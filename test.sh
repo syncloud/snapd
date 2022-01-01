@@ -10,9 +10,7 @@ fi
 VERSION=$1
 DEVICE_HOST=$2
 apt update
-apt install -y sshpass dpkg-dev squashfs-tools
-
-ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+apt install -y sshpass
 
 cd ${DIR}
 
@@ -36,7 +34,7 @@ set -e
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 
 $SCP install-snapd.sh root@${DEVICE_HOST}:/installer.sh
-$SCP snapd-${VERSION}-${ARCH}.tar.gz root@${DEVICE_HOST}:/
+$SCP snapd-${VERSION}-*.tar.gz root@${DEVICE_HOST}:/
 
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
 $SSH /installer.sh ${VERSION}

@@ -698,15 +698,49 @@ type SnapSpec struct {
 	Revision snap.Revision
 }
 
-func (s *Store) downloadVersion(channel string, name string) (string, error) {
-
-	reqOptions := &requestOptions{
+func (s *Store) downloadAppInfo(app *App, channel string, name string) (*snap.Info, error) {
+	version, err := s.retryRequestString(context.Background(), &requestOptions{
 		Method: "GET",
 		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, name+".version"),
 		Accept: halJsonContentType,
+	})
+	if err != nil {
+		return nil, err
+	}
+	downloadUrl := fmt.Sprintf("%s/apps/%s_%s_%s.snap", s.cfg.StoreBaseURL, app.Name, version, arch.UbuntuArchitecture())
+
+	sizeString, err := s.retryRequestString(context.Background(), &requestOptions{
+		Method: "GET",
+		URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("%s_%s_%s.size", app.Name, version, arch.UbuntuArchitecture())),
+		Accept: halJsonContentType,
+	})
+	if err != nil {
+		return nil, err
+	}
+	size, err := strconv.ParseInt(sizeString, 10, 0)
+	if err != nil {
+		return nil, err
 	}
 
-	version, err := s.retryRequestString(context.TODO(), reqOptions)
+	sha384, err := s.retryRequestString(context.Background(), &requestOptions{
+		Method: "GET",
+		URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("%s_%s_%s.sha384", app.Name, version, arch.UbuntuArchitecture())),
+		Accept: halJsonContentType,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return app.toInfo(channel, version, size, sha384, downloadUrl)
+}
+
+func (s *Store) downloadVersion(channel string, name string) (string, error) {
+
+	version, err := s.retryRequestString(context.Background(), &requestOptions{
+		Method: "GET",
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, name+".version"),
+		Accept: halJsonContentType,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -729,12 +763,10 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		return nil, err
 	}
 
-	version, err := s.downloadVersion(channel, snapSpec.Name)
+	info, err := s.downloadAppInfo(apps[snapSpec.Name], channel, snapSpec.Name)
 	if err != nil {
 		return nil, ErrSnapNotFound
 	}
-
-	info := apps[snapSpec.Name].toInfo(s.cfg.StoreBaseURL, channel, version)
 
 	return info, nil
 }
@@ -763,11 +795,13 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	var snaps []*snap.Info
 	for name, app := range apps {
 		if search.Query == "*" || search.Query == "" || search.Query == name {
-			version, err := s.downloadVersion(channel, name)
+			//version, err := s.downloadVersion(channel, name)
+			info, err := s.downloadAppInfo(app, channel, name)
 			if err != nil {
 				logger.Noticef("No version on the channel: %s", channel)
 			} else {
-				snaps = append(snaps, app.toInfo(s.cfg.StoreBaseURL, channel, version))
+				//info := app.toInfo(s.cfg.StoreBaseURL, channel, version)
+				snaps = append(snaps, info)
 			}
 		}
 	}
@@ -815,16 +849,16 @@ func deconstructSnapId(snapId string) (string, string) {
 	return parts[0], parts[1]
 }
 
-func (a *App) toInfo(baseUrl *url.URL, channel string, version string) *snap.Info {
+func (a *App) toInfo(channel string, version string, downloadSize int64, downloadSha384 string, downloadUrl string) (*snap.Info, error) {
 	appType := snap.TypeApp
 	if a.Required {
 		appType = snap.TypeBase
 	}
 
-	revision, _ := strconv.Atoi(version)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("Unable to get revision: %s", err)
-	//	}
+	revision, err := strconv.Atoi(version)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get revision: %s", err)
+	}
 	snapId := constructSnapId(a.Name, version)
 	logger.Noticef("snapid: %s", snapId)
 
@@ -838,11 +872,12 @@ func (a *App) toInfo(baseUrl *url.URL, channel string, version string) *snap.Inf
 		Revision:         revision,
 		IconURL:          a.Icon,
 		Channel:          channel,
-		AnonDownloadURL:  fmt.Sprintf("%s/apps/%s_%s_%s.snap", baseUrl, a.Name, version, arch.UbuntuArchitecture()),
-		DownloadSha3_384: SHA3_384,
+		AnonDownloadURL:  downloadUrl,
+		DownloadSha3_384: downloadSha384,
+		DownloadSize:     downloadSize,
 	}
 
-	return infoFromRemote(&details)
+	return infoFromRemote(&details), nil
 }
 
 type Index struct {
@@ -1255,12 +1290,10 @@ func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.User
 		return nil, err
 	}
 
-	latestVersion, err := s.downloadVersion(channel, snapName)
+	info, err := s.downloadAppInfo(apps[snapName], channel, snapName)
 	if err != nil {
 		return nil, ErrSnapNotFound
 	}
-
-	info := apps[snapName].toInfo(s.cfg.StoreBaseURL, channel, latestVersion)
 
 	return info, nil
 }
