@@ -10,8 +10,7 @@ fi
 VERSION=$1
 DEVICE_HOST=$2
 apt update
-apt install -y sshpass
-
+apt install -y sshpass dpkg-dev
 cd ${DIR}
 
 attempts=100
