@@ -701,7 +701,7 @@ type SnapSpec struct {
 func (s *Store) downloadAppInfo(app *App, channel string, name string) (*snap.Info, error) {
 	version, err := s.retryRequestString(context.Background(), &requestOptions{
 		Method: "GET",
-		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, name+".version"),
+		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, fmt.Sprintf("%s.%s.version", app.Name, arch.UbuntuArchitecture())),
 		Accept: halJsonContentType,
 	})
 	if err != nil {
