@@ -711,7 +711,7 @@ func (s *Store) downloadAppInfo(app *App, channel string, name string) (*snap.In
 
 	sizeString, err := s.retryRequestString(context.Background(), &requestOptions{
 		Method: "GET",
-		URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("%s_%s_%s.size", app.Name, version, arch.UbuntuArchitecture())),
+		URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("%s_%s_%s.snap.size", app.Name, version, arch.UbuntuArchitecture())),
 		Accept: halJsonContentType,
 	})
 	if err != nil {
@@ -724,7 +724,7 @@ func (s *Store) downloadAppInfo(app *App, channel string, name string) (*snap.In
 
 	sha384, err := s.retryRequestString(context.Background(), &requestOptions{
 		Method: "GET",
-		URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("%s_%s_%s.sha384", app.Name, version, arch.UbuntuArchitecture())),
+		URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("%s_%s_%s.snap.sha384", app.Name, version, arch.UbuntuArchitecture())),
 		Accept: halJsonContentType,
 	})
 	if err != nil {
