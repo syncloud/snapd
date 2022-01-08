@@ -13,7 +13,7 @@ local build(arch) = {
             name: "version",
             image: "debian:buster-slim",
             commands: [
-                "echo $(date +%y%m%d)$DRONE_BUILD_NUMBER > version"
+                "echo $DRONE_BUILD_NUMBER > version"
             ]
         },
         {
@@ -22,6 +22,14 @@ local build(arch) = {
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "
+            ]
+        },
+        {
+            name: "build release",
+            image: "golang:1.17-buster",
+            commands: [
+                "go build -ldflags '-linkmode external -extldflags -static' -o syncloud-release-" + arch + " syncloud/release/main.go",
+                "./syncloud-release-" + arch + " -h"
             ]
         },
         {
@@ -72,7 +80,22 @@ local build(arch) = {
             when: {
               status: [ "failure", "success" ]
             }
-        }
+        },
+        {
+            name: "publish to github",
+            image: "plugins/github-release:1.0.0",
+            settings: {
+                api_key: {
+                    from_secret: "github_token"
+                },
+                files: "syncloud-release-*",
+                overwrite: true,
+                file_exists: "overwrite"
+            },
+            when: {
+                event: [ "tag" ]
+            }
+        },
     ],
     services: [{
         name: "device",
