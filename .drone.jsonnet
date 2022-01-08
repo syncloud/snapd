@@ -28,7 +28,8 @@ local build(arch) = {
             name: "build release",
             image: "golang:1.17-buster",
             commands: [
-                "go build -ldflags '-linkmode external -extldflags -static' -o syncloud-release-" + arch + " syncloud/release/main.go",
+                "go test ./syncloud/release",
+                "go build -ldflags '-linkmode external -extldflags -static' -o syncloud-release-" + arch + " ./syncloud/release",
                 "./syncloud-release-" + arch + " -h"
             ]
         },
