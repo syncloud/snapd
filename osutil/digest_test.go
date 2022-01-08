@@ -20,8 +20,14 @@
 package osutil_test
 
 import (
-	"github.com/snapcore/snapd/asserts"
+	"crypto"
+	"crypto/sha512"
+	"io/ioutil"
+	"path/filepath"
+
 	. "gopkg.in/check.v1"
+
+	"github.com/snapcore/snapd/osutil"
 )
 
 type FileDigestSuite struct{}
@@ -29,18 +35,16 @@ type FileDigestSuite struct{}
 var _ = Suite(&FileDigestSuite{})
 
 func (ts *FileDigestSuite) TestFileDigest(c *C) {
-	//exData := []byte("hashmeplease")
+	exData := []byte("hashmeplease")
 
-	//tempdir := c.MkDir()
-	//fn := filepath.Join(tempdir, "ex.file")
-	//err := ioutil.WriteFile(fn, exData, 0644)
-	//c.Assert(err, IsNil)
-
-	//digest, _, err := osutil.FileDigest("/home/boris/files_135_amd64.snap", crypto.SHA3_384)
-	sha3_384, size, err := asserts.SnapFileSHA3_384("/home/boris/files_135_amd64.snap")
+	tempdir := c.MkDir()
+	fn := filepath.Join(tempdir, "ex.file")
+	err := ioutil.WriteFile(fn, exData, 0644)
 	c.Assert(err, IsNil)
-	c.Assert(size, IsNil)
-	//c.Check(size, Equals, uint64(len(exData)))
-	//h512 := sha512.Sum512(exData)
-	c.Assert(sha3_384, NotNil)
+
+	digest, size, err := osutil.FileDigest(fn, crypto.SHA512)
+	c.Assert(err, IsNil)
+	c.Check(size, Equals, uint64(len(exData)))
+	h512 := sha512.Sum512(exData)
+	c.Check(digest, DeepEquals, h512[:])
 }

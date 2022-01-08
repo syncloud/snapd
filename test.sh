@@ -54,6 +54,6 @@ code=$?
 set -e
 
 mkdir -p log
-$SSH snap changes > log/snap.changes.log   
+$SSH snap changes > log/snap.changes.log || true
 $SSH journalctl > log/journalctl.log
 exit $code
