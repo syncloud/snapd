@@ -1,12 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"github.com/snapcore/snapd/asserts"
 	"github.com/spf13/cobra"
-	"io/ioutil"
-	"log"
+	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -14,31 +13,39 @@ func main() {
 	var rootCmd = &cobra.Command{Use: "cli"}
 
 	var file string
+	var branch string
 	var cmdPublish = &cobra.Command{
 		Use:   "publish",
 		Short: "Publish an app to Syncloud Store",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			sha384, size, err := asserts.SnapFileSHA3_384(file)
-			if err != nil {
-				log.Fatalf("error: %v\n", err)
-			}
-			err = ioutil.WriteFile(fmt.Sprintf("%s.sha384", file), []byte(sha384), 0644)
-			if err != nil {
-				log.Fatalf("error: %v\n", err)
-			}
-			err = ioutil.WriteFile(fmt.Sprintf("%s.size", file), []byte(strconv.FormatUint(size, 10)), 0644)
-			if err != nil {
-				log.Fatalf("error: %v\n", err)
-			}
+			Check(err)
+			reader, err := os.Open(file)
+			Check(err)
+			defer reader.Close()
+			info, err := Parse(file, branch)
+			Check(Upload(reader, info.StoreSnapPath))
+			Check(err)
+			Check(Upload(strings.NewReader(sha384), info.StoreSha384Path))
+			Check(Upload(strings.NewReader(strconv.FormatUint(size, 10)), info.StoreSizePath))
+			Check(Upload(strings.NewReader(info.Version), info.StoreVersionPath))
 		},
 	}
 	cmdPublish.Flags().StringVarP(&file, "file", "f", "", "snap file path")
+	Check(cmdPublish.MarkFlagRequired("file"))
+	cmdPublish.Flags().StringVarP(&branch, "branch", "b", "", "branch")
+	Check(cmdPublish.MarkFlagRequired("branch"))
 	rootCmd.AddCommand(cmdPublish)
 
 	err := rootCmd.Execute()
 	if err != nil {
-		log.Fatalf("error: %v\n", err)
+		panic(err)
 	}
+}
 
+func Check(err error) {
+	if err != nil {
+		panic(err)
+	}
 }

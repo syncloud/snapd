@@ -14,7 +14,7 @@ require (
 	github.com/snapcore/squashfuse v0.0.0-20171220165323-319f6d41a041
 	github.com/spf13/cobra v1.1.1
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/macaroon.v1 v1.0.0-20150121114231-ab3940c6c165
 	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528
@@ -25,13 +25,20 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go v1.42.30 // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gorilla/context v0.0.0-20150820051245-1c83b3eabd45 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/kr/text v0.1.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.1.1 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/text v0.3.7 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )
