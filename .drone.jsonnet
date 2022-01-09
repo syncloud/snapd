@@ -34,6 +34,30 @@ local build(arch) = {
             ]
         },
         {
+            name: "build test apps",
+            image: "golang:1.17-buster",
+            commands: [
+              "./syncloud/test/testapp1/build.sh"
+              "./syncloud/test/testapp2/build.sh"
+            ]
+        },
+        {
+            name: "apps.syncloud.org",
+            image: "debian:buster-slim",
+            detach: "true",
+            commands: [
+              "apt update && apt install nginx tree",
+              "mkdir -p log",
+              "mkdir -p /var/www/html/releases/stable",
+              "mkdir -p /var/www/html/apps",
+              "./syncloud-release-" + arch + " -f ./syncloud/test/testapp1/testapp1.snap -b master -t /var/www/html",
+              "./syncloud-release-" + arch + " -f ./syncloud/test/testapp2/testapp2.snap -b master -t /var/www/html",
+              "cp ./syncloud/test/index-v2 /var/www/html/releases/stable/",
+              "tree /var/www/html > log/store.tree.log",
+              "systemctl status nginx > log/store.status.log"
+            ]
+        },
+        {
             name: "test",
             image: "debian:buster-slim",
             commands: [
@@ -98,21 +122,23 @@ local build(arch) = {
             }
         },
     ],
-    services: [{
-        name: "device",
-        image: "syncloud/bootstrap-buster-" + arch,
-        privileged: true,
-        volumes: [
-            {
-                name: "dbus",
-                path: "/var/run/dbus"
-            },
-            {
-                name: "dev",
-                path: "/dev"
-            }
-        ]
-    }],
+    services: [
+        {
+            name: "device",
+            image: "syncloud/bootstrap-buster-" + arch,
+            privileged: true,
+            volumes: [
+                {
+                    name: "dbus",
+                    path: "/var/run/dbus"
+                },
+                {
+                    name: "dev",
+                    path: "/dev"
+                }
+            ]
+        }
+    ],
     volumes: [
         {
             name: "dbus",

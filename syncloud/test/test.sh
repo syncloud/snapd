@@ -10,7 +10,7 @@ fi
 VERSION=$1
 DEVICE_HOST=$2
 apt update
-apt install -y sshpass dpkg-dev squashfs-tools
+apt install -y sshpass
 cd ${DIR}
 
 attempts=100
@@ -32,28 +32,23 @@ set -e
 
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 
-$SCP install-snapd.sh root@${DEVICE_HOST}:/installer.sh
-$SCP snapd-${VERSION}-*.tar.gz root@${DEVICE_HOST}:/
+$SCP ${DIR}/install-snapd.sh root@${DEVICE_HOST}:/installer.sh
+$SCP ${DIR}/../../snapd-${VERSION}-*.tar.gz root@${DEVICE_HOST}:/
 
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no root@${DEVICE_HOST}"
 $SSH /installer.sh ${VERSION}
 
-$DIR/syncloud/testapp1/build.sh
-$DIR/syncloud/testapp2/build.sh
-$SCP $DIR/syncloud/testapp1/testapp1.snap root@${DEVICE_HOST}:/
-$SCP $DIR/syncloud/testapp2/testapp2.snap root@${DEVICE_HOST}:/
-
 #code=0
 set +e
-$SSH snap install /testapp1.snap --devmode
-$SSH snap install /testapp2.snap --devmode
-$SSH snap install files
+$SSH snap install testapp1
+$SSH snap install testapp2
+#$SSH snap install files
 code=$?
 #$SSH snap refresh files
 #code=$(( $code + $? ))
 set -e
 
-mkdir -p log
+#mkdir -p log
 $SSH snap changes > log/snap.changes.log || true
 $SSH journalctl > log/journalctl.log
 exit $code

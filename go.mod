@@ -3,6 +3,7 @@ module github.com/snapcore/snapd
 go 1.17
 
 require (
+	github.com/aws/aws-sdk-go v1.42.30
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
 	github.com/godbus/dbus v4.0.1-0.20170822152403-97646858c464+incompatible
 	github.com/gorilla/mux v0.0.0-20160317213430-0eeaf8392f5b
@@ -10,9 +11,11 @@ require (
 	github.com/mvo5/goconfigparser v0.0.0-20150212093750-26426272dda2
 	github.com/mvo5/libseccomp-golang v0.9.1-0.20170614135141-84e1d1c75bea
 	github.com/ojii/gettext.go v0.0.0-20160714064745-95289a7e0ac1
+	github.com/otiai10/copy v1.7.0
 	github.com/snapcore/bolt v1.3.2-0.20180118170145-9eca199504ee
 	github.com/snapcore/squashfuse v0.0.0-20171220165323-319f6d41a041
 	github.com/spf13/cobra v1.1.1
+	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
@@ -25,7 +28,6 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go v1.42.30 // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gorilla/context v0.0.0-20150820051245-1c83b3eabd45 // indirect
@@ -35,8 +37,6 @@ require (
 	github.com/kr/text v0.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.1.1 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
