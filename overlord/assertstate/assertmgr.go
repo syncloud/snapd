@@ -20,14 +20,13 @@
 package assertstate
 
 import (
-	"crypto"
 	"fmt"
+
 	"gopkg.in/tomb.v2"
 
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/asserts/snapasserts"
 	"github.com/snapcore/snapd/asserts/sysdb"
-	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/overlord/snapstate"
 	"github.com/snapcore/snapd/overlord/state"
 )
@@ -111,13 +110,6 @@ func doValidateSnap(t *state.Task, _ *tomb.Tomb) error {
 	}
 
 	sha3_384, snapSize, err := asserts.SnapFileSHA3_384(snapsup.SnapPath)
-	appVersion := fmt.Sprintf("%s.%s", snapsup.Name(), snapsup.Revision())
-	sha3_384, err = asserts.EncodeDigest(crypto.SHA3_384, []byte(appVersion))
-	if err != nil {
-		return err
-	}
-	logger.Noticef("Syncloud hack: version: %s, encoded snap sha: %s", appVersion, sha3_384)
-
 	if err != nil {
 		return err
 	}
