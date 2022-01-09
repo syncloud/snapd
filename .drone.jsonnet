@@ -47,8 +47,8 @@ local build(arch) = {
             image: "debian:buster-slim",
             detach: true,
             commands: [
-              "apt update && apt install -y nginx tree",
               "mkdir -p log",
+              "apt update && apt install -y nginx tree",
               "mkdir -p /var/www/html/releases/stable",
               "mkdir -p /var/www/html/apps",
               "./syncloud-release-" + arch + " -f ./syncloud/test/testapp1/testapp1.snap -b master -t /var/www/html",
