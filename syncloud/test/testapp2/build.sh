@@ -6,7 +6,7 @@ BUILD_DIR=${DIR}/build
 rm -rf ${BUILD_DIR}
 mkdir ${BUILD_DIR}
 
-ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+ARCH=$(dpkg --print-architecture)
 cp -r ${DIR}/meta ${BUILD_DIR}
 cp -r ${DIR}/bin ${BUILD_DIR}
 echo "architectures:" >> ${BUILD_DIR}/meta/snap.yaml

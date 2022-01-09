@@ -37,6 +37,7 @@ local build(arch) = {
             name: "build test apps",
             image: "debian:buster-slim",
             commands: [
+              "apt update && apt install -y squashfs-tools",
               "./syncloud/test/testapp1/build.sh",
               "./syncloud/test/testapp2/build.sh"
             ]
