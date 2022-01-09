@@ -47,7 +47,7 @@ local build(arch) = {
             image: "debian:buster-slim",
             detach: true,
             commands: [
-              "apt update && apt install nginx tree",
+              "apt update && apt install -y nginx tree",
               "mkdir -p log",
               "mkdir -p /var/www/html/releases/stable",
               "mkdir -p /var/www/html/apps",
