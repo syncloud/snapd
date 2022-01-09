@@ -30,6 +30,11 @@ do
 done
 set -e
 
+until $(curl --output /dev/null --silent --head --fail http://apps.syncloud.org); do
+    printf '.'
+    sleep 5
+done
+
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 
 $SCP ${DIR}/install-snapd.sh root@${DEVICE_HOST}:/installer.sh
