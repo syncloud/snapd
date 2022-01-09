@@ -63,7 +63,7 @@ local build(arch) = {
             image: "debian:buster-slim",
             commands: [
               "VERSION=$(cat version)",
-              "./test.sh $VERSION device"
+              "./syncloud/test/test.sh $VERSION device"
             ]
         },
         {
