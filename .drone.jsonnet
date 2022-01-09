@@ -35,9 +35,9 @@ local build(arch) = {
         },
         {
             name: "build test apps",
-            image: "golang:1.17-buster",
+            image: "debian:buster-slim",
             commands: [
-              "./syncloud/test/testapp1/build.sh"
+              "./syncloud/test/testapp1/build.sh",
               "./syncloud/test/testapp2/build.sh"
             ]
         },
