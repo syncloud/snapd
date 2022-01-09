@@ -44,7 +44,7 @@ local build(arch) = {
         {
             name: "apps.syncloud.org",
             image: "debian:buster-slim",
-            detach: "true",
+            detach: true,
             commands: [
               "apt update && apt install nginx tree",
               "mkdir -p log",
