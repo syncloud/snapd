@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -1154,7 +1155,7 @@ var download = func(ctx context.Context, name, sha3_384, downloadURL string, s *
 }
 
 func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string, user *auth.UserState) (asserts.Assertion, error) {
-	logger.Debugf("assert type: %s, key: %s", assertType.Name, strings.Join(primaryKey, "/"))
+	logger.Noticef("assert type: %s, key: %s", assertType.Name, path.Join(primaryKey...))
 
 	publicKeyEnc, err := asserts.EncodePublicKey(privkey.PublicKey())
 	if err != nil {
