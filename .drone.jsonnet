@@ -43,27 +43,11 @@ local build(arch) = {
             ]
         },
         {
-            name: "store",
-            image: "debian:buster-slim",
-            detach: true,
-            commands: [
-              "mkdir -p log",
-              "apt update && apt install -y nginx tree",
-              "mkdir -p /var/www/html/releases/master",
-              "mkdir -p /var/www/html/apps",
-              "./syncloud-release-" + arch + " publish -f syncloud/test/testapp1/testapp1_1_*.snap -b master -t /var/www/html",
-              "./syncloud-release-" + arch + " publish -f syncloud/test/testapp2/testapp2_1_*.snap -b master -t /var/www/html",
-              "cp ./syncloud/test/index-v2 /var/www/html/releases/master/",
-              "tree /var/www/html > log/store.tree.log",
-              "/usr/sbin/nginx"
-            ]
-        },
-        {
             name: "test",
             image: "debian:buster-slim",
             commands: [
               "VERSION=$(cat version)",
-              "./syncloud/test/test.sh $VERSION device"
+              "./syncloud/test/test.sh $VERSION"
             ]
         },
         {
@@ -126,6 +110,21 @@ local build(arch) = {
     services: [
         {
             name: "device",
+            image: "syncloud/bootstrap-buster-" + arch,
+            privileged: true,
+            volumes: [
+                {
+                    name: "dbus",
+                    path: "/var/run/dbus"
+                },
+                {
+                    name: "dev",
+                    path: "/dev"
+                }
+            ]
+        },
+        {
+            name: "store",
             image: "syncloud/bootstrap-buster-" + arch,
             privileged: true,
             volumes: [
