@@ -2,15 +2,15 @@
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-if [ "$#" -lt 1 ]; then
-    echo "usage $0 version"
+if [ "$#" -lt 2 ]; then
+    echo "usage $0 version arch"
     exit 1
 fi
 
 VERSION=$1
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
-ARCH=$(uname -m)
+ARCH=$2
 SNAP_ARCH=$(dpkg --print-architecture)
 LOG_DIR=${DIR}/../../log
 
