@@ -30,9 +30,15 @@ do
 done
 set -e
 
+attempt=0
 until $(curl --output /dev/null --silent --head --fail http://apps.syncloud.org); do
-    printf '.'
-    sleep 5
+    if [ $attempt -gt $attempts ]; then
+      exit 1
+    fi
+    sleep 3
+    attempt=$((attempt+1))
+    echo "Waiting for the store $attempt"
+    sleep 3
 done
 
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
