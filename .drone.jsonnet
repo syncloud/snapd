@@ -48,7 +48,7 @@ local build(arch) = {
             detach: true,
             commands: [
               "mkdir -p log",
-              "apt update && apt install -y nginx tree curl",
+              "apt update && apt install -y nginx tree",
               "mkdir -p /var/www/html/releases/master",
               "mkdir -p /var/www/html/apps",
               "./syncloud-release-" + arch + " publish -f syncloud/test/testapp1/testapp1_1_*.snap -b master -t /var/www/html",
