@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-		"github.com/snapcore/snapd/logger"
 )
 
 // common checks used when decoding/assembling assertions
@@ -191,8 +190,7 @@ func checkDigest(headers map[string]interface{}, name string, h crypto.Hash) ([]
 		return nil, fmt.Errorf("%q header cannot be decoded: %v", name, err)
 	}
 	if len(b) != h.Size() {
-		//return nil, fmt.Errorf("%q header does not have the expected bit length: %d", name, len(b)*8)
-		logger.Noticef("Syncloud hack: %q header does not have the expected bit length: %d", name, len(b)*8)
+		return nil, fmt.Errorf("%q header does not have the expected bit length: %d", name, len(b)*8)
 	}
 
 	return b, nil
