@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/syncloud"
 	"github.com/spf13/cobra"
@@ -43,7 +44,7 @@ func main() {
 			}
 			snapRevisionJson, err := json.Marshal(snapRevision)
 			Check(err)
-			Check(storage.UploadContent(string(snapRevisionJson), info.StoreRevisionPath))
+			Check(storage.UploadContent(string(snapRevisionJson), fmt.Sprintf("revisions/%s.revision", sha384)))
 
 		},
 	}
