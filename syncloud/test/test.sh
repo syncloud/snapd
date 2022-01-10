@@ -10,7 +10,8 @@ fi
 VERSION=$1
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
-ARCH=$(dpkg --print-architecture)
+ARCH=$(uname -m)
+SNAP_ARCH=$(dpkg --print-architecture)
 LOG_DIR=${DIR}/../../log
 
 apt update
@@ -47,10 +48,10 @@ $SSH root@apps.syncloud.org mkdir -p /var/www/html/releases/master
 $SSH root@apps.syncloud.org mkdir -p /var/www/html/apps
 $SSH root@apps.syncloud.org mkdir -p /var/www/html/revisions
 $SCP ${DIR}/../../syncloud-release-$ARCH root@apps.syncloud.org:/syncloud-release
-$SCP ${DIR}/../test/testapp1/testapp1_1_$ARCH.snap root@apps.syncloud.org:/
-$SCP ${DIR}/../test/testapp2/testapp2_1_$ARCH.snap root@apps.syncloud.org:/
-$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_1_$ARCH.snap -b master -t /var/www/html
-$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp2_1_$ARCH.snap -b master -t /var/www/html
+$SCP ${DIR}/../test/testapp1/testapp1_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SCP ${DIR}/../test/testapp2/testapp2_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_1_$SNAP_ARCH.snap -b master -t /var/www/html
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp2_1_$SNAP_ARCH.snap -b master -t /var/www/html
 $SCP ${DIR}/index-v2 root@apps.syncloud.org:/var/www/html/releases/master
 $SSH root@apps.syncloud.org tree /var/www/html > $LOG_DIR/store.tree.log
 $SSH root@apps.syncloud.org systemctl status nginx > $LOG_DIR/nginx.status.log

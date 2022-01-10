@@ -796,12 +796,10 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	var snaps []*snap.Info
 	for name, app := range apps {
 		if search.Query == "*" || search.Query == "" || search.Query == name {
-			//version, err := s.downloadVersion(channel, name)
 			info, err := s.downloadAppInfo(app, channel, name)
 			if err != nil {
 				logger.Noticef("No version on the channel: %s", channel)
 			} else {
-				//info := app.toInfo(s.cfg.StoreBaseURL, channel, version)
 				snaps = append(snaps, info)
 			}
 		}
@@ -864,7 +862,7 @@ func (a *App) toInfo(channel string, version string, downloadSize int64, downloa
 	logger.Noticef("snapid: %s", snapId)
 	logger.Noticef("AnonDownloadURL: %s", downloadUrl)
 	logger.Noticef("DownloadSha3_384: %s", downloadSha384)
-	logger.Noticef("DownloadSize: %s", downloadSize)
+	logger.Noticef("DownloadSize: %v", downloadSize)
 
 	details := snapDetails{
 		SnapID:           snapId,
@@ -1199,13 +1197,6 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 		if err != nil {
 			return nil, err
 		}
-
-		//nameVersion, err := base64.RawURLEncoding.DecodeString(primaryKey[0])
-		//if err != nil {
-		//	return nil, err
-		//}
-		//snapId := string(nameVersion)
-		//_, revision := deconstructSnapId(snapId)
 		headers = "" +
 			"snap-revision: " + snapRevision.Revision + "\n" +
 			"snap-id: " + snapRevision.Id + "\n" +
