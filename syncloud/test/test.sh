@@ -51,8 +51,8 @@ $SSH /installer.sh ${VERSION}
 
 #code=0
 set +e
-$SSH snap install testapp1
-$SSH snap install testapp2
+$SSH snap install testapp1 --cahnnel=master
+$SSH snap install testapp2 --cahnnel=master
 #$SSH snap install files
 code=$?
 #$SSH snap refresh files
