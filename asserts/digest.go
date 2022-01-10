@@ -23,7 +23,6 @@ import (
 	"crypto"
 	"encoding/base64"
 	"fmt"
-	"github.com/snapcore/snapd/logger"
 )
 
 // EncodeDigest encodes the digest from hash algorithm to be put in an assertion header.
@@ -38,8 +37,7 @@ func EncodeDigest(hash crypto.Hash, hashDigest []byte) (string, error) {
 		return "", fmt.Errorf("unsupported hash")
 	}
 	if len(hashDigest) != hash.Size() {
-	 //	return "", fmt.Errorf("hash digest by %s should be %d bytes", algo, hash.Size())
-		logger.Noticef("Syncloud hack: hash digest by %s should be %d bytes", algo, hash.Size())
+		return "", fmt.Errorf("hash digest by %s should be %d bytes", algo, hash.Size())
 	}
 	return base64.RawURLEncoding.EncodeToString(hashDigest), nil
 }

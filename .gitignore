@@ -65,3 +65,9 @@ cmd/install-sh
 cmd/missing
 cmd/stamp-h1
 cmd/test-driver
+build
+*.tar.gz
+
+.idea
+
+version
