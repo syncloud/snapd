@@ -1188,7 +1188,7 @@ func (s *Store) Assertion(assertType *asserts.AssertionType, primaryKey []string
 	case "snap-revision":
 		snapRevisionJson, err := s.retryRequestString(context.Background(), &requestOptions{
 			Method: "GET",
-			URL:    urlJoin(s.cfg.StoreBaseURL, "apps", fmt.Sprintf("revisions/%s.revision", keyPath)),
+			URL:    urlJoin(s.cfg.StoreBaseURL, fmt.Sprintf("revisions/%s.revision", keyPath)),
 			Accept: halJsonContentType,
 		})
 		if err != nil {
