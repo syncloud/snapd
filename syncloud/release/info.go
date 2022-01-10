@@ -8,11 +8,13 @@ import (
 )
 
 type Info struct {
-	Version          string
-	StoreSnapPath    string
-	StoreVersionPath string
-	StoreSizePath    string
-	StoreSha384Path  string
+	Version           string
+	StoreSnapPath     string
+	StoreVersionPath  string
+	StoreSizePath     string
+	StoreSha384Path   string
+	StoreRevisionPath string
+	Name              string
 }
 
 func Parse(file string, branch string) (*Info, error) {
@@ -30,10 +32,12 @@ func Parse(file string, branch string) (*Info, error) {
 		channel = "rc"
 	}
 	return &Info{
-		StoreSnapPath:    fmt.Sprintf("apps/%s", name),
-		StoreSha384Path:  fmt.Sprintf("apps/%s.sha384", name),
-		StoreSizePath:    fmt.Sprintf("apps/%s.size", name),
-		StoreVersionPath: fmt.Sprintf("releases/%s/%s.%s.version", channel, appName, appArch),
-		Version:          appVersion,
+		StoreSnapPath:     fmt.Sprintf("apps/%s", name),
+		StoreSha384Path:   fmt.Sprintf("apps/%s.sha384", name),
+		StoreSizePath:     fmt.Sprintf("apps/%s.size", name),
+		StoreVersionPath:  fmt.Sprintf("releases/%s/%s.%s.version", channel, appName, appArch),
+		StoreRevisionPath: fmt.Sprintf("revisions/%s.revision", channel, appName, appArch),
+		Version:           appVersion,
+		Name:              appName,
 	}, nil
 }

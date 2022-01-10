@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/snapcore/snapd/asserts"
+	"github.com/snapcore/snapd/syncloud"
 	"github.com/spf13/cobra"
 	"strconv"
 )
@@ -30,8 +32,19 @@ func main() {
 			}
 			Check(storage.UploadFile(file, info.StoreSnapPath))
 			Check(storage.UploadContent(sha384, info.StoreSha384Path))
-			Check(storage.UploadContent(strconv.FormatUint(size, 10), info.StoreSizePath))
+			sizeString := strconv.FormatUint(size, 10)
+			Check(storage.UploadContent(sizeString, info.StoreSizePath))
 			Check(storage.UploadContent(info.Version, info.StoreVersionPath))
+			snapRevision := &syncloud.SnapRevision{
+				Id:       syncloud.ConstructSnapId(info.Name, info.Version),
+				Size:     sizeString,
+				Revision: info.Version,
+				Sha384:   sha384,
+			}
+			snapRevisionJson, err := json.Marshal(snapRevision)
+			Check(err)
+			Check(storage.UploadContent(string(snapRevisionJson), info.StoreRevisionPath))
+
 		},
 	}
 	cmdPublish.Flags().StringVarP(&file, "file", "f", "", "snap file path")

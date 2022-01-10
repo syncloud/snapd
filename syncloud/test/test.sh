@@ -45,6 +45,7 @@ $SSH root@apps.syncloud.org apt update
 $SSH root@apps.syncloud.org apt install -y nginx tree
 $SSH root@apps.syncloud.org mkdir -p /var/www/html/releases/master
 $SSH root@apps.syncloud.org mkdir -p /var/www/html/apps
+$SSH root@apps.syncloud.org mkdir -p /var/www/html/revisions
 $SCP ${DIR}/../../syncloud-release-$ARCH root@apps.syncloud.org:/syncloud-release
 $SCP ${DIR}/../test/testapp1/testapp1_1_$ARCH.snap root@apps.syncloud.org:/
 $SCP ${DIR}/../test/testapp2/testapp2_1_$ARCH.snap root@apps.syncloud.org:/
@@ -72,5 +73,5 @@ set -e
 #mkdir -p log
 $SSH root@device snap changes > $LOG_DIR/snap.changes.log || true
 $SSH root@device journalctl > $LOG_DIR/journalctl.device.log
-$SSH store journalctl > $LOG_DIR/journalctl.store.log
+$SSH apps.syncloud.org journalctl > $LOG_DIR/journalctl.store.log
 exit $code
