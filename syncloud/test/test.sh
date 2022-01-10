@@ -41,7 +41,8 @@ wait_for_host store
 
 mkdir -p $LOG_DIR
 
-$SSH root@store apt update && apt install -y nginx tree
+$SSH root@store apt update
+$SSH root@store apt install -y nginx tree
 $SSH root@store mkdir -p /var/www/html/releases/master
 $SSH root@store mkdir -p /var/www/html/apps
 $SCP ${DIR}/../../syncloud-release-$ARCH root@store:/syncloud-release
