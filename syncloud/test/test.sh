@@ -2,8 +2,8 @@
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-if [ "$#" -lt 2 ]; then
-    echo "usage $0 version device_host"
+if [ "$#" -lt 1 ]; then
+    echo "usage $0 version"
     exit 1
 fi
 
