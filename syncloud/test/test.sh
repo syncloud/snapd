@@ -31,7 +31,7 @@ done
 set -e
 
 attempt=0
-until $(curl --output /dev/null --silent --head --fail http://apps.syncloud.org); do
+until $(curl --head --fail http://apps.syncloud.org); do
     if [ $attempt -gt $attempts ]; then
       exit 1
     fi
