@@ -12,5 +12,5 @@ cp -r ${DIR}/bin ${BUILD_DIR}
 echo "architectures:" >> ${BUILD_DIR}/meta/snap.yaml
 echo "- ${ARCH}" >> ${BUILD_DIR}/meta/snap.yaml
 
-mksquashfs ${BUILD_DIR} ${DIR}/testapp1.snap -noappend -comp xz -no-xattrs -all-root
+mksquashfs ${BUILD_DIR} ${DIR}/testapp1_1_$ARCH.snap -noappend -comp xz -no-xattrs -all-root
 cp ${DIR}/*.snap ${DIR}/../../artifact
