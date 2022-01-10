@@ -51,8 +51,8 @@ local build(arch) = {
               "apt update && apt install -y nginx tree",
               "mkdir -p /var/www/html/releases/stable",
               "mkdir -p /var/www/html/apps",
-              "./syncloud-release-" + arch + " publish -f syncloud/test/testapp1/testapp1.snap -b master -t /var/www/html",
-              "./syncloud-release-" + arch + " publish -f syncloud/test/testapp2/testapp2.snap -b master -t /var/www/html",
+              "./syncloud-release-" + arch + " publish -f syncloud/test/testapp1/testapp1.snap -b stable -t /var/www/html",
+              "./syncloud-release-" + arch + " publish -f syncloud/test/testapp2/testapp2.snap -b stable -t /var/www/html",
               "cp ./syncloud/test/index-v2 /var/www/html/releases/stable/",
               "tree /var/www/html > log/store.tree.log",
               "systemctl status nginx > log/store.status.log"

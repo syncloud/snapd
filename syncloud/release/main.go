@@ -22,13 +22,13 @@ func main() {
 			sha384, size, err := asserts.SnapFileSHA3_384(file)
 			Check(err)
 			info, err := Parse(file, branch)
+			Check(err)
 			if target == "s3" {
 				storage = NewS3("apps.syncloud.org")
 			} else {
 				storage = NewFileSystem(target)
 			}
 			Check(storage.UploadFile(file, info.StoreSnapPath))
-			Check(err)
 			Check(storage.UploadContent(sha384, info.StoreSha384Path))
 			Check(storage.UploadContent(strconv.FormatUint(size, 10), info.StoreSizePath))
 			Check(storage.UploadContent(info.Version, info.StoreVersionPath))
