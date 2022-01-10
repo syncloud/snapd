@@ -55,7 +55,7 @@ local build(arch) = {
               "./syncloud-release-" + arch + " publish -f syncloud/test/testapp2/testapp2_1_*.snap -b master -t /var/www/html",
               "cp ./syncloud/test/index-v2 /var/www/html/releases/master/",
               "tree /var/www/html > log/store.tree.log",
-              "systemctl status nginx > log/store.status.log"
+              "/usr/sbin/nginx"
             ]
         },
         {
