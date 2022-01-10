@@ -20,7 +20,7 @@
 package asserts
 
 import (
-		"github.com/snapcore/snapd/logger"
+	"fmt"
 )
 
 type fetchProgress int
@@ -74,10 +74,7 @@ func (f *fetcher) chase(ref *Ref, a Assertion) error {
 	case fetchSaved:
 		return nil // nothing to do
 	case fetchRetrieved:
-	 //	return fmt.Errorf("circular assertions are not expected: %s", ref)
-			 	// do not brake for syncloud for now
-  logger.Noticef("Syncloud hack: circular assertions are not expected: %s", ref)
-  return nil
+		return fmt.Errorf("circular assertions are not expected: %s", ref)
 	}
 	if a == nil {
 		retrieved, err := f.retrieve(ref)
