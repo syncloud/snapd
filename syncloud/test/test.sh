@@ -32,7 +32,7 @@ set -e
 
 attempt=0
 ARCH=$(dpkg --print-architecture)
-until $(curl --head --fail http://apps.syncloud.org/releases/master/testapp1.$ARCH.version); do
+until $(curl --head --fail http://store/releases/master/testapp1.$ARCH.version); do
     if [ $attempt -gt $attempts ]; then
       exit 1
     fi

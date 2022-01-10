@@ -43,7 +43,7 @@ local build(arch) = {
             ]
         },
         {
-            name: "apps.syncloud.org",
+            name: "store",
             image: "debian:buster-slim",
             detach: true,
             commands: [
