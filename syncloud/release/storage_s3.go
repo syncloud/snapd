@@ -34,7 +34,7 @@ func (s *S3) UploadFile(from string, to string) error {
 }
 
 func (s *S3) DownloadContent(from string) string {
-	response, err := http.Get(fmt.Sprintf("%s/%s", s.bucket, from))
+	response, err := http.Get(fmt.Sprintf("http://%s/%s", s.bucket, from))
 	Check(err)
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
