@@ -61,6 +61,8 @@ $SSH root@apps.syncloud.org /syncloud-release publish -f /testapp2_1_$SNAP_ARCH.
 $SSH root@apps.syncloud.org /syncloud-release promote -n testapp2 -a $SNAP_ARCH -t $STORE_DIR
 
 $SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/master
+$SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/rc
+$SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/stable
 $SSH root@apps.syncloud.org tree $STORE_DIR > $LOG_DIR/store.tree.log
 $SSH root@apps.syncloud.org systemctl status nginx > $LOG_DIR/nginx.status.log
 
