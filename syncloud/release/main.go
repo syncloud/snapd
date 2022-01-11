@@ -11,11 +11,13 @@ import (
 
 func main() {
 
-	var rootCmd = &cobra.Command{Use: "cli"}
+	var rootCmd = &cobra.Command{Use: "syncloud-release"}
+
+	var target string
+	rootCmd.PersistentFlags().StringVarP(&target, "target", "t", "s3", "target: s3 or local dir")
 
 	var file string
 	var branch string
-	var target string
 	var storage Storage
 	var cmdPublish = &cobra.Command{
 		Use:   "publish",
@@ -26,11 +28,7 @@ func main() {
 			Check(err)
 			info, err := Parse(file, branch)
 			Check(err)
-			if target == "s3" {
-				storage = NewS3("apps.syncloud.org")
-			} else {
-				storage = NewFileSystem(target)
-			}
+			storage = NewStorage(target)
 			Check(storage.UploadFile(file, info.StoreSnapPath))
 			Check(storage.UploadContent(sha384, info.StoreSha384Path))
 			sizeString := strconv.FormatUint(size, 10)
@@ -52,12 +50,37 @@ func main() {
 	Check(cmdPublish.MarkFlagRequired("file"))
 	cmdPublish.Flags().StringVarP(&branch, "branch", "b", "", "branch")
 	Check(cmdPublish.MarkFlagRequired("branch"))
-	cmdPublish.Flags().StringVarP(&target, "target", "t", "s3", "target: s3 or local dir")
 	rootCmd.AddCommand(cmdPublish)
+
+	var promoteAppName string
+	var promoteArch string
+	var cmdPromote = &cobra.Command{
+		Use:   "promote",
+		Short: "Promote an app to stable channel",
+		Args:  cobra.MaximumNArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			storage = NewStorage(target)
+			version := storage.DownloadContent(fmt.Sprintf("releases/rc/%s.%s.version", promoteAppName, promoteArch))
+			Check(storage.UploadContent(version, fmt.Sprintf("releases/stable/%s.%s.version", promoteAppName, promoteArch)))
+		},
+	}
+	cmdPromote.Flags().StringVarP(&promoteAppName, "name", "n", "", "app name to promote")
+	Check(cmdPromote.MarkFlagRequired("name"))
+	cmdPromote.Flags().StringVarP(&promoteArch, "arch", "a", "", "arch to promote")
+	Check(cmdPromote.MarkFlagRequired("arch"))
+	rootCmd.AddCommand(cmdPromote)
 
 	err := rootCmd.Execute()
 	if err != nil {
 		panic(err)
+	}
+}
+
+func NewStorage(target string) Storage {
+	if target == "s3" {
+		return NewS3("apps.syncloud.org")
+	} else {
+		return NewFileSystem(target)
 	}
 }
 

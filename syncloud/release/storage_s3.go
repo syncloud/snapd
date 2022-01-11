@@ -7,6 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -29,6 +31,15 @@ func (s *S3) UploadFile(from string, to string) error {
 	Check(err)
 	defer reader.Close()
 	return s.upload(reader, to)
+}
+
+func (s *S3) DownloadContent(from string) string {
+	response, err := http.Get(fmt.Sprintf("%s/%s", s.bucket, from))
+	Check(err)
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	Check(err)
+	return string(body)
 }
 
 func (s *S3) UploadContent(content string, to string) error {

@@ -18,6 +18,12 @@ func (f *FileSystem) UploadFile(from string, to string) error {
 	return copy.Copy(from, path.Join(f.target, to))
 }
 
+func (f *FileSystem) DownloadContent(from string) string {
+	file, err := ioutil.ReadFile(path.Join(f.target, from))
+	Check(err)
+	return string(file)
+}
+
 func (f *FileSystem) UploadContent(content string, to string) error {
 	return ioutil.WriteFile(path.Join(f.target, to), []byte(content), 0644)
 }

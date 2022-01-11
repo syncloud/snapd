@@ -41,19 +41,25 @@ wait_for_host device
 wait_for_host apps.syncloud.org
 
 mkdir -p $LOG_DIR
+STORE_DIR=/var/www/html
 
 $SSH root@apps.syncloud.org apt update
 $SSH root@apps.syncloud.org apt install -y nginx tree
-$SSH root@apps.syncloud.org mkdir -p /var/www/html/releases/master
-$SSH root@apps.syncloud.org mkdir -p /var/www/html/apps
-$SSH root@apps.syncloud.org mkdir -p /var/www/html/revisions
+$SSH root@apps.syncloud.org mkdir -p $STORE_DIR/releases/master
+$SSH root@apps.syncloud.org mkdir -p $STORE_DIR/apps
+$SSH root@apps.syncloud.org mkdir -p $STORE_DIR/revisions
 $SCP ${DIR}/../../syncloud-release-$ARCH root@apps.syncloud.org:/syncloud-release
 $SCP ${DIR}/../test/testapp1/testapp1_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
 $SCP ${DIR}/../test/testapp2/testapp2_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
-$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_1_$SNAP_ARCH.snap -b master -t /var/www/html
-$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp2_1_$SNAP_ARCH.snap -b master -t /var/www/html
-$SCP ${DIR}/index-v2 root@apps.syncloud.org:/var/www/html/releases/master
-$SSH root@apps.syncloud.org tree /var/www/html > $LOG_DIR/store.tree.log
+
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_1_$SNAP_ARCH.snap -b stable -t $STORE_DIR
+$SSH root@apps.syncloud.org /syncloud-release promote -n testapp1 -a $SNAP_ARCH -t $STORE_DIR
+
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp2_1_$SNAP_ARCH.snap -b stable -t $STORE_DIR
+$SSH root@apps.syncloud.org /syncloud-release promote -n testapp2 -a $SNAP_ARCH -t $STORE_DIR
+
+$SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/master
+$SSH root@apps.syncloud.org tree $STORE_DIR > $LOG_DIR/store.tree.log
 $SSH root@apps.syncloud.org systemctl status nginx > $LOG_DIR/nginx.status.log
 
 $SCP ${DIR}/install-snapd.sh root@device:/installer.sh
@@ -63,8 +69,8 @@ $SSH root@device /installer.sh ${VERSION}
 
 #code=0
 set +e
-$SSH root@device snap install testapp1 --channel=master
-$SSH root@device snap install testapp2 --channel=master
+$SSH root@device snap install testapp1
+$SSH root@device snap install testapp2
 #$SSH snap install files
 code=$?
 #$SSH snap refresh files
