@@ -70,7 +70,7 @@ code=$?
 #$SSH snap refresh files
 #code=$(( $code + $? ))
 set -e
-$SSH snap install files
+#$SSH snap install files
 
 #mkdir -p log
 $SSH root@device snap changes > $LOG_DIR/snap.changes.log || true
