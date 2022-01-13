@@ -65,7 +65,7 @@ func (s *S3) upload(file io.Reader, name string) error {
 			Region: aws.String("us-west-2"),
 		},
 	))
-
+	fmt.Printf("s3 upload, bucket: %s, key: %s\n", s.bucket, name)
 	uploader := s3manager.NewUploader(sess)
 	_, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s.bucket),
