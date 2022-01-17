@@ -34,23 +34,33 @@ local build(arch) = {
             ]
         },
         {
-            name: "build test apps",
+            name: "test apps",
             image: "debian:buster-slim",
             commands: [
               "apt update && apt install -y squashfs-tools",
               "./syncloud/test/testapp1/build.sh",
-              "./syncloud/test/testapp2/build.sh"
+              "./syncloud/test/testapp2/build.sh",
+              "./syncloud/test/publish.sh " + arch
             ]
         },
         {
-            name: "test",
+            name: "test buster",
             image: "debian:buster-slim",
             commands: [
               "VERSION=$(cat version)",
-              "./syncloud/test/test.sh $VERSION " + arch
+              "./syncloud/test/test.sh buster $VERSION"
             ]
-        },
+        }] + 
+        ( if arch != "arm64" then [
         {
+            name: "test jessie",
+            image: "debian:buster-slim",
+            commands: [
+              "VERSION=$(cat version)",
+              "./syncloud/test/test.sh jessie $VERSION"
+            ]
+        }] else []) +
+        [{
             name: "upload",
             image: "python:3.9-buster",
             environment: {
@@ -107,9 +117,10 @@ local build(arch) = {
             }
         },
     ],
-    services: [
+    services: 
+    [
         {
-            name: "device",
+            name: "buster",
             image: "syncloud/bootstrap-buster-" + arch,
             privileged: true,
             volumes: [
@@ -122,7 +133,22 @@ local build(arch) = {
                     path: "/dev"
                 }
             ]
-        },
+        }] + ( if arch != "arm64" then [
+        {
+            name: "jessie",
+            image: "syncloud/platform-jessie-" + arch,
+            privileged: true,
+            volumes: [
+                {
+                    name: "dbus",
+                    path: "/var/run/dbus"
+                },
+                {
+                    name: "dev",
+                    path: "/dev"
+                }
+            ]
+        }] else []) + [
         {
             name: "apps.syncloud.org",
             image: "syncloud/bootstrap-buster-" + arch,

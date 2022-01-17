@@ -11,7 +11,7 @@ VERSION=$1
 TESTS=$2
 apt-get clean
 apt update
-apt install -y dpkg-dev libcap-dev libseccomp-dev xfslibs-dev squashfs-tools
+apt install -y dpkg-dev libcap-dev libseccomp-dev xfslibs-dev libzstd-dev liblz-dev liblz4-dev liblzo2-dev zlib1g-dev liblzma-dev
 ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 
 NAME=snapd
@@ -27,15 +27,26 @@ fi
 
 rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
-
 mkdir ${BUILD_DIR}/bin
-#go get -v github.com/snapcore/snapd/...
-go build -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
-go build -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
-go build -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
-go build -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
-go build -o ${BUILD_DIR}/bin/snap-update-ns github.com/snapcore/snapd/cmd/snap-update-ns
-go build -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
+
+wget https://github.com/plougher/squashfs-tools/archive/refs/tags/4.4.tar.gz
+tar xf 4.4.tar.gz
+cd squashfs-tools-4.4/squashfs-tools
+sed -i 's/#XZ_SUPPORT.*/XZ_SUPPORT=1/g' Makefile
+sed -i 's/#LZO_SUPPORT.*/LZO_SUPPORT=1/g' Makefile
+sed -i 's/#LZ4_SUPPORT.*/LZ4_SUPPORT=1/g' Makefile
+sed -i 's/#ZSTD_SUPPORT.*/ZSTD_SUPPORT=1/g' Makefile
+LDFLAGS=-static make
+cp mksquashfs ${BUILD_DIR}/bin
+cp unsquashfs ${BUILD_DIR}/bin
+
+cd $DIR
+go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
+go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
+go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
+go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
+go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-update-ns github.com/snapcore/snapd/cmd/snap-update-ns
+go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 
 sed -i 's/-Wl,-Bstatic//g' ${DIR}/cmd/snap-seccomp/main.go
 go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
@@ -49,16 +60,9 @@ go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-sec
 touch ${BUILD_DIR}/bin/snap-confine
 touch ${BUILD_DIR}/bin/snap-discard-ns
 
-cp /usr/bin/mksquashfs ${BUILD_DIR}/bin
-cp /usr/bin/unsquashfs ${BUILD_DIR}/bin
 
 mkdir ${BUILD_DIR}/lib
-cp -r /lib/*/liblzo2.so* ${BUILD_DIR}/lib
-cp -r /usr/lib/*/liblz4.so* ${BUILD_DIR}/lib || true
-cp -r /lib/*/liblzma.so* ${BUILD_DIR}/lib
-cp -r /lib/*/libz.so* ${BUILD_DIR}/lib
 cp -rH /usr/lib/*/libseccomp.so* ${BUILD_DIR}/lib
-
 
 mkdir ${BUILD_DIR}/conf
 cp ${DIR}/syncloud/snapd.service ${BUILD_DIR}/conf/
