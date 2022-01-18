@@ -53,7 +53,8 @@ $SSH root@$DEVICE snap install testapp2
 code=$?
 set -e
 
-#$SSH root@$DEVICE snap remove testapp2 || true
+$SSH root@$DEVICE snap remove testapp2 || true
+$SSH root@$DEVICE snap install /testapp.snap --devmode
 $SSH root@$DEVICE snap refresh testapp2 --channel=master --amend || true
 
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
