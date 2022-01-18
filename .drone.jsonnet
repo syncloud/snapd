@@ -75,7 +75,10 @@ local build(arch) = {
               "VERSION=$(cat version)",
               "pip install syncloud-lib s3cmd",
               "syncloud-upload.sh " + name + " $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
-            ]
+            ],
+            when: {
+                branch: ["stable", "master"]
+            }
         },
         {
             name: "artifact",

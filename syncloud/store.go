@@ -751,7 +751,7 @@ func (s *Store) downloadVersion(channel string, name string) (string, error) {
 
 // SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
 func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
-	logger.Noticef("SnapInfo: %v", snapSpec.Name)
+	logger.Noticef("SnapInfo: %v, channel: %s", snapSpec.Name, snapSpec.Channel)
 	channel := s.parseChannel(snapSpec.Channel)
 
 	resp, err := s.downloadIndex(channel)
