@@ -54,6 +54,7 @@ code=$?
 set -e
 
 $SSH root@$DEVICE snap remove testapp2 || true
+$SSH root@$DEVICE snap remove testapp1 || true
 $SSH root@$DEVICE snap install /testapp.snap --devmode
 $SSH root@$DEVICE snap refresh testapp2 --channel=master --amend || true
 
