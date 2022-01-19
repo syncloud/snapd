@@ -50,7 +50,7 @@ $SSH root@$DEVICE /installer.sh ${VERSION}
 $SCP ${DIR}/testapp2/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
 $SSH root@$DEVICE snap install testapp1
 $SSH root@$DEVICE snap install /testapp2_1.snap --devmode
-$SSH root@$DEVICE snap refresh testapp2 --channel=master --amend
+$SSH root@$DEVICE timeout 1m snap refresh testapp2 --channel=master --amend
 code=$?
 set -e
 
