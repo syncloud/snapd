@@ -47,16 +47,12 @@ $SCP ${DIR}/../../snapd-${VERSION}-*.tar.gz root@$DEVICE:/
 
 set +e
 $SSH root@$DEVICE /installer.sh ${VERSION}
-$SCP ${DIR}/testapp2/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp.snap
+$SCP ${DIR}/testapp2/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
 $SSH root@$DEVICE snap install testapp1
-$SSH root@$DEVICE snap install testapp2
+$SSH root@$DEVICE snap install /testapp2_1.snap --devmode
+$SSH root@$DEVICE snap refresh testapp2 --channel=master --amend
 code=$?
 set -e
-
-$SSH root@$DEVICE snap remove testapp2 || true
-$SSH root@$DEVICE snap remove testapp1 || true
-$SSH root@$DEVICE snap install /testapp.snap --devmode
-$SSH root@$DEVICE snap refresh testapp2 --channel=master --amend || true
 
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
 $SSH root@$DEVICE journalctl > $LOG_DIR/journalctl.device.log
