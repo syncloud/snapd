@@ -752,14 +752,14 @@ func (s *Store) downloadVersion(channel string, name string) (string, error) {
 // SnapInfo returns the snap.Info for the store-hosted snap matching the given spec, or an error.
 func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.Info, error) {
 	logger.Noticef("SnapInfo: %v, channel: %s", snapSpec.Name, snapSpec.Channel)
-	channel := s.parseChannel(snapSpec.Channel)
+	channel := parseChannel(snapSpec.Channel)
 
 	resp, err := s.downloadIndex(channel)
 	if err != nil {
 		return nil, err
 	}
 
-	apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+	apps, err := parseIndex(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -789,7 +789,7 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	if err != nil {
 		return nil, err
 	}
-	apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+	apps, err := parseIndex(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -808,13 +808,15 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 	return snaps, nil
 }
 
-func (s *Store) parseChannel(channel string) string {
+func parseChannel(channel string) string {
 	if channel == "" {
 		return "master"
 	}
-	parts := strings.Split(channel, "/")
-	return parts[0]
-
+	if strings.Contains(channel, "/") {
+		parts := strings.Split(channel, "/")
+		return parts[0]
+	}
+	return channel
 }
 
 func (s *Store) downloadIndex(channel string) (string, error) {
@@ -886,7 +888,7 @@ type Index struct {
 	Apps []json.RawMessage `json:"apps"`
 }
 
-func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
+func parseIndex(resp string) (map[string]*App, error) {
 	var index Index
 	err := json.Unmarshal([]byte(resp), &index)
 	if err != nil {
@@ -899,7 +901,7 @@ func parseIndex(resp string, baseUrl *url.URL) (map[string]*App, error) {
 		app := &App{
 			Enabled: true,
 		}
-		err := json.Unmarshal([]byte(index.Apps[i]), app)
+		err := json.Unmarshal(index.Apps[i], app)
 		if err != nil {
 			return nil, err
 		}
@@ -1294,7 +1296,7 @@ func buyOptionError(message string) (*BuyResult, error) {
 
 func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.UserState) (*snap.Info, error) {
 	logger.Noticef("LookupRefresh: %v", installed)
-	channel := s.parseChannel(installed.Channel)
+	channel := parseChannel(installed.Channel)
 	snapName, _ := deconstructSnapId(installed.SnapID)
 
 	resp, err := s.downloadIndex(channel)
@@ -1302,7 +1304,7 @@ func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.User
 		return nil, err
 	}
 
-	apps, err := parseIndex(resp, s.cfg.StoreBaseURL)
+	apps, err := parseIndex(resp)
 	if err != nil {
 		return nil, err
 	}
