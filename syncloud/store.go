@@ -810,7 +810,7 @@ func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, 
 
 func (s *Store) parseChannel(channel string) string {
 	if channel == "" {
-		return "stable"
+		return "master"
 	}
 	parts := strings.Split(channel, "/")
 	return parts[0]
