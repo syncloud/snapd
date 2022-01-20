@@ -58,7 +58,7 @@ $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
 $SSH root@$DEVICE journalctl > $LOG_DIR/journalctl.device.log
 $SSH apps.syncloud.org journalctl > $LOG_DIR/journalctl.store.log
 
-$SSH root@$DEVICE unsquashfs -i -d /test /testapp.snap meta/snap.yaml
+$SSH root@$DEVICE unsquashfs -i -d /test /testapp2_1.snap meta/snap.yaml
 $SSH root@$DEVICE ls -la /test
 $SSH root@$DEVICE ls -la /test/meta
 $SSH root@$DEVICE cat /test/meta/snap.yaml
