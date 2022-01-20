@@ -1,9 +1,8 @@
 package syncloud
 
 import (
-	"testing"
 	. "gopkg.in/check.v1"
-	"net/url"
+	"testing"
 )
 
 func TestStore(t *testing.T) { TestingT(t) }
@@ -12,9 +11,13 @@ type configTestSuite struct{}
 
 var _ = Suite(&configTestSuite{})
 
-func (suite *configTestSuite) TestParse(c *C) {
+func (suite *configTestSuite) TestParseChannel(c *C) {
+	c.Assert(parseChannel("master/stable"), Equals, "master")
+	c.Assert(parseChannel("master"), Equals, "master")
+	c.Assert(parseChannel(""), Equals, "master")
+}
 
-	baseURL, _ := url.Parse("http://apps.syncloud.org")
+func (suite *configTestSuite) TestParse(c *C) {
 
 	snaps, _ := parseIndex(`{
 	  "apps" : [
@@ -46,7 +49,7 @@ func (suite *configTestSuite) TestParse(c *C) {
 	    }
 	  ]
 	}
-	`, baseURL)
+	`)
 
 	c.Assert(len(snaps), Equals, 2)
 
@@ -56,4 +59,3 @@ func (suite *configTestSuite) TestParse(c *C) {
 	c.Assert(snaps["app3"].Name, Equals, "app3")
 	c.Assert(snaps["app3"].Required, Equals, true)
 }
-
