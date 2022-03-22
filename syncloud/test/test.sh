@@ -55,6 +55,7 @@ $SSH root@$DEVICE snap install testapp1
 #$SSH root@$DEVICE timeout 1m snap refresh testapp2 --channel=master --amend
 
 $SSH root@$DEVICE snap install testapp2 --channel=master
+$SSH root@$DEVICE snap install unknown --channel=master
 
 code=$?
 set -e
