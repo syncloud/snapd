@@ -764,7 +764,12 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 		return nil, err
 	}
 
-	info, err := s.downloadAppInfo(apps[snapSpec.Name], channel, snapSpec.Name)
+	app, ok := apps[snapSpec.Name]
+	if !ok {
+		return nil, ErrSnapNotFound
+	}
+
+	info, err := s.downloadAppInfo(app, channel, snapSpec.Name)
 	if err != nil {
 		return nil, ErrSnapNotFound
 	}
