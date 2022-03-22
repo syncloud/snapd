@@ -73,8 +73,8 @@ local build(arch) = {
             },
             commands: [
               "VERSION=$(cat version)",
-              "pip install syncloud-lib s3cmd",
-              "syncloud-upload.sh " + name + " $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
+              "pip install s3cmd",
+              "./syncloud/bin/upload.sh $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
             ],
             when: {
                 branch: ["stable", "master"]
@@ -191,5 +191,37 @@ local build(arch) = {
 [
     build("arm"),
     build("amd64"),
-    build("arm64")
+    build("arm64"),
+    {
+        kind: "pipeline",
+        type: "docker",
+        name: "promote",
+        platform: {
+            os: "linux",
+            arch: "amd64"
+        },
+        steps: [
+            {
+                name: "promote",
+                image: "debian:buster-slim",
+                environment: {
+                    AWS_ACCESS_KEY_ID: {
+                        from_secret: "AWS_ACCESS_KEY_ID"
+                    },
+                    AWS_SECRET_ACCESS_KEY: {
+                        from_secret: "AWS_SECRET_ACCESS_KEY"
+                    }
+                },
+                commands: [
+                    "pip install s3cmd",
+                    "./syncloud/bin/promote.sh"
+                ]
+            }
+        ],
+        trigger: {
+            event: [
+              "promote"
+            ]
+        }
+    }
 ]
