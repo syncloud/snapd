@@ -209,7 +209,7 @@ local build(arch) = {
         steps: [
             {
                 name: "promote",
-                image: "debian:buster-slim",
+                image: "python:3.9-buster",
                 environment: {
                     AWS_ACCESS_KEY_ID: {
                         from_secret: "AWS_ACCESS_KEY_ID"
