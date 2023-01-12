@@ -52,23 +52,44 @@ func main() {
 	Check(cmdPublish.MarkFlagRequired("branch"))
 	rootCmd.AddCommand(cmdPublish)
 
-	var promoteAppName string
-	var promoteArch string
+	var app string
+	var arch string
 	var cmdPromote = &cobra.Command{
 		Use:   "promote",
 		Short: "Promote an app to stable channel",
 		Args:  cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			storage = NewStorage(target)
-			version := storage.DownloadContent(fmt.Sprintf("releases/rc/%s.%s.version", promoteAppName, promoteArch))
-			Check(storage.UploadContent(version, fmt.Sprintf("releases/stable/%s.%s.version", promoteAppName, promoteArch)))
+			version := storage.DownloadContent(fmt.Sprintf("releases/rc/%s.%s.version", app, arch))
+			Check(storage.UploadContent(version, fmt.Sprintf("releases/stable/%s.%s.version", app, arch)))
 		},
 	}
-	cmdPromote.Flags().StringVarP(&promoteAppName, "name", "n", "", "app name to promote")
+	cmdPromote.Flags().StringVarP(&app, "name", "n", "", "app name to promote")
 	Check(cmdPromote.MarkFlagRequired("name"))
-	cmdPromote.Flags().StringVarP(&promoteArch, "arch", "a", "", "arch to promote")
+	cmdPromote.Flags().StringVarP(&arch, "arch", "a", "", "arch to promote")
 	Check(cmdPromote.MarkFlagRequired("arch"))
 	rootCmd.AddCommand(cmdPromote)
+
+	var channel string
+	var version string
+	var cmdSetVersion = &cobra.Command{
+		Use:   "set-version",
+		Short: "Set app version on a channel",
+		Args:  cobra.MaximumNArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			storage = NewStorage(target)
+			Check(storage.UploadContent(version, fmt.Sprintf("releases/%s/%s.%s.version", channel, app, arch)))
+		},
+	}
+	cmdSetVersion.Flags().StringVarP(&app, "name", "n", "", "app")
+	Check(cmdSetVersion.MarkFlagRequired("name"))
+	cmdSetVersion.Flags().StringVarP(&arch, "arch", "a", "", "arch")
+	Check(cmdSetVersion.MarkFlagRequired("arch"))
+	cmdSetVersion.Flags().StringVarP(&version, "version", "v", "", "version")
+	Check(cmdSetVersion.MarkFlagRequired("version"))
+	cmdSetVersion.Flags().StringVarP(&channel, "channel", "c", "", "channel")
+	Check(cmdSetVersion.MarkFlagRequired("channel"))
+	rootCmd.AddCommand(cmdSetVersion)
 
 	err := rootCmd.Execute()
 	if err != nil {
