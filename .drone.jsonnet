@@ -50,17 +50,8 @@ local build(arch) = {
               "VERSION=$(cat version)",
               "./syncloud/test/test.sh buster $VERSION"
             ]
-        }] + 
-        ( if arch != "arm64" then [
+        },
         {
-            name: "test jessie",
-            image: "debian:buster-slim",
-            commands: [
-              "VERSION=$(cat version)",
-              "./syncloud/test/test.sh jessie $VERSION"
-            ]
-        }] else []) +
-        [{
             name: "upload",
             image: "python:3.9-buster",
             environment: {
@@ -82,7 +73,7 @@ local build(arch) = {
         },
         {
             name: "artifact",
-            image: "appleboy/drone-scp",
+            image: "appleboy/drone-scp:1.6.4",
             settings: {
                 host: {
                     from_secret: "artifact_host"
@@ -142,22 +133,7 @@ local build(arch) = {
                     path: "/dev"
                 }
             ]
-        }] + ( if arch != "arm64" then [
-        {
-            name: "jessie",
-            image: "syncloud/platform-jessie-" + arch,
-            privileged: true,
-            volumes: [
-                {
-                    name: "dbus",
-                    path: "/var/run/dbus"
-                },
-                {
-                    name: "dev",
-                    path: "/dev"
-                }
-            ]
-        }] else []) + [
+        },
         {
             name: "apps.syncloud.org",
             image: "syncloud/bootstrap-buster-" + arch,
@@ -194,40 +170,42 @@ local build(arch) = {
     ]
 };
 
+local promote() = {
+    kind: "pipeline",
+    type: "docker",
+    name: "promote",
+    platform: {
+        os: "linux",
+        arch: "amd64"
+    },
+    steps: [
+    {
+        name: "promote",
+        image: "python:3.9-buster",
+        environment: {
+          AWS_ACCESS_KEY_ID: {
+              from_secret: "AWS_ACCESS_KEY_ID"
+          },
+          AWS_SECRET_ACCESS_KEY: {
+              from_secret: "AWS_SECRET_ACCESS_KEY"
+          }
+        },
+        commands: [
+          "pip install s3cmd",
+          "./syncloud/bin/promote.sh"
+        ]
+    }
+    ],
+    trigger: {
+      event: [
+        "promote"
+      ]
+    }
+};
+
 [
     build("arm"),
     build("amd64"),
     build("arm64"),
-    {
-        kind: "pipeline",
-        type: "docker",
-        name: "promote",
-        platform: {
-            os: "linux",
-            arch: "amd64"
-        },
-        steps: [
-            {
-                name: "promote",
-                image: "python:3.9-buster",
-                environment: {
-                    AWS_ACCESS_KEY_ID: {
-                        from_secret: "AWS_ACCESS_KEY_ID"
-                    },
-                    AWS_SECRET_ACCESS_KEY: {
-                        from_secret: "AWS_SECRET_ACCESS_KEY"
-                    }
-                },
-                commands: [
-                    "pip install s3cmd",
-                    "./syncloud/bin/promote.sh"
-                ]
-            }
-        ],
-        trigger: {
-            event: [
-              "promote"
-            ]
-        }
-    }
+    promote()
 ]
