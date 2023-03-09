@@ -50,16 +50,20 @@ $SSH root@$DEVICE /installer.sh ${VERSION}
 $SCP ${DIR}/testapp2/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
 
 $SSH root@$DEVICE snap install unknown --channel=master || true
+code=$((code + $?))
 
 $SSH root@$DEVICE snap install testapp1
+code=$((code + $?))
 
 #known issue unable to install local then refresh from master if there is no stable version in the store
 #$SSH root@$DEVICE snap install /testapp2_1.snap --devmode
 #$SSH root@$DEVICE timeout 1m snap refresh testapp2 --channel=master --amend
 
 $SSH root@$DEVICE snap install testapp2 --channel=master
+code=$((code + $?))
 
-code=$?
+$SSH root@$DEVICE snap refresh --list
+code=$((code + $?))
 set -e
 
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true

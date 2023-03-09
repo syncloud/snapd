@@ -946,7 +946,8 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
 	var toRefresh []*snap.Info
 	for _, cs := range installed {
 		snapName, _ := deconstructSnapId(cs.SnapID)
-		apps, err := s.downloadIndex(cs.Channel)
+  channel := parseChannel(snapSpec.Channel)
+		apps, err := s.downloadIndex(channel)
 		if err != nil {
 			return nil, err
 		}
