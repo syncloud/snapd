@@ -951,7 +951,7 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
 		if err != nil {
 			return nil, err
 		}
-		info, err := s.downloadAppInfo(apps[snapName], cs.Channel, snapName)
+		info, err := s.downloadAppInfo(apps[snapName], channel, snapName)
 		if err != nil {
 			continue
 		}
