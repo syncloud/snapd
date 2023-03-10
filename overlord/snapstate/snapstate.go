@@ -611,7 +611,9 @@ func UpdateMany(st *state.State, names []string, userID int) ([]string, []*state
 	}
 
 	params := func(update *snap.Info) (string, Flags, *SnapState) {
-		snapst := stateByID[update.SnapID]
+		logger.Noticef("update.SnapID: %s", update.SnapID)
+  snapst := stateByID[update.SnapID]
+  logger.Noticef("snapst: %v", snapst)
 		return snapst.Channel, snapst.Flags, snapst
 
 	}
