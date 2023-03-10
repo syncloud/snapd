@@ -1006,6 +1006,7 @@ var AutoRefreshAssertions func(st *state.State, userID int) error
 // assertions.
 func AutoRefresh(st *state.State) ([]string, []*state.TaskSet, error) {
 	userID := 0
+ logger.Noticef("AutoRefresh")
 
 	if AutoRefreshAssertions != nil {
 		if err := AutoRefreshAssertions(st, userID); err != nil {

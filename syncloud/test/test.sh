@@ -64,6 +64,10 @@ code=$((code + $?))
 
 $SSH root@$DEVICE snap refresh --list
 code=$((code + $?))
+
+$SSH root@$DEVICE snap refresh
+code=$((code + $?))
+
 set -e
 
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
