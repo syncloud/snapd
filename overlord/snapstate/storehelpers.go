@@ -22,7 +22,7 @@ package snapstate
 import (
 	"fmt"
 	"sort"
-
+	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/overlord/state"
 	"github.com/snapcore/snapd/snap"
@@ -232,6 +232,7 @@ func refreshCandidates(st *state.State, names []string, user *auth.UserState, fl
 		if len(names) > 0 && !strutil.SortedListContains(names, snapInfo.Name()) {
 			continue
 		}
+  logger.Noticef("adding state by id: %v", snapInfo.SnapID)
 
 		stateByID[snapInfo.SnapID] = snapst
 
