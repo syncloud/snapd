@@ -956,11 +956,15 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
 		if err != nil {
 			continue
 		}
+  if info.Revision == cs.Revision {
+    continue
+  }
   info.SnapID = cs.SnapID
   info.Revision = cs.Revision
-		toRefresh = append(toRefresh, info)
+  //info.Version = cs.Version
+	 	toRefresh = append(toRefresh, info)
   // do one by one refresh otherwise snapd does them in parallel and breaks platform dependency
- return toRefresh, nil
+  return toRefresh, nil
 	}
 	return toRefresh, nil
 }
@@ -1323,3 +1327,4 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 		s.cacher = &store.NullCache{}
 	}
 }
+
