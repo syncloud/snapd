@@ -957,6 +957,7 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
 			continue
 		}
   info.SnapID = cs.SnapID
+  info.Revision = cs.Revision
 		toRefresh = append(toRefresh, info)
 	}
 	return toRefresh, nil
