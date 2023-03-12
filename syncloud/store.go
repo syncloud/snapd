@@ -960,7 +960,7 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
     continue
   }
   info.SnapID = cs.SnapID
-  //info.Revision = cs.Revision
+  info.Revision = cs.Revision
   //info.Version = cs.Version
 	 	toRefresh = append(toRefresh, info)
   // do one by one refresh otherwise snapd does them in parallel and breaks platform dependency
@@ -1327,6 +1327,8 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 		s.cacher = &store.NullCache{}
 	}
 }
+
+
 
 
 
