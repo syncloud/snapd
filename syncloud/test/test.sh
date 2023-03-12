@@ -9,7 +9,7 @@ fi
 
 DEVICE=$1
 VERSION=$2
-
+STORE_DIR=/var/www/html
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
 LOG_DIR=${DIR}/../../log/$DEVICE
@@ -62,10 +62,14 @@ code=$((code + $?))
 $SSH root@$DEVICE snap install testapp2 --channel=master
 code=$((code + $?))
 
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_2_$SNAP_ARCH.snap -b stable -t $STORE_DIR
 $SSH root@$DEVICE snap refresh --list
 code=$((code + $?))
 
 $SSH root@$DEVICE snap refresh
+code=$((code + $?))
+
+$SSH root@$DEVICE snap refresh --list
 code=$((code + $?))
 
 set -e
