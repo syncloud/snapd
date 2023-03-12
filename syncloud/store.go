@@ -959,7 +959,7 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
   if info.Revision == cs.Revision {
     continue
   }
-  //info.SnapID = cs.SnapID
+  info.SnapID = cs.SnapID
   //info.Revision = cs.Revision
   //info.Version = cs.Version
 	 	toRefresh = append(toRefresh, info)
@@ -1327,4 +1327,6 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 		s.cacher = &store.NullCache{}
 	}
 }
+
+
 
