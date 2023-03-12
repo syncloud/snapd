@@ -65,6 +65,10 @@ code=$((code + $?))
 $SSH root@$DEVICE snap list
 
 $SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_2_$SNAP_ARCH.snap -b stable -t $STORE_DIR
+
+$SSH root@$DEVICE snap refresh testapp1
+code=$((code + $?))
+
 $SSH root@$DEVICE snap refresh --list
 code=$((code + $?))
 
