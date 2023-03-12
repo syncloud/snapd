@@ -85,7 +85,7 @@ local build(arch) = {
                 command_timeout: "2m",
                 target: "/home/artifact/repo/" + name + "/${DRONE_BUILD_NUMBER}-" + arch,
                 source: [
-                    "*.snap",
+                    "syncloud/test/*.snap",
                     "log/*",
                     "snapd-*.tar.gz"
                 ]
