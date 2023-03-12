@@ -51,6 +51,7 @@ $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/revisions
 $SCP ${DIR}/../../syncloud-release-$ARCH root@apps.syncloud.org:/syncloud-release
 $SCP ${DIR}/testapp1_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
 $SCP ${DIR}/testapp1_2_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SCP ${DIR}/testapp1_3_$SNAP_ARCH.snap root@apps.syncloud.org:/
 $SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
 $SCP ${DIR}/testapp2_2_$SNAP_ARCH.snap root@apps.syncloud.org:/
 

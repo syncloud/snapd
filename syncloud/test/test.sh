@@ -70,6 +70,9 @@ $SSH root@apps.syncloud.org /syncloud-release set-version -n testapp1 -a $SNAP_A
 $SSH root@$DEVICE snap refresh testapp1
 code=$((code + $?))
 
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_3_$SNAP_ARCH.snap -b stable -t $STORE_DIR
+$SSH root@apps.syncloud.org /syncloud-release set-version -n testapp1 -a $SNAP_ARCH -v 3 -c stable -t $STORE_DIR
+
 $SSH root@$DEVICE snap refresh --list
 code=$((code + $?))
 
