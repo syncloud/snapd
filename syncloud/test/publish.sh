@@ -49,10 +49,10 @@ $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/releases/stable
 $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/apps
 $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/revisions
 $SCP ${DIR}/../../syncloud-release-$ARCH root@apps.syncloud.org:/syncloud-release
-$SCP ${DIR}/testapp1/testapp1_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
-$SCP ${DIR}/testapp2/testapp1_2_$SNAP_ARCH.snap root@apps.syncloud.org:/
-$SCP ${DIR}/testapp1/testapp2_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
-$SCP ${DIR}/testapp2/testapp2_2_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SCP ${DIR}/testapp1_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SCP ${DIR}/testapp1_2_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@apps.syncloud.org:/
+$SCP ${DIR}/testapp2_2_$SNAP_ARCH.snap root@apps.syncloud.org:/
 
 $SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_1_$SNAP_ARCH.snap -b stable -t $STORE_DIR
 $SSH root@apps.syncloud.org /syncloud-release promote -n testapp1 -a $SNAP_ARCH -t $STORE_DIR

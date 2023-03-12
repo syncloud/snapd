@@ -47,7 +47,7 @@ $SCP ${DIR}/../../snapd-${VERSION}-*.tar.gz root@$DEVICE:/
 
 set +e
 $SSH root@$DEVICE /installer.sh ${VERSION}
-$SCP ${DIR}/testapp2/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
+$SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
 
 $SSH root@$DEVICE snap install unknown --channel=master || true
 code=$((code + $?))
