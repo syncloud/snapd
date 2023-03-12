@@ -89,7 +89,8 @@ set -e
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
 $SSH root@$DEVICE journalctl > $LOG_DIR/journalctl.device.log
 $SSH apps.syncloud.org journalctl > $LOG_DIR/journalctl.store.log
-$SCP apps.syncloud.org:$STORE_DIR $ARTIFACTS_DIR/store
+$SCP -r apps.syncloud.org:$STORE_DIR $ARTIFACTS_DIR/store
+$SCP apps.syncloud.org:/var/log/nginx/access.log $ARTIFACTS_DIR
 
 $SSH root@$DEVICE unsquashfs -i -d /test /testapp2_1.snap meta/snap.yaml
 $SSH root@$DEVICE ls -la /test
