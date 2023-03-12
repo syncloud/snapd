@@ -12,7 +12,9 @@ VERSION=$2
 STORE_DIR=/var/www/html
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
-LOG_DIR=${DIR}/../../log/$DEVICE
+ARTIFACTS_DIR=${DIR}/../../artifacts
+mkdir $ARTIFACTS_DIR
+LOG_DIR=$ARTIFACTS_DIR/log/$DEVICE
 SNAP_ARCH=$(dpkg --print-architecture)
 
 apt update
@@ -87,6 +89,7 @@ set -e
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
 $SSH root@$DEVICE journalctl > $LOG_DIR/journalctl.device.log
 $SSH apps.syncloud.org journalctl > $LOG_DIR/journalctl.store.log
+$SCP apps.syncloud.org:$STORE_DIR $ARTIFACTS_DIR/store
 
 $SSH root@$DEVICE unsquashfs -i -d /test /testapp2_1.snap meta/snap.yaml
 $SSH root@$DEVICE ls -la /test

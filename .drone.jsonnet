@@ -86,7 +86,7 @@ local build(arch) = {
                 target: "/home/artifact/repo/" + name + "/${DRONE_BUILD_NUMBER}-" + arch,
                 source: [
                     "syncloud/test/*.snap",
-                    "log/*",
+                    "artifacts/*",
                     "snapd-*.tar.gz"
                 ]
             },
