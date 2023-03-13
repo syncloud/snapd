@@ -863,10 +863,6 @@ func (a *App) toInfo(channel string, version string, downloadSize int64, downloa
 		return nil, fmt.Errorf("unable to get revision: %s", err)
 	}
 	snapId := ConstructSnapId(a.Name, version)
-	logger.Noticef("snapid: %s", snapId)
-	logger.Noticef("AnonDownloadURL: %s", downloadUrl)
-	logger.Noticef("DownloadSha3_384: %s", downloadSha384)
-	logger.Noticef("DownloadSize: %v", downloadSize)
 
 	details := snapDetails{
 		SnapID:           snapId,
@@ -947,7 +943,7 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
 	for _, cs := range installed {
 		snapName, _ := deconstructSnapId(cs.SnapID)
 		channel := parseChannel(cs.Channel)
-  logger.Noticef("list refresh app: %s, channel: %s", snapName, channel)
+		logger.Noticef("list refresh app: %s, channel: %s", snapName, channel)
 		apps, err := s.downloadIndex(channel)
 		if err != nil {
 			return nil, err
@@ -956,16 +952,10 @@ func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.User
 		if err != nil {
 			continue
 		}
-  if info.Revision == cs.Revision {
-    continue
-  }
-  //info.SnapID = cs.SnapID
-  //info.Version = string(cs.Revision)
-  //info.Revision = cs.Revision
-  
-	 	toRefresh = append(toRefresh, info)
-  // do one by one refresh otherwise snapd does them in parallel and breaks platform dependency
-  return toRefresh, nil
+		if info.Revision == cs.Revision {
+			continue
+		}
+		toRefresh = append(toRefresh, info)
 	}
 	return toRefresh, nil
 }
@@ -985,7 +975,6 @@ func (e HashError) Error() string {
 // The file is saved in temporary storage, and should be removed
 // after use to prevent the disk from running out of space.
 func (s *Store) Download(ctx context.Context, name string, targetPath string, downloadInfo *snap.DownloadInfo, pbar progress.Meter, user *auth.UserState) error {
-	logger.Noticef("expected download sha: %s", downloadInfo.Sha3_384)
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 		return err
 	}
@@ -1328,8 +1317,3 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 		s.cacher = &store.NullCache{}
 	}
 }
-
-
-
-
-
