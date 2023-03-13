@@ -234,7 +234,7 @@ func refreshCandidates(st *state.State, names []string, user *auth.UserState, fl
 		}
   logger.Noticef("adding state by id: %v", snapInfo.SnapID)
 
-		stateByID[snapInfo.SnapID] = snapst
+		stateByID[snapInfo.Name] = snapst
 
 		// get confinement preference from the snapstate
 		candidateInfo := &store.RefreshCandidate{
