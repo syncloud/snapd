@@ -38,8 +38,7 @@ local build(arch) = {
             image: "debian:buster-slim",
             commands: [
               "apt update && apt install -y squashfs-tools",
-              "./syncloud/test/testapp1/build.sh",
-              "./syncloud/test/testapp2/build.sh",
+              "./syncloud/test/build-apps.sh",
               "./syncloud/test/publish.sh " + arch
             ]
         },
@@ -86,8 +85,8 @@ local build(arch) = {
                 command_timeout: "2m",
                 target: "/home/artifact/repo/" + name + "/${DRONE_BUILD_NUMBER}-" + arch,
                 source: [
-                    "*.snap",
-                    "log/*",
+                    "syncloud/test/*.snap",
+                    "artifacts/*",
                     "snapd-*.tar.gz"
                 ]
             },

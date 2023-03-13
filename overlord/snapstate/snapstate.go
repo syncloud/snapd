@@ -611,7 +611,9 @@ func UpdateMany(st *state.State, names []string, userID int) ([]string, []*state
 	}
 
 	params := func(update *snap.Info) (string, Flags, *SnapState) {
-		snapst := stateByID[update.SnapID]
+		logger.Noticef("update.SnapID: %s", update.SnapID)
+  snapst := stateByID[update.Name()]
+  logger.Noticef("snapst: %v", snapst)
 		return snapst.Channel, snapst.Flags, snapst
 
 	}
@@ -1006,6 +1008,7 @@ var AutoRefreshAssertions func(st *state.State, userID int) error
 // assertions.
 func AutoRefresh(st *state.State) ([]string, []*state.TaskSet, error) {
 	userID := 0
+ logger.Noticef("AutoRefresh")
 
 	if AutoRefreshAssertions != nil {
 		if err := AutoRefreshAssertions(st, userID); err != nil {

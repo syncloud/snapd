@@ -209,6 +209,7 @@ func (m *autoRefresh) refreshScheduleWithDefaultsFallback() (ts []*timeutil.Sche
 
 // launchAutoRefresh creates the auto-refresh taskset and a change for it.
 func (m *autoRefresh) launchAutoRefresh() error {
+logger.Noticef("launch auto refresh")
 	m.lastRefreshAttempt = time.Now()
 	updated, tasksets, err := AutoRefresh(m.state)
 	if err != nil {

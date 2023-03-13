@@ -754,12 +754,7 @@ func (s *Store) SnapInfo(snapSpec store.SnapSpec, user *auth.UserState) (*snap.I
 	logger.Noticef("SnapInfo: %v, channel: %s", snapSpec.Name, snapSpec.Channel)
 	channel := parseChannel(snapSpec.Channel)
 
-	resp, err := s.downloadIndex(channel)
-	if err != nil {
-		return nil, err
-	}
-
-	apps, err := parseIndex(resp)
+	apps, err := s.downloadIndex(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -790,11 +785,7 @@ type Search struct {
 func (s *Store) Find(search *store.Search, user *auth.UserState) ([]*snap.Info, error) {
 	logger.Noticef("search query: %s", search.Query)
 	channel := "stable"
-	resp, err := s.downloadIndex(channel)
-	if err != nil {
-		return nil, err
-	}
-	apps, err := parseIndex(resp)
+	apps, err := s.downloadIndex(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -824,7 +815,7 @@ func parseChannel(channel string) string {
 	return channel
 }
 
-func (s *Store) downloadIndex(channel string) (string, error) {
+func (s *Store) downloadIndex(channel string) (map[string]*App, error) {
 	reqOptions := &requestOptions{
 		Method: "GET",
 		URL:    urlJoin(s.cfg.StoreBaseURL, "releases", channel, "index-v2"),
@@ -833,9 +824,15 @@ func (s *Store) downloadIndex(channel string) (string, error) {
 
 	resp, err := s.retryRequestString(context.TODO(), reqOptions)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp, nil
+
+	apps, err := parseIndex(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return apps, nil
 }
 
 type App struct {
@@ -930,25 +927,14 @@ func (s *Store) WriteCatalogs(names io.Writer, adder store.SnapAdder) error {
 	return nil
 }
 
-// RefreshCandidate contains information for the store about the currently
-// installed snap so that the store can decide what update we should see
-type RefreshCandidate struct {
-	SnapID   string
-	Revision snap.Revision
-	Epoch    string
-	Block    []snap.Revision
-
-	// the desired channel
-	Channel string
-}
-
 // the exact bits that we need to send to the store
 type currentSnapJSON struct {
-	SnapID      string `json:"snap_id"`
-	Channel     string `json:"channel"`
-	Revision    int    `json:"revision,omitempty"`
-	Epoch       string `json:"epoch"`
-	Confinement string `json:"confinement"`
+	SnapID           string     `json:"snap_id"`
+	Channel          string     `json:"channel"`
+	Revision         int        `json:"revision,omitempty"`
+	Epoch            snap.Epoch `json:"epoch"`
+	Confinement      string     `json:"confinement"`
+	IgnoreValidation bool       `json:"ignore_validation,omitempty"`
 }
 
 type metadataWrapper struct {
@@ -956,38 +942,32 @@ type metadataWrapper struct {
 	Fields []string           `json:"fields"`
 }
 
-func currentSnap(cs *RefreshCandidate) *currentSnapJSON {
-	logger.Noticef("cutrentSnap %+v", cs)
-	// the store gets confused if we send snaps without a snapid
-	// (like local ones)
-	if cs.SnapID == "" {
-		if cs.Revision.Store() {
-			logger.Noticef("store.currentSnap got given a RefreshCandidate with an empty SnapID but a store revision!")
-		}
-		return nil
-	}
-	if !cs.Revision.Store() {
-		logger.Noticef("store.currentSnap got given a RefreshCandidate with a non-empty SnapID but a non-store revision!")
-		return nil
-	}
-
-	channel := cs.Channel
-	if channel == "" {
-		channel = "stable"
-	}
-
-	return &currentSnapJSON{
-		SnapID:   cs.SnapID,
-		Channel:  channel,
-		Epoch:    cs.Epoch,
-		Revision: cs.Revision.N,
-		// confinement purposely left empty
-	}
-}
-
 func (s *Store) ListRefresh(installed []*store.RefreshCandidate, user *auth.UserState, flags *store.RefreshOptions) (snaps []*snap.Info, err error) {
-	return nil, errors.New("not implemented yet")
-
+	var toRefresh []*snap.Info
+	for _, cs := range installed {
+		snapName, _ := deconstructSnapId(cs.SnapID)
+		channel := parseChannel(cs.Channel)
+  logger.Noticef("list refresh app: %s, channel: %s", snapName, channel)
+		apps, err := s.downloadIndex(channel)
+		if err != nil {
+			return nil, err
+		}
+		info, err := s.downloadAppInfo(apps[snapName], channel, snapName)
+		if err != nil {
+			continue
+		}
+  if info.Revision == cs.Revision {
+    continue
+  }
+  //info.SnapID = cs.SnapID
+  //info.Version = string(cs.Revision)
+  //info.Revision = cs.Revision
+  
+	 	toRefresh = append(toRefresh, info)
+  // do one by one refresh otherwise snapd does them in parallel and breaks platform dependency
+  return toRefresh, nil
+	}
+	return toRefresh, nil
 }
 
 type HashError struct {
@@ -1304,12 +1284,7 @@ func (s *Store) LookupRefresh(installed *store.RefreshCandidate, user *auth.User
 	channel := parseChannel(installed.Channel)
 	snapName, _ := deconstructSnapId(installed.SnapID)
 
-	resp, err := s.downloadIndex(channel)
-	if err != nil {
-		return nil, err
-	}
-
-	apps, err := parseIndex(resp)
+	apps, err := s.downloadIndex(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -1353,3 +1328,8 @@ func (s *Store) SetCacheDownloads(fileCount int) {
 		s.cacher = &store.NullCache{}
 	}
 }
+
+
+
+
+

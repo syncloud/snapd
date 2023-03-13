@@ -9,10 +9,12 @@ fi
 
 DEVICE=$1
 VERSION=$2
-
+STORE_DIR=/var/www/html
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
-LOG_DIR=${DIR}/../../log/$DEVICE
+ARTIFACTS_DIR=${DIR}/../../artifacts
+mkdir $ARTIFACTS_DIR
+LOG_DIR=$ARTIFACTS_DIR/log/$DEVICE
 SNAP_ARCH=$(dpkg --print-architecture)
 
 apt update
@@ -47,24 +49,49 @@ $SCP ${DIR}/../../snapd-${VERSION}-*.tar.gz root@$DEVICE:/
 
 set +e
 $SSH root@$DEVICE /installer.sh ${VERSION}
-$SCP ${DIR}/testapp2/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
+$SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
 
 $SSH root@$DEVICE snap install unknown --channel=master || true
+code=$((code + $?))
 
 $SSH root@$DEVICE snap install testapp1
+code=$((code + $?))
 
 #known issue unable to install local then refresh from master if there is no stable version in the store
 #$SSH root@$DEVICE snap install /testapp2_1.snap --devmode
 #$SSH root@$DEVICE timeout 1m snap refresh testapp2 --channel=master --amend
 
 $SSH root@$DEVICE snap install testapp2 --channel=master
+code=$((code + $?))
 
-code=$?
+$SSH root@$DEVICE snap list
+
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_2_$SNAP_ARCH.snap -b stable -t $STORE_DIR
+$SSH root@apps.syncloud.org /syncloud-release set-version -n testapp1 -a $SNAP_ARCH -v 2 -c stable -t $STORE_DIR
+
+$SSH root@$DEVICE snap refresh testapp1
+code=$((code + $?))
+
+$SSH root@apps.syncloud.org /syncloud-release publish -f /testapp1_3_$SNAP_ARCH.snap -b stable -t $STORE_DIR
+$SSH root@apps.syncloud.org /syncloud-release set-version -n testapp1 -a $SNAP_ARCH -v 3 -c stable -t $STORE_DIR
+
+$SSH root@$DEVICE snap refresh --list
+code=$((code + $?))
+
+$SSH root@$DEVICE snap refresh
+code=$((code + $?))
+
+$SSH root@$DEVICE snap refresh --list
+code=$((code + $?))
+
 set -e
 
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
 $SSH root@$DEVICE journalctl > $LOG_DIR/journalctl.device.log
 $SSH apps.syncloud.org journalctl > $LOG_DIR/journalctl.store.log
+$SCP -r apps.syncloud.org:$STORE_DIR $ARTIFACTS_DIR/store
+$SCP apps.syncloud.org:/var/log/nginx/access.log $ARTIFACTS_DIR
+chmod -R a+r $ARTIFACTS_DIR
 
 $SSH root@$DEVICE unsquashfs -i -d /test /testapp2_1.snap meta/snap.yaml
 $SSH root@$DEVICE ls -la /test
