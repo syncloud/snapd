@@ -20,7 +20,6 @@
 package httputil
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -150,8 +149,7 @@ type ClientOptions struct {
 	Proxy              func(*http.Request) (*url.URL, error)
 	ProxyConnectHeader http.Header
 
-	ExtraSSLCerts    ExtraSSLCerts
-	UseEmbeddedStore bool
+	ExtraSSLCerts ExtraSSLCerts
 }
 
 // NewHTTPClient returns a new http.Client with a LoggedTransport, a
@@ -166,22 +164,17 @@ func NewHTTPClient(opts *ClientOptions) *http.Client {
 		transport.Proxy = opts.Proxy
 	}
 	transport.ProxyConnectHeader = opts.ProxyConnectHeader
-	if opts.UseEmbeddedStore {
-		transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
-			return net.Dial("unix", "/tmp/syncloud.store.sock")
-		}
-	} else {
-		// Remember the original ClientOptions.TLSConfig when making
-		// tls connection.
-		// Note that we only set TLSClientConfig here because it's extracted
-		// by the cmd/snap-repair/runner_test.go
-		transport.TLSClientConfig = opts.TLSConfig
-		dialTLS := &dialTLS{
-			conf:          opts.TLSConfig,
-			extraSSLCerts: opts.ExtraSSLCerts,
-		}
-		transport.DialTLS = dialTLS.dialTLS
+	// Remember the original ClientOptions.TLSConfig when making
+	// tls connection.
+	// Note that we only set TLSClientConfig here because it's extracted
+	// by the cmd/snap-repair/runner_test.go
+	transport.TLSClientConfig = opts.TLSConfig
+	dialTLS := &dialTLS{
+		conf:          opts.TLSConfig,
+		extraSSLCerts: opts.ExtraSSLCerts,
 	}
+	transport.DialTLS = dialTLS.dialTLS
+
 	return &http.Client{
 		Transport: &LoggedTransport{
 			Transport:  transport,

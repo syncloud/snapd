@@ -5,6 +5,7 @@ Requires=snapd.socket
 [Service]
 ExecStart=/usr/lib/snapd/snapd
 Environment=LD_LIBRARY_PATH=/usr/lib/snapd/lib
+Environment=SNAPPY_FORCE_API_URL=http://localhost:8080
 Restart=always
 Type=notify
 

@@ -15,9 +15,9 @@ func main() {
 	var cmdStart = &cobra.Command{
 		Use:   "start",
 		Short: "Start Syncloud Store",
-		Args:  cobra.MaximumNArgs(0),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store := pkg.NewSyncloudStore()
+			store := pkg.NewSyncloudStore(args[0])
 			api := pkg.NewApi(store)
 			go func() { _ = api.Start() }()
 			return store.Start()

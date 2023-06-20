@@ -86,9 +86,10 @@ type SyncloudStore struct {
 	privateKey     OpenpgpPrivateKey
 	indexByChannel map[string]map[string]*model.Snap
 	indexLock      sync.RWMutex
+	address        string
 }
 
-func NewSyncloudStore() *SyncloudStore {
+func NewSyncloudStore(address string) *SyncloudStore {
 	client := resty.New()
 	client.SetRetryCount(3)
 	client.SetRetryWaitTime(5 * time.Second)
@@ -98,6 +99,7 @@ func NewSyncloudStore() *SyncloudStore {
 		echo:           echo.New(),
 		privateKey:     privateKey,
 		indexByChannel: make(map[string]map[string]*model.Snap),
+		address:        address,
 	}
 }
 
@@ -129,14 +131,22 @@ func (s *SyncloudStore) Start() error {
 	s.echo.GET("/v2/assertions/account-key/:key", s.AccountKey)
 	s.echo.GET("/v2/snaps/find", s.Find)
 
-	_ = os.RemoveAll(PublicApi)
-	l, err := net.Listen("unix", PublicApi)
-	if err != nil {
-		fmt.Printf("error: %v\n", err)
-		return err
+	if s.IsUnixSocket() {
+		_ = os.RemoveAll(s.address)
+		l, err := net.Listen("unix", s.address)
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+			return err
+		}
+		s.echo.Listener = l
+		return s.echo.Start("")
+	} else {
+		return s.echo.Start(s.address)
 	}
-	s.echo.Listener = l
-	return s.echo.Start("")
+}
+
+func (s *SyncloudStore) IsUnixSocket() bool {
+	return strings.HasPrefix(s.address, "/")
 }
 
 func (s *SyncloudStore) RefreshCache() error {
