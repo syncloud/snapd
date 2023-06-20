@@ -1,25 +1,24 @@
-package pkg
+package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/syncloud/store/pkg/model"
+	"github.com/syncloud/store/crypto"
+	"github.com/syncloud/store/model"
+	"github.com/syncloud/store/rest"
+	"github.com/syncloud/store/storage"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
 const (
-	Url             = "http://apps.syncloud.org"
 	syncloudPrivKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1
 
@@ -81,42 +80,25 @@ NnAkj2flf8ZFtNwrCy93JPVqY7j4Ip5AHUqhlUhYyPEMlcPEiNIhqZFUZvMYAIRL
 )
 
 type SyncloudStore struct {
-	client         *resty.Client
-	echo           *echo.Echo
-	privateKey     OpenpgpPrivateKey
-	indexByChannel map[string]map[string]*model.Snap
-	indexLock      sync.RWMutex
-	address        string
+	client     rest.Client
+	echo       *echo.Echo
+	privateKey crypto.OpenpgpPrivateKey
+	address    string
+	index      storage.Index
 }
 
-func NewSyncloudStore(address string) *SyncloudStore {
-	client := resty.New()
-	client.SetRetryCount(3)
-	client.SetRetryWaitTime(5 * time.Second)
-	privateKey, _ := ReadPrivateKey(syncloudPrivKey)
+func NewSyncloudStore(address string, index storage.Index, client rest.Client) *SyncloudStore {
+	privateKey, _ := crypto.ReadPrivateKey(syncloudPrivKey)
 	return &SyncloudStore{
-		client:         client,
-		echo:           echo.New(),
-		privateKey:     privateKey,
-		indexByChannel: make(map[string]map[string]*model.Snap),
-		address:        address,
+		client:     client,
+		echo:       echo.New(),
+		privateKey: privateKey,
+		index:      index,
+		address:    address,
 	}
 }
 
 func (s *SyncloudStore) Start() error {
-	err := s.RefreshCache()
-	if err != nil {
-		fmt.Printf("error: %v\n", err)
-		return err
-	}
-	go func() {
-		for range time.Tick(time.Minute * 60) {
-			err := s.RefreshCache()
-			if err != nil {
-				fmt.Printf("error: %v\n", err)
-			}
-		}
-	}()
 
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status}\n",
@@ -147,26 +129,6 @@ func (s *SyncloudStore) Start() error {
 
 func (s *SyncloudStore) IsUnixSocket() bool {
 	return strings.HasPrefix(s.address, "/")
-}
-
-func (s *SyncloudStore) RefreshCache() error {
-	fmt.Println("refresh cache")
-	channels := []string{"master", "rc", "stable"}
-	for _, channel := range channels {
-		index, err := s.downloadIndex(channel)
-		if err != nil {
-			return err
-		}
-		s.WriteIndex(channel, index)
-	}
-	fmt.Println("refresh cache finished")
-	return nil
-}
-
-func (s *SyncloudStore) WriteIndex(channel string, index map[string]*model.Snap) {
-	s.indexLock.Lock()
-	defer s.indexLock.Unlock()
-	s.indexByChannel[channel] = index
 }
 
 func (s *SyncloudStore) Sections(c echo.Context) error {
@@ -223,7 +185,7 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 			if action.SnapID != "" {
 				snapName, _ = deconstructSnapId(action.SnapID)
 			}
-			apps, ok := s.ReadIndex(channel)
+			apps, ok := s.index.Read(channel)
 			if !ok {
 				c.Error(fmt.Errorf("no channel: %s in the index", channel))
 				return nil
@@ -272,7 +234,7 @@ func (s *SyncloudStore) Find(c echo.Context) error {
 		channel = "stable"
 	}
 	results := &model.SearchResults{}
-	apps, ok := s.ReadIndex(channel)
+	apps, ok := s.index.Read(channel)
 	if !ok {
 		c.Error(fmt.Errorf("no channel: %s in the index", channel))
 		return nil
@@ -294,13 +256,6 @@ func (s *SyncloudStore) Find(c echo.Context) error {
 	fmt.Printf("response: %s\n", string(jsonBytes))
 	c.Response().Header().Set(echo.HeaderContentType, "application/json")
 	return c.JSON(http.StatusOK, results)
-}
-
-func (s *SyncloudStore) ReadIndex(channel string) (map[string]*model.Snap, bool) {
-	s.indexLock.RLock()
-	defer s.indexLock.RUnlock()
-	apps, ok := s.indexByChannel[channel]
-	return apps, ok
 }
 
 func (s *SyncloudStore) AccountKey(c echo.Context) error {
@@ -342,14 +297,14 @@ func (s *SyncloudStore) SnapRevision(c echo.Context) error {
 	key := c.Param("key")
 	fmt.Printf("key: %s\n", key)
 
-	resp, err := s.client.R().Get(fmt.Sprintf("%s/revisions/%s.revision", Url, key))
+	resp, _, err := s.client.Get(fmt.Sprintf("%s/revisions/%s.revision", Url, key))
 	if err != nil {
 		c.Error(err)
 		return nil
 	}
 
 	var snapRevision model.SnapRevision
-	err = json.Unmarshal(resp.Body(), &snapRevision)
+	err = json.Unmarshal([]byte(resp), &snapRevision)
 	if err != nil {
 		c.Error(err)
 		return nil
@@ -421,32 +376,6 @@ func parseChannel(channel string) string {
 	}
 }
 
-func (s *SyncloudStore) downloadIndex(channel string) (map[string]*model.Snap, error) {
-	resp, err := s.client.R().Get(fmt.Sprintf("%s/releases/%s/index-v2", Url, channel))
-	if err != nil {
-		return nil, err
-	}
-
-	index, err := parseIndex(resp.String())
-	if err != nil {
-		return nil, err
-	}
-	apps := make(map[string]*model.Snap)
-	for _, indexApp := range index {
-		app, err := s.downloadAppInfo(indexApp, channel)
-		if err != nil {
-			return nil, err
-		}
-		if app == nil {
-			fmt.Printf("app: %s not found on channel: %s\n", indexApp.Name, channel)
-			continue
-		}
-		apps[indexApp.Name] = app
-	}
-
-	return apps, nil
-}
-
 func deconstructSnapId(snapId string) (string, string) {
 	if strings.Contains(snapId, ".") {
 		parts := strings.Split(snapId, ".")
@@ -454,67 +383,4 @@ func deconstructSnapId(snapId string) (string, string) {
 	} else {
 		return snapId, ""
 	}
-}
-
-func parseIndex(resp string) (map[string]*model.App, error) {
-	var index model.Index
-	err := json.Unmarshal([]byte(resp), &index)
-	if err != nil {
-		return nil, err
-	}
-
-	apps := make(map[string]*model.App)
-
-	for i := range index.Apps {
-		app := &model.App{
-			Enabled: true,
-		}
-		err := json.Unmarshal(index.Apps[i], app)
-		if err != nil {
-			return nil, err
-		}
-		if !app.Enabled {
-			continue
-		}
-		fmt.Printf("index app: %s\n", app.Name)
-		apps[app.Name] = app
-
-	}
-
-	return apps, nil
-
-}
-
-func (s *SyncloudStore) downloadAppInfo(app *model.App, channel string) (*model.Snap, error) {
-	versionUrl := fmt.Sprintf("%s/releases/%s/%s.%s.version", Url, channel, app.Name, DPKGArch)
-	fmt.Printf("url: %s\n", versionUrl)
-	resp, err := s.client.R().Get(versionUrl)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode() == 404 {
-		return nil, nil
-	}
-	version := resp.String()
-	downloadUrl := fmt.Sprintf("%s/apps/%s_%s_%s.snap", Url, app.Name, version, DPKGArch)
-
-	resp, err = s.client.R().Get(fmt.Sprintf("%s/apps/%s_%s_%s.snap.size", Url, app.Name, version, DPKGArch))
-	if err != nil {
-		return nil, err
-	}
-	size, err := strconv.ParseInt(resp.String(), 10, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err = s.client.R().Get(fmt.Sprintf("%s/apps/%s_%s_%s.snap.sha384", Url, app.Name, version, DPKGArch))
-	if err != nil {
-		return nil, err
-	}
-	sha384Encoded := resp.String()
-	sha384, err := base64.RawURLEncoding.DecodeString(sha384Encoded)
-	if err != nil {
-		return nil, err
-	}
-	return app.ToInfo(version, size, fmt.Sprintf("%x", sha384), downloadUrl)
 }

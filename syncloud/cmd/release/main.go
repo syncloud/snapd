@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/syncloud/store/pkg"
-	"github.com/syncloud/store/pkg/release"
+	"github.com/syncloud/store/crypto"
+	"github.com/syncloud/store/release"
 	"os"
 	"strconv"
 )
@@ -34,7 +34,7 @@ func main() {
 		Short: "Publish an app to Syncloud Store",
 		Args:  cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sha384, size, err := pkg.SnapFileSHA3_384(file)
+			sha384, size, err := crypto.SnapFileSHA3_384(file)
 			if err != nil {
 				return err
 			}

@@ -1,4 +1,4 @@
-package pkg
+package crypto
 
 import (
 	"bytes"
@@ -12,15 +12,15 @@ import (
 )
 
 type OpenpgpPrivateKey struct {
-	privk *packet.PrivateKey
+	privateKey *packet.PrivateKey
 }
 
 func (k *OpenpgpPrivateKey) PublicKey() *OpenpgpPubKey {
-	return newOpenPGPPubKey(&k.privk.PublicKey)
+	return newOpenPGPPubKey(&k.privateKey.PublicKey)
 }
 
 func (k *OpenpgpPrivateKey) keyEncode(w io.Writer) error {
-	return k.privk.Serialize(w)
+	return k.privateKey.Serialize(w)
 }
 
 var openpgpConfig = &packet.Config{
@@ -43,7 +43,7 @@ func (k *OpenpgpPrivateKey) SignContent(content []byte) ([]byte, error) {
 }
 
 func (k *OpenpgpPrivateKey) sign(content []byte) (*packet.Signature, error) {
-	privk := k.privk
+	privk := k.privateKey
 	sig := new(packet.Signature)
 	sig.PubKeyAlgo = privk.PubKeyAlgo
 	sig.Hash = openpgpConfig.Hash()

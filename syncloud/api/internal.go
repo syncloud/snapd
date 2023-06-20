@@ -1,26 +1,23 @@
-package pkg
+package api
 
 import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/syncloud/store/storage"
 	"net"
 	"os"
 )
 
-type Refresher interface {
-	RefreshCache() error
-}
-
 type Api struct {
-	refresher Refresher
-	echo      *echo.Echo
+	index storage.Index
+	echo  *echo.Echo
 }
 
-func NewApi(refresher Refresher) *Api {
+func NewApi(index storage.Index) *Api {
 	return &Api{
-		echo:      echo.New(),
-		refresher: refresher,
+		echo:  echo.New(),
+		index: index,
 	}
 }
 
@@ -39,9 +36,12 @@ func (a *Api) Start() error {
 		return err
 	}
 	a.echo.Listener = l
-	return a.echo.Start("")
+	go func() {
+		a.echo.Start("")
+	}()
+	return nil
 }
 
 func (a *Api) Refresh(_ echo.Context) error {
-	return a.refresher.RefreshCache()
+	return a.index.Refresh()
 }

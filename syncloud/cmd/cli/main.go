@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/syncloud/store/pkg"
+	"github.com/syncloud/store/api"
 	"net"
 	"net/http"
 	"os"
@@ -23,7 +23,7 @@ func main() {
 			client := &http.Client{
 				Transport: &http.Transport{
 					DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-						return net.Dial("unix", pkg.InternalApi)
+						return net.Dial("unix", api.InternalApi)
 					},
 				},
 			}

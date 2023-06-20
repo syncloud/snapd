@@ -1,9 +1,9 @@
-package pkg
+package api
 
 import (
 	"encoding/json"
 	"github.com/stretchr/testify/assert"
-	"github.com/syncloud/store/pkg/model"
+	"github.com/syncloud/store/model"
 	"testing"
 )
 

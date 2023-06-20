@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/syncloud/store/pkg"
+	"github.com/syncloud/store/api"
+	"github.com/syncloud/store/log"
+	"github.com/syncloud/store/rest"
+	"github.com/syncloud/store/storage"
 	"os"
 )
 
@@ -17,10 +20,20 @@ func main() {
 		Short: "Start Syncloud Store",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store := pkg.NewSyncloudStore(args[0])
-			api := pkg.NewApi(store)
-			go func() { _ = api.Start() }()
-			return store.Start()
+			logger := log.Default()
+			client := rest.New()
+			index := storage.New(client, api.Url, logger)
+			public := api.NewSyncloudStore(args[0], index, client)
+			internal := api.NewApi(index)
+			err := index.Start()
+			if err != nil {
+				return err
+			}
+			err = internal.Start()
+			if err != nil {
+				return err
+			}
+			return public.Start()
 		},
 	}
 
