@@ -107,6 +107,59 @@ pTnYkmx7XGPF7Ahb7Ov0/0FE2Lx3JZXSEKeW+VrCcpYQOY++t67b+jf0AV4rZExcLFJzP6MPMimP
 ZCd383NzlzkXK+vAdvTi40HPiM9FYOp6g8JTs5TTdx2/qs/SWFC8AkahIQmH0IpFBJep2JKl2kyr
 FZMvASkHA9bR/UuXDvbMzsUmT/xnERZosQaZgFEO
 `
+
+	encodedSyncloudAccount = `type: account
+authority-id: syncloud
+account-id: syncloud
+display-name: Syncloud
+timestamp: 2016-04-01T00:00:00.0Z
+username: syncloud
+validation: certified
+sign-key-sha3-384: hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR
+
+AcLBUgQAAQoABgUCV6yoQQAAelEQAEdSECpdmV5a2G5VMBzJFuHQUU1FzgZ7gPQjc3l0BibDWm8O
+rDi7IT3L80OkqS2AoQgHS5KtEvKqEmhyfcdzcXgvCkHR5kucRBJJaPy8z6gGMhzZIPlc+EqY+Cvb
+/MQPLvtYYvtAxq1vWz+aDGGwk2Z/dFUG+wofvNWodz400gYTZeFOCZwStBD84S7iY/3pMQgC3+SO
+QMr/VI+bgmOukFqZL0cX4ReiuUs2W45V6EC81UGBjk+k7AVTEXMR1Xo8f0yiRzlLoEdKQMCOC45Q
+n4eedjCToGRPFcktM0QhgfbcpPIQKHNqKGGvtQQXvW5PIZ7AS4rTfQScXTn1dqDsL/ZVdasvOpCP
+5o4WvoWMoU8+Hm4n6ckw4sXn//PZIQrtnkp2DO+9JXXZasIPg4k1mvUQ5Kb9qCcBbaM+OO1izOoC
+3PY8xHNQNfHNHwBMewhnU2NpdTS0mTepN/8iFsDT1vSZ28OE2hgbu1ltqx4AsRkCVyFFx6N6OYm2
+UDNozU9K5w0NY4u9HSTDz4KrBIalAaKY72CIUqeVsmAcYatXglbj7dVTZTw75M0v1thQiSoKFqHw
+CHykZ6BJRgminY1FqOg7tvqTwzYM7lwaE3K8JpAyzie7v+OSLSxy1vlwUmT2lT+h1i28/w+r+R3Q
+C0QC8xuHSvOv3YRtzKna3smAfRlB
+`
+
+	encodedSyncloudRootAccountKey = `type: account-key
+authority-id: syncloud
+public-key-sha3-384: hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR
+account-id: syncloud
+name: root
+since: 2016-04-01T00:00:00.0Z
+body-length: 717
+sign-key-sha3-384: hIedp1AvrWlcDI4uS_qjoFLzjKl5enu4G2FYJpgB3Pj-tUzGlTQBxMBsBmi-tnJR
+
+AcbBTQRWhcGAARAA8dC6HP+NfM5sNgCHH+bsQv4YLIR8glPfJ+HEXyaYdNO1+oFyX4nx7CpV5Umu
+TYs7DPVpToAiN3snpBdPPKu5UEzkQ6OGDucf2bZnAInj7WzKwGnOA/Y/uQMduIyeFZ4mLnUNcF+M
+e8LV0aS/pQhEdBUuRxEOi9zlv0p7X1bUs6LIUTubu6+smFtbdBBNOD+0qrvjf7CvsScrTsQswtvw
+cLoB4GX94wK6RQrlkmYJPUFZqkdWt7cp0iq8d+Ts8UnT8sgWuFzkMCgBKritS7/545mE8AE0fsyF
+Gt5+0jcjgs9LDk5gRO7EgoFLXPsEBdiLdVms7OGAwPGG00wfFYL3ho4PCfKq+mH0kOgUAynlJ7x8
+MCR92eWEi/ylHXiO0jnRY8UsutrM76eLN41iUla/6j5DcsXxQB/xzlYkUdtXtYrn6L/DTsnixclu
+3ogPzlPEFyVxv0vWIgkKLWXj2JRRt2uqe3K33TvdF0H+m6snZTStn7VY3if9fvyx14+tKh16ucdQ
+a1zzJoTKTqYWX9B+ZfENGKJUnhTP0x7Cm6lg3EUGay/b5hsA4DBoqShuf/N0jVLojdhxi3Ck/DBN
+lqCD0zy4uzvinjX+b4ay+LKBE3N15AsfEkWIwzI+1OdDlOWWqOxJkM6lrQ5hRQ1fHZoCiGjHbjeE
+1RIFO2TAw2tpyUcAEQEAAQ==
+
+AcLBXAQAAQoABgUCV8656QAKCRBMcZp594FxpNWlEADQgBlROdBTHpdZ3/9BbasxenUC3VXusMeK
+0DmnsHrsAsyVk6xiHQQ3hWxvXKWoDkDsOhUqcQTsDBcIaZ18+qwpQciyItd+w3d7SSJ+MKSUpwsB
+NOdgw1ykj7l1M/W7xAAPscFoV1xVSk9+rsLYFYDe23R+ecyotSmF+4QHj5b+hXeVIOUaqQTl5xPC
+h0zVYNIUWv42q4Z+hiBS8+8UJ0G+7z/27XORkGHY6TXCt0aph7s5egr8Lm+/jq7c95HVsa7DwSpv
+SqPajRnlyLiHFXUYAUPEU9oDgPwtLsqUkFfrv1WZ3ja1rDexgKBta+8BRyCAq3gPcMAjhiHXdjoW
+90p893l9N6K82RiEOO9ic0pEezjQldg97oU+ajXNm3ryns+HX6hRd39rpzIsrbVdbCqun4RwMbCM
+EVxgC/cuxMGcS40Co3O8wG3H/WIWOqcRQfolQTexmyzQljYt9WyWJdXmtPtaMzQGbOqE/dIjOK9j
+xvrghVU4kX6fJFwPi+azMrluHV+WGSVxPCuLW8o2aipjOd1/bUQCL5OwRuaEWuLCiV01J8H/JjWV
+hL4gGVqEM2KEPIDwY2yqX36jE7uN9O+mIPnS4Tdj0JQ5ZD1qh34wv+4QvhgNeyP120nuS1ykO9X0
+A806uPC5QK1+cgRMUz8zJ0afDNwE/DvpBQvE5CIi9A==
+`
 )
 
 var (
@@ -124,7 +177,15 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("cannot decode trusted assertion: %v", err))
 	}
-	trustedAssertions = []asserts.Assertion{canonicalAccount, canonicalRootAccountKey}
+	syncloudAccount, err := asserts.Decode([]byte(encodedSyncloudAccount))
+	if err != nil {
+		panic(fmt.Sprintf("cannot decode trusted assertion: %v", err))
+	}
+	syncloudRootAccountKey, err := asserts.Decode([]byte(encodedSyncloudRootAccountKey))
+	if err != nil {
+		panic(fmt.Sprintf("cannot decode trusted assertion: %v", err))
+	}
+	trustedAssertions = []asserts.Assertion{canonicalAccount, canonicalRootAccountKey, syncloudAccount, syncloudRootAccountKey}
 }
 
 // Trusted returns a copy of the current set of trusted assertions as used by Open.

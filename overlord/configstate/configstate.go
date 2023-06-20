@@ -47,7 +47,7 @@ func init() {
 }
 
 func ConfigureHookTimeout() time.Duration {
-	timeout := 5 * time.Minute
+	timeout := 30 * time.Minute
 	if s := os.Getenv("SNAPD_CONFIGURE_HOOK_TIMEOUT"); s != "" {
 		if to, err := time.ParseDuration(s); err == nil {
 			timeout = to

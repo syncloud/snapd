@@ -88,7 +88,6 @@ func getSnapInfo(c *Command, r *http.Request, user *auth.UserState) Response {
 	}
 
 	sd := servicestate.NewStatusDecorator(progress.Null)
-
 	result := webify(mapLocal(about, sd), url.String())
 
 	return SyncResponse(result)

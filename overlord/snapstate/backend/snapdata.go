@@ -74,14 +74,14 @@ func (b Backend) RemoveSnapDataDir(info *snap.Info, hasOtherInstances bool) erro
 		// data directories of snaps with instance key are never used by
 		// other instances
 		if err := os.Remove(snap.BaseDataDir(info.InstanceName())); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to remove snap %q base directory: %v", info.InstanceName(), err)
+			return fmt.Errorf("(instance) failed to remove snap %q base directory: %v", info.InstanceName(), err)
 		}
 	}
 	if !hasOtherInstances {
 		// remove the snap base directory only if there are no other
 		// snap instances using it
 		if err := os.Remove(snap.BaseDataDir(info.SnapName())); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to remove snap %q base directory: %v", info.SnapName(), err)
+			return fmt.Errorf("(snap name) failed to remove snap %q base directory: %v", info.SnapName(), err)
 		}
 	}
 
