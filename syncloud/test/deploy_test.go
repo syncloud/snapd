@@ -19,7 +19,7 @@ func TestApps(t *testing.T) {
 	arch, err := snapArch()
 	assert.NoError(t, err)
 
-	output, err := SshWaitFor("device", "snap list", func(output string) bool { return strings.Contains(output, "no snaps installed") })
+	output, err := SshWaitFor("device", "snap list", func(output string) bool { return strings.Contains(output, "No snaps") })
 	assert.NoError(t, err, output)
 
 	output, err = Ssh("device", "snap install unknown --channel=master")
