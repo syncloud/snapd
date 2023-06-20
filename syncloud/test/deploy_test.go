@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -18,7 +19,10 @@ func TestApps(t *testing.T) {
 	arch, err := snapArch()
 	assert.NoError(t, err)
 
-	output, err := Ssh("device", "snap install unknown --channel=master")
+	output, err := SshWaitFor("device", "snap list", func(output string) bool { return strings.Contains(output, "no snaps installed") })
+	assert.NoError(t, err, output)
+
+	output, err = Ssh("device", "snap install unknown --channel=master")
 	assert.Error(t, err)
 	assert.Contains(t, output, "not found")
 
@@ -82,6 +86,25 @@ func snapArch() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func SshWaitFor(host string, command string, predicate func(string) bool) (string, error) {
+	retries := 10
+	retry := 0
+	for retry < retries {
+		output, err := Ssh(host, command)
+		if err != nil {
+			fmt.Printf("error: %v", err)
+			time.Sleep(1 * time.Second)
+			retry++
+			fmt.Printf("retry %d/%d", retry, retries)
+			continue
+		}
+		if predicate(output) {
+			return output, nil
+		}
+	}
+	return "", fmt.Errorf("%d: %d (exhausted)", retry, retries)
 }
 
 func Ssh(host string, command string) (string, error) {
