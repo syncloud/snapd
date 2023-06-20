@@ -233,20 +233,10 @@ func (s *SyncloudStore) Find(c echo.Context) error {
 	if channel == "" {
 		channel = "stable"
 	}
-	results := &model.SearchResults{}
-	apps, ok := s.index.Read(channel)
-	if !ok {
+	results := s.index.Find(channel, query)
+	if results == nil {
 		c.Error(fmt.Errorf("no channel: %s in the index", channel))
 		return nil
-	}
-	for name, app := range apps {
-		if query == "*" || query == "" || query == name {
-			result := &model.SearchResult{}
-			result.Snap = *app
-			result.Name = app.Name
-			result.SnapID = app.SnapID
-			results.Results = append(results.Results, result)
-		}
 	}
 	jsonBytes, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/syncloud/store/log"
+	"github.com/syncloud/store/model"
 	"testing"
 )
 
@@ -57,4 +58,42 @@ func TestIndexCache_Refresh_EmptySize(t *testing.T) {
 
 	cache.Read("test")
 
+}
+
+func TestIndexCache_Find(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"channel1": {
+				"app1": &model.Snap{
+					Name: "app1",
+				},
+			},
+			"channel2": {
+				"app2": &model.Snap{
+					Name: "app2",
+				},
+			},
+		},
+		logger: log.Default(),
+	}
+	results := cache.Find("channel1", "")
+	assert.Equal(t, 1, len(results.Results))
+	assert.Equal(t, "app1", results.Results[0].Name)
+}
+
+func TestIndexCache_Find_PopulateChannel(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"channel": {
+				"": &model.Snap{
+					Name: "app",
+				},
+			},
+		},
+		logger: log.Default(),
+	}
+	results := cache.Find("channel", "")
+	assert.Equal(t, "channel", results.Results[0].Revision.Channel)
 }
