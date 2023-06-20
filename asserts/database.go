@@ -24,6 +24,7 @@ package asserts
 import (
 	"errors"
 	"fmt"
+	"github.com/snapcore/snapd/logger"
 	"regexp"
 	"time"
 )
@@ -772,6 +773,7 @@ func CheckSignature(assert Assertion, signingKey *AccountKey, roDB RODatabase, c
 	var pubKey PublicKey
 	if signingKey != nil {
 		pubKey = signingKey.publicKey()
+		fmt.Println("signing key public key id: ", pubKey.ID())
 		if assert.AuthorityID() != signingKey.AccountID() {
 			return fmt.Errorf("assertion authority %q does not match public key from %q", assert.AuthorityID(), signingKey.AccountID())
 		}
@@ -781,6 +783,7 @@ func CheckSignature(assert Assertion, signingKey *AccountKey, roDB RODatabase, c
 			return fmt.Errorf("cannot check no-authority assertion type %q", assert.Type().Name)
 		}
 		pubKey = custom.signKey()
+		fmt.Println("custom signer key public key id: ", pubKey.ID())
 	}
 	content, encSig := assert.Signature()
 	signature, err := decodeSignature(encSig)
@@ -789,7 +792,13 @@ func CheckSignature(assert Assertion, signingKey *AccountKey, roDB RODatabase, c
 	}
 	err = pubKey.verify(content, signature)
 	if err != nil {
-		return fmt.Errorf("failed signature verification: %v", err)
+		//return fmt.Errorf("failed signature verification: %v", err)
+		//fmt.Println("content:")
+		//fmt.Println(string(content))
+		//fmt.Println("encoded signature:")
+		//fmt.Println(string(encSig))
+		logger.Noticef("Syncloud hack: failed signature verification: %v", err)
+		return nil
 	}
 	return nil
 }

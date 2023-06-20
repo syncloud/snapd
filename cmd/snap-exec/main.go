@@ -110,6 +110,10 @@ func findCommand(app *snap.AppInfo, command string) (string, error) {
 		if app.Completer != "" {
 			cmd = defaultShell
 		}
+	case "pre-start":
+		cmd = app.PreStartCommand
+	case "post-start":
+		cmd = app.PostStartCommand
 	case "stop":
 		cmd = app.StopCommand
 	case "reload":

@@ -1,0 +1,13 @@
+[Unit]
+Description=Snappy daemon
+Requires=snapd.socket
+
+[Service]
+ExecStart=/usr/lib/snapd/snapd
+Environment=LD_LIBRARY_PATH=/usr/lib/snapd/lib
+Environment=SNAPPY_FORCE_API_URL=https://api.store.syncloud.org
+Restart=always
+Type=notify
+
+[Install]
+WantedBy=multi-user.target

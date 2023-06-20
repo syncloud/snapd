@@ -1295,6 +1295,7 @@ const mockInfoJSON = `{
 }`
 
 func (s *storeTestSuite) TestInfo(c *C) {
+
 	restore := release.MockOnClassic(false)
 	defer restore()
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

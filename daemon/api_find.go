@@ -26,7 +26,6 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
-
 	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/client/clientutil"
 	"github.com/snapcore/snapd/httputil"

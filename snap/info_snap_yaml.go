@@ -77,16 +77,19 @@ type appYaml struct {
 	Daemon      string      `yaml:"daemon"`
 	DaemonScope DaemonScope `yaml:"daemon-scope"`
 
-	StopCommand     string          `yaml:"stop-command,omitempty"`
-	ReloadCommand   string          `yaml:"reload-command,omitempty"`
-	PostStopCommand string          `yaml:"post-stop-command,omitempty"`
-	StopTimeout     timeout.Timeout `yaml:"stop-timeout,omitempty"`
-	StartTimeout    timeout.Timeout `yaml:"start-timeout,omitempty"`
-	WatchdogTimeout timeout.Timeout `yaml:"watchdog-timeout,omitempty"`
-	Completer       string          `yaml:"completer,omitempty"`
-	RefreshMode     string          `yaml:"refresh-mode,omitempty"`
-	StopMode        StopModeType    `yaml:"stop-mode,omitempty"`
-	InstallMode     string          `yaml:"install-mode,omitempty"`
+	User             string          `yaml:"user,omitempty"`
+	PreStartCommand  string          `yaml:"pre-start-command,omitempty"`
+	PostStartCommand string          `yaml:"post-start-command,omitempty"`
+	StopCommand      string          `yaml:"stop-command,omitempty"`
+	ReloadCommand    string          `yaml:"reload-command,omitempty"`
+	PostStopCommand  string          `yaml:"post-stop-command,omitempty"`
+	StopTimeout      timeout.Timeout `yaml:"stop-timeout,omitempty"`
+	StartTimeout     timeout.Timeout `yaml:"start-timeout,omitempty"`
+	WatchdogTimeout  timeout.Timeout `yaml:"watchdog-timeout,omitempty"`
+	Completer        string          `yaml:"completer,omitempty"`
+	RefreshMode      string          `yaml:"refresh-mode,omitempty"`
+	StopMode         StopModeType    `yaml:"stop-mode,omitempty"`
+	InstallMode      string          `yaml:"install-mode,omitempty"`
 
 	RestartCond  RestartCondition `yaml:"restart-condition,omitempty"`
 	RestartDelay timeout.Timeout  `yaml:"restart-delay,omitempty"`
@@ -353,31 +356,34 @@ func setAppsFromSnapYaml(y snapYaml, snap *Info, strk *scopedTracker) error {
 	for appName, yApp := range y.Apps {
 		// Collect all apps
 		app := &AppInfo{
-			Snap:            snap,
-			Name:            appName,
-			LegacyAliases:   yApp.Aliases,
-			Command:         yApp.Command,
-			CommandChain:    yApp.CommandChain,
-			StartTimeout:    yApp.StartTimeout,
-			Daemon:          yApp.Daemon,
-			DaemonScope:     yApp.DaemonScope,
-			StopTimeout:     yApp.StopTimeout,
-			StopCommand:     yApp.StopCommand,
-			ReloadCommand:   yApp.ReloadCommand,
-			PostStopCommand: yApp.PostStopCommand,
-			RestartCond:     yApp.RestartCond,
-			RestartDelay:    yApp.RestartDelay,
-			BusName:         yApp.BusName,
-			CommonID:        yApp.CommonID,
-			Environment:     yApp.Environment,
-			Completer:       yApp.Completer,
-			StopMode:        yApp.StopMode,
-			RefreshMode:     yApp.RefreshMode,
-			InstallMode:     yApp.InstallMode,
-			Before:          yApp.Before,
-			After:           yApp.After,
-			Autostart:       yApp.Autostart,
-			WatchdogTimeout: yApp.WatchdogTimeout,
+			Snap:             snap,
+			Name:             appName,
+			LegacyAliases:    yApp.Aliases,
+			Command:          yApp.Command,
+			CommandChain:     yApp.CommandChain,
+			StartTimeout:     yApp.StartTimeout,
+			Daemon:           yApp.Daemon,
+			DaemonScope:      yApp.DaemonScope,
+			User:             yApp.User,
+			PreStartCommand:  yApp.PreStartCommand,
+			PostStartCommand: yApp.PostStartCommand,
+			StopTimeout:      yApp.StopTimeout,
+			StopCommand:      yApp.StopCommand,
+			ReloadCommand:    yApp.ReloadCommand,
+			PostStopCommand:  yApp.PostStopCommand,
+			RestartCond:      yApp.RestartCond,
+			RestartDelay:     yApp.RestartDelay,
+			BusName:          yApp.BusName,
+			CommonID:         yApp.CommonID,
+			Environment:      yApp.Environment,
+			Completer:        yApp.Completer,
+			StopMode:         yApp.StopMode,
+			RefreshMode:      yApp.RefreshMode,
+			InstallMode:      yApp.InstallMode,
+			Before:           yApp.Before,
+			After:            yApp.After,
+			Autostart:        yApp.Autostart,
+			WatchdogTimeout:  yApp.WatchdogTimeout,
 		}
 		if len(y.Plugs) > 0 || len(yApp.PlugNames) > 0 {
 			app.Plugs = make(map[string]*PlugInfo)

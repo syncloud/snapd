@@ -295,6 +295,7 @@ func (s *Store) Download(ctx context.Context, name string, targetPath string, do
 }
 
 func downloadReqOpts(storeURL *url.URL, cdnHeader string, opts *DownloadOptions) *requestOptions {
+	fmt.Printf("download url: %s\n", storeURL)
 	reqOptions := requestOptions{
 		Method:       "GET",
 		URL:          storeURL,

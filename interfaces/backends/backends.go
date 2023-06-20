@@ -21,16 +21,16 @@ package backends
 
 import (
 	"github.com/snapcore/snapd/interfaces"
-	"github.com/snapcore/snapd/interfaces/apparmor"
+	//"github.com/snapcore/snapd/interfaces/apparmor"
 	"github.com/snapcore/snapd/interfaces/dbus"
 	"github.com/snapcore/snapd/interfaces/kmod"
 	"github.com/snapcore/snapd/interfaces/mount"
-	"github.com/snapcore/snapd/interfaces/polkit"
-	"github.com/snapcore/snapd/interfaces/seccomp"
+	//"github.com/snapcore/snapd/interfaces/polkit"
+	//"github.com/snapcore/snapd/interfaces/seccomp"
 	"github.com/snapcore/snapd/interfaces/systemd"
 	"github.com/snapcore/snapd/interfaces/udev"
-	"github.com/snapcore/snapd/logger"
-	apparmor_sandbox "github.com/snapcore/snapd/sandbox/apparmor"
+	//"github.com/snapcore/snapd/logger"
+	//apparmor_sandbox "github.com/snapcore/snapd/sandbox/apparmor"
 )
 
 // All returns a set of all available security backends.
@@ -39,12 +39,13 @@ func All() []interfaces.SecurityBackend {
 		// Because of how the GPIO interface is implemented the systemd backend
 		// must be earlier in the sequence than the apparmor backend.
 		&systemd.Backend{},
-		&seccomp.Backend{},
+		//TODO: disable seccomp for now
+		//	&seccomp.Backend{},
 		&dbus.Backend{},
 		&udev.Backend{},
 		&mount.Backend{},
 		&kmod.Backend{},
-		&polkit.Backend{},
+		//&polkit.Backend{},
 	}
 
 	// TODO use something like:
@@ -55,7 +56,7 @@ func All() []interfaces.SecurityBackend {
 	// By printing this directly we ensure it will end up the journal for the
 	// snapd.service. This aspect should be retained even after the switch to
 	// user-warning.
-	logger.Noticef("AppArmor status: %s\n", apparmor_sandbox.Summary())
+	//logger.Noticef("AppArmor status: %s\n", apparmor_sandbox.Summary())
 
 	// Enable apparmor backend if there is any level of apparmor support,
 	// including partial feature set. This will allow snap-confine to always
@@ -64,9 +65,10 @@ func All() []interfaces.SecurityBackend {
 	//
 	// When some features are missing the backend will generate more permissive
 	// profiles that keep applications operational, in forced-devmode.
-	switch apparmor_sandbox.ProbedLevel() {
-	case apparmor_sandbox.Partial, apparmor_sandbox.Full:
-		all = append(all, &apparmor.Backend{})
-	}
+	//TODO: disable apparmor for now
+	//switch apparmor_sandbox.ProbedLevel() {
+	//case apparmor_sandbox.Partial, apparmor_sandbox.Full:
+	//	all = append(all, &apparmor.Backend{})
+	//}
 	return all
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/overlord/auth"
 	"github.com/snapcore/snapd/snap"
+"github.com/snapcore/snapd/arch"
 )
 
 type RefreshOptions struct {
@@ -535,6 +536,7 @@ func (s *Store) snapAction(ctx context.Context, currentSnaps []*CurrentSnap, act
 		Data:        jsonData,
 		APILevel:    apiV2Endps,
 	}
+ reqOptions.addHeader("Syncloud-Architecture", arch.DpkgArchitecture())
 
 	if opts.IsAutoRefresh {
 		logger.Debugf("Auto-refresh; adding header Snap-Refresh-Reason: scheduled")
