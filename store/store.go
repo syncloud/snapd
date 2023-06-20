@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snapcore/snapd/dirs"
 	"io"
 	"net/http"
 	"net/url"
@@ -41,7 +42,6 @@ import (
 
 	"github.com/snapcore/snapd/arch"
 	"github.com/snapcore/snapd/client"
-	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/httputil"
 	"github.com/snapcore/snapd/jsonutil"
 	"github.com/snapcore/snapd/logger"
@@ -230,10 +230,10 @@ func endpointURL(base *url.URL, path string, query url.Values) *url.URL {
 
 // apiURL returns the system default base API URL.
 func apiURL() *url.URL {
-	s := "https://api.snapcraft.io/"
-	if snapdenv.UseStagingStore() {
-		s = "https://api.staging.snapcraft.io/"
-	}
+	s := "http://unix/"
+	//if snapdenv.UseStagingStore() {
+	//	s = "https://api.staging.snapcraft.io/"
+	//}
 	u, _ := url.Parse(s)
 	return u
 }
@@ -413,8 +413,9 @@ func New(cfg *Config, dauthCtx DeviceAndAuthContext) *Store {
 		userAgent:          userAgent,
 	}
 	store.client = store.newHTTPClient(&httputil.ClientOptions{
-		Timeout:    requestTimeout,
-		MayLogBody: true,
+		Timeout:          requestTimeout,
+		MayLogBody:       true,
+		UseEmbeddedStore: true,
 	})
 	auth := cfg.Authorizer
 	if auth == nil {
@@ -1311,8 +1312,9 @@ func (s *Store) WriteCatalogs(ctx context.Context, names io.Writer, adder SnapAd
 
 	// do not log body for catalog updates (its huge)
 	client := s.newHTTPClient(&httputil.ClientOptions{
-		MayLogBody: false,
-		Timeout:    10 * time.Second,
+		MayLogBody:       false,
+		Timeout:          10 * time.Second,
+		UseEmbeddedStore: true,
 	})
 	doRequest := func() (*http.Response, error) {
 		return s.doRequest(ctx, client, reqOptions, nil)

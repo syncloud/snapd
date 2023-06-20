@@ -1000,20 +1000,23 @@ type AppInfo struct {
 	CommandChain  []string
 	CommonID      string
 
-	Daemon          string
-	DaemonScope     DaemonScope
-	StopTimeout     timeout.Timeout
-	StartTimeout    timeout.Timeout
-	WatchdogTimeout timeout.Timeout
-	StopCommand     string
-	ReloadCommand   string
-	PostStopCommand string
-	RestartCond     RestartCondition
-	RestartDelay    timeout.Timeout
-	Completer       string
-	RefreshMode     string
-	StopMode        StopModeType
-	InstallMode     string
+	Daemon           string
+	DaemonScope      DaemonScope
+	User             string
+	PreStartCommand  string
+	PostStartCommand string
+	StopTimeout      timeout.Timeout
+	StartTimeout     timeout.Timeout
+	WatchdogTimeout  timeout.Timeout
+	StopCommand      string
+	ReloadCommand    string
+	PostStopCommand  string
+	RestartCond      RestartCondition
+	RestartDelay     timeout.Timeout
+	Completer        string
+	RefreshMode      string
+	StopMode         StopModeType
+	InstallMode      string
 
 	// TODO: this should go away once we have more plumbing and can change
 	// things vs refactor
@@ -1163,6 +1166,16 @@ func (app *AppInfo) LauncherCommand() string {
 // the app stop command binary.
 func (app *AppInfo) LauncherStopCommand() string {
 	return app.launcherCommand("--command=stop")
+}
+
+// LauncherPreStartCommand returns the launcher command line to use when invoking the app stop command binary.
+func (app *AppInfo) LauncherPreStartCommand() string {
+	return app.launcherCommand("--command=pre-start")
+}
+
+// LauncherPostStartCommand returns the launcher command line to use when invoking the app stop command binary.
+func (app *AppInfo) LauncherPostStartCommand() string {
+	return app.launcherCommand("--command=post-start")
 }
 
 // LauncherReloadCommand returns the launcher command line to use when invoking

@@ -1022,10 +1022,7 @@ func (x *cmdRun) runCmdUnderStrace(origCmd []string, envForExec envForExecFunc) 
 }
 
 func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook string, args []string) error {
-	snapConfine, err := snapdHelperPath("snap-confine")
-	if err != nil {
-		return err
-	}
+	snapConfine := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
 	if !osutil.FileExists(snapConfine) {
 		if hook != "" {
 			logger.Noticef("WARNING: skipping running hook %q of snap %q: missing snap-confine", hook, info.InstanceName())
@@ -1056,47 +1053,6 @@ func (x *cmdRun) runSnapConfine(info *snap.Info, securityTag, snapApp, hook stri
 	}
 
 	cmd := []string{snapConfine}
-	if info.NeedsClassic() {
-		cmd = append(cmd, "--classic")
-	}
-
-	// this should never happen since we validate snaps with "base: none" and do not allow hooks/apps
-	if info.Base == "none" {
-		return fmt.Errorf(`cannot run hooks / applications with base "none"`)
-	}
-	if info.Base != "" {
-		cmd = append(cmd, "--base", info.Base)
-	} else {
-		if info.Type() == snap.TypeKernel {
-			// kernels have no explicit base, we use the boot base
-			modelAssertion, err := x.client.CurrentModelAssertion()
-			if err != nil {
-				if hook != "" {
-					return fmt.Errorf("cannot get model assertion to setup kernel hook run: %v", err)
-				} else {
-					return fmt.Errorf("cannot get model assertion to setup kernel app run: %v", err)
-				}
-			}
-			modelBase := modelAssertion.Base()
-			if modelBase != "" {
-				cmd = append(cmd, "--base", modelBase)
-			}
-		}
-	}
-	cmd = append(cmd, securityTag)
-
-	// when under confinement, snap-exec is run from 'core' snap rootfs
-	snapExecPath := filepath.Join(dirs.CoreLibExecDir, "snap-exec")
-
-	if info.NeedsClassic() {
-		// running with classic confinement, carefully pick snap-exec we
-		// are going to use
-		snapExecPath, err = snapdHelperPath("snap-exec")
-		if err != nil {
-			return err
-		}
-	}
-	cmd = append(cmd, snapExecPath)
 
 	if x.Shell {
 		cmd = append(cmd, "--command=shell")

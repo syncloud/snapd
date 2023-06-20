@@ -21,7 +21,6 @@ package assertstate
 
 import (
 	"fmt"
-
 	"gopkg.in/tomb.v2"
 
 	"github.com/snapcore/snapd/asserts"

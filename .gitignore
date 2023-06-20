@@ -92,3 +92,5 @@ cmd/test-driver
 
 # Image files
 *.img
+build/
+*.tar.gz
