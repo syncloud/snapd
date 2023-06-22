@@ -17,6 +17,7 @@ type Index interface {
 	Refresh() error
 	Read(channel string) (map[string]*model.Snap, bool)
 	Find(channel string, query string) *model.SearchResults
+	Info(name string) *model.SearchResults
 }
 
 type IndexCache struct {

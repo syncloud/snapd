@@ -112,6 +112,7 @@ func (s *SyncloudStore) Start() error {
 	s.echo.GET("/v2/assertions/snap-declaration/:series/:snap-id", s.SnapDeclaration)
 	s.echo.GET("/v2/assertions/account-key/:key", s.AccountKey)
 	s.echo.GET("/v2/snaps/find", s.Find)
+	s.echo.GET("/v2/snaps/info/:name", s.Info)
 
 	if s.IsUnixSocket() {
 		_ = os.RemoveAll(s.address)
@@ -223,6 +224,11 @@ func (s *SyncloudStore) notFound(info *model.StoreResult, snapName string) *mode
 		Message: "name-not-found",
 	}
 	return info
+}
+
+func (s *SyncloudStore) Info(c echo.Context) error {
+	name := c.Param("name")
+	results := s.index.Info(name)
 }
 
 func (s *SyncloudStore) Find(c echo.Context) error {
