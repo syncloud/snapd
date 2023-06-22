@@ -80,8 +80,9 @@ func TestApps(t *testing.T) {
 	assert.NoError(t, err, output)
 
 	client := &http.Client{}
-	_, err = client.Post("http://device:8080/v2/snaps/info/testapp1?architecture=arm64&fields=architectures", "", nil)
+	resp, err := client.Get("http://device:8080/v2/snaps/info/testapp1?architecture=arm64&fields=architectures")
 	assert.NoError(t, err, output)
+	assert.Equal(t, 200, resp.StatusCode)
 }
 
 func snapArch() (string, error) {
