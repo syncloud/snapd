@@ -17,7 +17,7 @@ type Index interface {
 	Refresh() error
 	Read(channel string) (map[string]*model.Snap, bool)
 	Find(channel string, query string) *model.SearchResults
-	Info(name string) *model.SearchResults
+	Info(name string) *model.StoreInfo
 }
 
 type IndexCache struct {
@@ -28,6 +28,8 @@ type IndexCache struct {
 	logger         *zap.Logger
 }
 
+var channels = []string{"master", "rc", "stable"}
+
 func New(client rest.Client, baseUrl string, logger *zap.Logger) *IndexCache {
 	return &IndexCache{
 		client:         client,
@@ -35,6 +37,33 @@ func New(client rest.Client, baseUrl string, logger *zap.Logger) *IndexCache {
 		logger:         logger,
 		indexByChannel: make(map[string]map[string]*model.Snap),
 	}
+}
+
+func (i *IndexCache) Info(name string) *model.StoreInfo {
+	found := false
+	info := &model.StoreInfo{}
+	for _, channel := range channels {
+		apps, ok := i.Read(channel)
+		if !ok {
+			i.logger.Warn("no channel in the index", zap.String("channel", channel))
+			continue
+		}
+		app, ok := apps[name]
+		if !ok {
+			i.logger.Info("app is not found", zap.String("channel", channel), zap.String("name", name))
+			continue
+		}
+		info.Name = app.Name
+		info.SnapID = app.SnapID
+		channelInfo := &model.StoreInfoChannelSnap{Channel: model.StoreInfoChannel{Name: channel}}
+		info.ChannelMap = append(info.ChannelMap, channelInfo)
+		info.Snap = *app
+		found = true
+	}
+	if found {
+		return info
+	}
+	return nil
 }
 
 func (i *IndexCache) Find(channel string, query string) *model.SearchResults {
@@ -60,7 +89,6 @@ func (i *IndexCache) Find(channel string, query string) *model.SearchResults {
 
 func (i *IndexCache) Refresh() error {
 	fmt.Println("refresh cache")
-	channels := []string{"master", "rc", "stable"}
 	for _, channel := range channels {
 		index, err := i.downloadIndex(channel)
 		if err != nil {

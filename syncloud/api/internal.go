@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/syncloud/store/storage"
 	"net"
 	"os"
 )
 
+type IndexRefresher interface {
+	Refresh() error
+}
+
 type Api struct {
-	index storage.Index
+	index IndexRefresher
 	echo  *echo.Echo
 }
 
-func NewApi(index storage.Index) *Api {
+func NewApi(index IndexRefresher) *Api {
 	return &Api{
 		echo:  echo.New(),
 		index: index,

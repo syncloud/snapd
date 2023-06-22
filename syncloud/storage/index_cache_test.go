@@ -97,3 +97,36 @@ func TestIndexCache_Find_PopulateChannel(t *testing.T) {
 	results := cache.Find("channel", "")
 	assert.Equal(t, "channel", results.Results[0].Revision.Channel)
 }
+
+func TestIndexCache_Info(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"stable": {
+				"app": &model.Snap{
+					Name: "app",
+				},
+			},
+		},
+		logger: log.Default(),
+	}
+	result := cache.Info("app")
+	assert.Equal(t, "app", result.Name)
+	assert.Equal(t, "stable", result.ChannelMap[0].Channel.Name)
+}
+
+func TestIndexCache_Info_NotFound(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"stable": {
+				"app": &model.Snap{
+					Name: "app",
+				},
+			},
+		},
+		logger: log.Default(),
+	}
+	result := cache.Info("app1")
+	assert.Nil(t, result)
+}

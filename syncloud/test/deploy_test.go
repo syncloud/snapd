@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/uthng/gossh"
+	"net/http"
 	"os/exec"
 	"strings"
 	"testing"
@@ -78,6 +79,9 @@ func TestApps(t *testing.T) {
 	output, err = Ssh("device", "snap remove testapp2")
 	assert.NoError(t, err, output)
 
+	client := &http.Client{}
+	_, err = client.Post("http://apps.syncloud.it:8080//v2/snaps/info/testapp1?architecture=arm64&fields=architectures", "", nil)
+	assert.NoError(t, err, output)
 }
 
 func snapArch() (string, error) {
