@@ -2,9 +2,9 @@ package test
 
 import (
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/uthng/gossh"
-	"net/http"
 	"os/exec"
 	"strings"
 	"testing"
@@ -79,10 +79,11 @@ func TestApps(t *testing.T) {
 	output, err = Ssh("device", "snap remove testapp2")
 	assert.NoError(t, err, output)
 
-	client := &http.Client{}
-	resp, err := client.Get("http://device:8080/v2/snaps/info/testapp1?architecture=arm64&fields=architectures")
+	client := resty.New()
+	resp, err := client.R().Get("http://device:8080/v2/snaps/info/testapp1?architecture=arm64&fields=architectures")
 	assert.NoError(t, err, output)
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, 200, resp.StatusCode())
+	assert.Contains(t, resp.Body(), `"name": "testapp1"`)
 }
 
 func snapArch() (string, error) {
