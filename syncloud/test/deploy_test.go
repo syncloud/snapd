@@ -83,7 +83,7 @@ func TestApps(t *testing.T) {
 	resp, err := client.R().Get("http://device:8080/v2/snaps/info/testapp1?architecture=arm64&fields=architectures")
 	assert.NoError(t, err, output)
 	assert.Equal(t, 200, resp.StatusCode())
-	assert.Contains(t, resp.Body(), `"name": "testapp1"`)
+	assert.Contains(t, string(resp.Body()), `"name": "testapp1"`)
 }
 
 func snapArch() (string, error) {
