@@ -37,11 +37,13 @@ $SCP ${DIR}/test root@$DEVICE:/
 
 code=0
 set +e
-$SSH root@$DEVICE /test -test.run Inside
-code=$(($code+$?))
 
 ${DIR}/test -test.run Outside
 code=$(($code+$?))
+
+$SSH root@$DEVICE /test -test.run Inside
+code=$(($code+$?))
+
 set -e
 
 $SSH root@$DEVICE snap changes > $LOG_DIR/snap.changes.log || true
