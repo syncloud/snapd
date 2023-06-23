@@ -33,9 +33,13 @@ $SCP ${DIR}/../../snapd-*.tar.gz root@$DEVICE:/snapd.tar.gz
 $SSH root@$DEVICE /install-store.sh
 $SSH root@$DEVICE /install-snapd.sh
 $SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
+$SCP ${DIR}/test root@$DEVICE:/
 
 set +e
-${DIR}/test
+$SSH root@$DEVICE:/test -run Inside
+code=$?
+
+${DIR}/test -run Outside
 code=$?
 set -e
 

@@ -23,7 +23,7 @@ func main() {
 			logger := log.Default()
 			client := rest.New()
 			index := storage.New(client, api.Url, logger)
-			public := api.NewSyncloudStore(args[0], index, client)
+			public := api.NewSyncloudStore(args[0], index, client, logger)
 			internal := api.NewApi(index)
 			err := index.Start()
 			if err != nil {

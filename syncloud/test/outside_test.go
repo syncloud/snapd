@@ -12,11 +12,10 @@ import (
 )
 
 const (
-	Cli      = "/usr/lib/syncloud-store/bin/cli"
 	StoreDir = "/var/www/html"
 )
 
-func TestApps(t *testing.T) {
+func TestOutside(t *testing.T) {
 	arch, err := snapArch()
 	assert.NoError(t, err)
 
@@ -80,10 +79,12 @@ func TestApps(t *testing.T) {
 	assert.NoError(t, err, output)
 
 	client := resty.New()
+
 	resp, err := client.R().Get("http://device:8080/v2/snaps/info/testapp1?architecture=arm64&fields=architectures")
 	assert.NoError(t, err, output)
 	assert.Equal(t, 200, resp.StatusCode())
 	assert.Contains(t, string(resp.Body()), `"snap-id":"testapp1.3"`)
+
 }
 
 func snapArch() (string, error) {

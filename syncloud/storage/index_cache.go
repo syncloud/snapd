@@ -88,7 +88,7 @@ func (i *IndexCache) Find(channel string, query string) *model.SearchResults {
 }
 
 func (i *IndexCache) Refresh() error {
-	fmt.Println("refresh cache")
+	i.logger.Info("refresh cache")
 	for _, channel := range channels {
 		index, err := i.downloadIndex(channel)
 		if err != nil {
@@ -100,7 +100,7 @@ func (i *IndexCache) Refresh() error {
 		}
 		i.WriteIndex(channel, index)
 	}
-	fmt.Println("refresh cache finished")
+	i.logger.Info("refresh cache finished")
 	return nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/syncloud/store/model"
 	"github.com/syncloud/store/rest"
 	"github.com/syncloud/store/storage"
+	"go.uber.org/zap"
 	"io"
 	"net"
 	"net/http"
@@ -85,9 +86,15 @@ type SyncloudStore struct {
 	privateKey crypto.OpenpgpPrivateKey
 	address    string
 	index      storage.Index
+	logger     *zap.Logger
 }
 
-func NewSyncloudStore(address string, index storage.Index, client rest.Client) *SyncloudStore {
+func NewSyncloudStore(
+	address string,
+	index storage.Index,
+	client rest.Client,
+	logger *zap.Logger,
+) *SyncloudStore {
 	privateKey, _ := crypto.ReadPrivateKey(syncloudPrivKey)
 	return &SyncloudStore{
 		client:     client,
@@ -95,6 +102,7 @@ func NewSyncloudStore(address string, index storage.Index, client rest.Client) *
 		privateKey: privateKey,
 		index:      index,
 		address:    address,
+		logger:     logger,
 	}
 }
 
@@ -118,7 +126,7 @@ func (s *SyncloudStore) Start() error {
 		_ = os.RemoveAll(s.address)
 		l, err := net.Listen("unix", s.address)
 		if err != nil {
-			fmt.Printf("error: %v\n", err)
+			s.logger.Error("error", zap.Error(err))
 			return err
 		}
 		s.echo.Listener = l
@@ -165,7 +173,6 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 		return nil
 	}
 
-	fmt.Printf("request: %s\n", string(req))
 	var request model.SnapActionRequest
 	err = json.Unmarshal(req, &request)
 	if err != nil {
@@ -191,7 +198,7 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 				c.Error(fmt.Errorf("no channel: %s in the index", channel))
 				return nil
 			}
-			fmt.Printf("lookup app: %s\n", snapName)
+			s.logger.Info("lookup", zap.String("app", snapName))
 			app, ok := apps[snapName]
 			var info *model.StoreResult
 			if !ok {
@@ -206,12 +213,6 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 			result.Results = append(result.Results, info)
 		}
 	}
-	jsonBytes, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		c.Error(err)
-		return nil
-	}
-	fmt.Printf("response: %s\n", string(jsonBytes))
 	return c.JSON(http.StatusOK, result)
 }
 
@@ -239,7 +240,7 @@ func (s *SyncloudStore) Info(c echo.Context) error {
 func (s *SyncloudStore) Find(c echo.Context) error {
 	channel := c.QueryParam("channel")
 	query := c.QueryParam("q")
-	fmt.Printf("channel: %s, query: %s\n", channel, query)
+	s.logger.Info("find", zap.String("channel", channel), zap.String("query", query))
 
 	if channel == "" {
 		channel = "stable"
@@ -249,12 +250,6 @@ func (s *SyncloudStore) Find(c echo.Context) error {
 		c.Error(fmt.Errorf("no channel: %s in the index", channel))
 		return nil
 	}
-	jsonBytes, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		c.Error(err)
-		return nil
-	}
-	fmt.Printf("response: %s\n", string(jsonBytes))
 	c.Response().Header().Set(echo.HeaderContentType, "application/json")
 	return c.JSON(http.StatusOK, results)
 }
@@ -296,7 +291,7 @@ func (s *SyncloudStore) SnapDeclaration(c echo.Context) error {
 
 func (s *SyncloudStore) SnapRevision(c echo.Context) error {
 	key := c.Param("key")
-	fmt.Printf("key: %s\n", key)
+	s.logger.Info("snap revision", zap.String("key", key))
 
 	resp, _, err := s.client.Get(fmt.Sprintf("%s/revisions/%s.revision", Url, key))
 	if err != nil {
@@ -326,7 +321,7 @@ func (s *SyncloudStore) SnapRevision(c echo.Context) error {
 
 func (s *SyncloudStore) sign(assertType string, primaryKey string, headers string, body string) (string, error) {
 	publicKeyId := s.privateKey.PublicKey().ID()
-	fmt.Printf("public key id: %s", publicKeyId)
+	s.logger.Info("public key", zap.String("id", publicKeyId))
 
 	content := "type: " + assertType + "\n" +
 		"authority-id: syncloud\n" +
@@ -348,15 +343,11 @@ func (s *SyncloudStore) sign(assertType string, primaryKey string, headers strin
 		"\n\n"
 
 	signature, err := s.privateKey.SignContent([]byte(content))
-
 	if err != nil {
 		return "", err
 	}
 
 	assertionText := content + string(signature[:]) + "\n"
-
-	fmt.Printf("assertion response: \n%s", assertionText)
-
 	return assertionText, nil
 }
 
