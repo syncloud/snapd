@@ -61,6 +61,7 @@ func (i *IndexCache) Info(name string, arch string) *model.StoreInfo {
 				Name:         channel,
 				Architecture: arch,
 				Risk:         channel,
+				Track:        "latest",
 			},
 		}
 		info.ChannelMap = append(info.ChannelMap, channelInfo)
