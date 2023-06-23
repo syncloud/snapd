@@ -229,7 +229,8 @@ func (s *SyncloudStore) notFound(info *model.StoreResult, snapName string) *mode
 
 func (s *SyncloudStore) Info(c echo.Context) error {
 	name := c.Param("name")
-	result := s.index.Info(name)
+	arch := c.QueryParam("architecture")
+	result := s.index.Info(name, arch)
 	if result == nil {
 		return c.String(http.StatusNotFound, "not found")
 	}

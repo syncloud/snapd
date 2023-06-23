@@ -110,7 +110,7 @@ func TestIndexCache_Info(t *testing.T) {
 		},
 		logger: log.Default(),
 	}
-	result := cache.Info("app")
+	result := cache.Info("app", "amd64")
 	assert.Equal(t, "app", result.Name)
 	assert.Equal(t, "stable", result.ChannelMap[0].Channel.Name)
 }
@@ -127,6 +127,6 @@ func TestIndexCache_Info_NotFound(t *testing.T) {
 		},
 		logger: log.Default(),
 	}
-	result := cache.Info("app1")
+	result := cache.Info("app1", "amd64")
 	assert.Nil(t, result)
 }

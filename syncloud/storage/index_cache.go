@@ -17,7 +17,7 @@ type Index interface {
 	Refresh() error
 	Read(channel string) (map[string]*model.Snap, bool)
 	Find(channel string, query string) *model.SearchResults
-	Info(name string) *model.StoreInfo
+	Info(name, arch string) *model.StoreInfo
 }
 
 type IndexCache struct {
@@ -39,7 +39,7 @@ func New(client rest.Client, baseUrl string, logger *zap.Logger) *IndexCache {
 	}
 }
 
-func (i *IndexCache) Info(name string) *model.StoreInfo {
+func (i *IndexCache) Info(name string, arch string) *model.StoreInfo {
 	found := false
 	info := &model.StoreInfo{}
 	for _, channel := range channels {
@@ -56,8 +56,12 @@ func (i *IndexCache) Info(name string) *model.StoreInfo {
 		info.Name = app.Name
 		info.SnapID = app.SnapID
 		channelInfo := &model.StoreInfoChannelSnap{
-			Snap:    *app,
-			Channel: model.StoreInfoChannel{Name: channel},
+			Snap: *app,
+			Channel: model.StoreInfoChannel{
+				Name:         channel,
+				Architecture: arch,
+				Risk:         channel,
+			},
 		}
 		info.ChannelMap = append(info.ChannelMap, channelInfo)
 		info.Snap = *app
