@@ -22,7 +22,7 @@ func TestInside(t *testing.T) {
 		},
 	}
 
-	client.SetTransport(&transport).SetScheme("http").SetBaseURL(SnapdSocket)
+	client.SetTransport(&transport).SetScheme("http").SetBaseURL("unix")
 
 	resp, err := client.R().Get("v2/find?name=testapp1")
 	assert.NoError(t, err, resp.String())
