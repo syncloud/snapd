@@ -55,7 +55,10 @@ func (i *IndexCache) Info(name string) *model.StoreInfo {
 		}
 		info.Name = app.Name
 		info.SnapID = app.SnapID
-		channelInfo := &model.StoreInfoChannelSnap{Channel: model.StoreInfoChannel{Name: channel}}
+		channelInfo := &model.StoreInfoChannelSnap{
+			Snap:    *app,
+			Channel: model.StoreInfoChannel{Name: channel},
+		}
 		info.ChannelMap = append(info.ChannelMap, channelInfo)
 		info.Snap = *app
 		found = true
