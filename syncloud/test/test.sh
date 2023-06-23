@@ -36,10 +36,10 @@ $SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@$DEVICE:/testapp2_1.snap
 $SCP ${DIR}/test root@$DEVICE:/
 
 set +e
-$SSH root@$DEVICE:/test -run Inside
+$SSH root@$DEVICE /test -test.run Inside
 code=$?
 
-${DIR}/test -run Outside
+${DIR}/test -test.run Outside
 code=$?
 set -e
 
