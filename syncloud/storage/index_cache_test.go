@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/syncloud/store/log"
@@ -29,6 +30,40 @@ func (c *ClientStub) Get(url string) (string, int, error) {
 		return "", 404, nil
 	}
 	return response.body, response.code, response.err
+}
+
+func TestIndexCache_Refresh(t *testing.T) {
+
+	client := &ClientStub{
+		response: map[string]Response{
+			"http://localhost/releases/master/index-v2": OK(`
+{
+  "apps" : [
+    {
+      "name" : "App",
+      "id" : "app",
+      "required" : false,
+      "ui": true
+    }
+  ]
+}
+`),
+			"http://localhost/releases/master/app.amd64.version": OK("123"),
+			"http://localhost/apps/app_123_amd64.snap.size":      OK("1"),
+			"http://localhost/apps/app_123_amd64.snap.sha384":    OK(base64.RawURLEncoding.EncodeToString([]byte("sha384"))),
+		},
+	}
+
+	cache := New(client, "http://localhost", log.Default())
+	err := cache.Refresh()
+	assert.NoError(t, err)
+
+	index, ok := cache.Read("master")
+	assert.True(t, ok)
+	assert.Equal(t, 1, len(index))
+	assert.Equal(t, "app", index["app"].Name)
+	assert.Equal(t, "http://localhost/apps/app_123_amd64.snap", index["app"].Download.URL)
+
 }
 
 func TestIndexCache_Refresh_EmptySize(t *testing.T) {
