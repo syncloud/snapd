@@ -28,7 +28,13 @@ type IndexCache struct {
 	logger         *zap.Logger
 }
 
-var channels = []string{"master", "rc", "stable"}
+const (
+	Master = "master"
+	Rc     = "rc"
+	Stable = "stable"
+)
+
+var channels = []string{Stable, Master, Rc}
 
 func New(client rest.Client, baseUrl string, logger *zap.Logger) *IndexCache {
 	return &IndexCache{

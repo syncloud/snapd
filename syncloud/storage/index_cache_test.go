@@ -130,3 +130,25 @@ func TestIndexCache_Info_NotFound(t *testing.T) {
 	result := cache.Info("app1", "amd64")
 	assert.Nil(t, result)
 }
+
+func TestIndexCache_Info_FirstOneIsASpecial(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"master": {
+				"app": &model.Snap{
+					Name: "app",
+				},
+			},
+			"stable": {
+				"app": &model.Snap{
+					Name: "app",
+				},
+			},
+		},
+		logger: log.Default(),
+	}
+	result := cache.Info("app", "amd64")
+	assert.Equal(t, "app", result.Name)
+	assert.Equal(t, "stable", result.ChannelMap[0].Channel.Name)
+}
