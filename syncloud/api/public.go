@@ -251,6 +251,11 @@ func (s *SyncloudStore) Find(c echo.Context) error {
 		c.Error(fmt.Errorf("no channel: %s in the index", channel))
 		return nil
 	}
+	jsonString, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return err
+	}
+	s.logger.Info(string(jsonString))
 	c.Response().Header().Set(echo.HeaderContentType, "application/json")
 	return c.JSON(http.StatusOK, results)
 }

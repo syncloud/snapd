@@ -139,7 +139,20 @@ func TestIndexCache_Info(t *testing.T) {
 		indexByChannel: map[string]map[string]*model.Snap{
 			"stable": {
 				"app": &model.Snap{
-					Name: "app",
+					SnapID:        "snap-id",
+					Name:          "app",
+					Summary:       "summary",
+					Version:       "1",
+					Type:          "app",
+					Architectures: nil,
+					Revision:      2,
+					Download: model.StoreSnapDownload{
+						Sha3_384: "sha",
+						Size:     1,
+						URL:      "http://donload",
+						Deltas:   nil,
+					},
+					Media: nil,
 				},
 			},
 		},
@@ -148,6 +161,10 @@ func TestIndexCache_Info(t *testing.T) {
 	result := cache.Info("app", "amd64")
 	assert.Equal(t, "app", result.Name)
 	assert.Equal(t, "stable", result.ChannelMap[0].Channel.Name)
+	//jsonString, err := json.MarshalIndent(result, "", "  ")
+	//assert.NoError(t, err)
+	//assert.Equal(t, "", string(jsonString))
+
 }
 
 func TestIndexCache_Info_NotFound(t *testing.T) {
