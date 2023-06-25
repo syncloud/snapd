@@ -26,7 +26,7 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
-
+"fmt"
 	"github.com/snapcore/snapd/client"
 	"github.com/snapcore/snapd/client/clientutil"
 	"github.com/snapcore/snapd/httputil"
@@ -181,6 +181,8 @@ func findOne(c *Command, r *http.Request, user *auth.UserState, name string) Res
 	default:
 		return InternalError("%v", err)
 	}
+        jsonString, _ := json.MarshalIndent(result, "", "  ")
+        fmt.Printf("snapd findOne, snap info: %s\n", jsonString) 
 
 	results := make([]*json.RawMessage, 1)
 	data, err := json.Marshal(webify(mapRemote(snapInfo), r.URL.String()))
