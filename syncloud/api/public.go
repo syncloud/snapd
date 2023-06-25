@@ -234,6 +234,11 @@ func (s *SyncloudStore) Info(c echo.Context) error {
 	if result == nil {
 		return c.String(http.StatusNotFound, "not found")
 	}
+	jsonString, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return err
+	}
+	s.logger.Info(string(jsonString))
 	c.Response().Header().Set(echo.HeaderContentType, "application/json")
 	return c.JSON(http.StatusOK, result)
 }
