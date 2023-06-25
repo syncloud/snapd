@@ -29,4 +29,10 @@ func TestInside(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode())
 	assert.Contains(t, string(resp.Body()), `"id":"testapp1.3"`)
 	assert.Contains(t, string(resp.Body()), `"channel":"stable"`)
+
+	resp, err = client.R().Get("v2/snaps/testapp1")
+	assert.NoError(t, err, resp.String())
+	assert.Equal(t, 200, resp.StatusCode())
+	assert.Contains(t, string(resp.Body()), `"id":"testapp1.3"`)
+	assert.Contains(t, string(resp.Body()), `"channel":"stable"`)
 }
