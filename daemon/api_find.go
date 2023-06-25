@@ -181,7 +181,7 @@ func findOne(c *Command, r *http.Request, user *auth.UserState, name string) Res
 	default:
 		return InternalError("%v", err)
 	}
-        jsonString, _ := json.MarshalIndent(result, "", "  ")
+        jsonString, _ := json.MarshalIndent(snapInfo, "", "  ")
         fmt.Printf("snapd findOne, snap info: %s\n", jsonString) 
 
 	results := make([]*json.RawMessage, 1)
