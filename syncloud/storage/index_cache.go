@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/syncloud/store/machine"
 	"github.com/syncloud/store/model"
 	"github.com/syncloud/store/rest"
 	"go.uber.org/zap"
@@ -25,6 +24,7 @@ type IndexCache struct {
 	lock           sync.RWMutex
 	client         rest.Client
 	baseUrl        string
+	arch           string
 	logger         *zap.Logger
 }
 
@@ -36,12 +36,13 @@ const (
 
 var channels = []string{Stable, Master, Rc}
 
-func New(client rest.Client, baseUrl string, logger *zap.Logger) *IndexCache {
+func New(client rest.Client, baseUrl string, arch string, logger *zap.Logger) *IndexCache {
 	return &IndexCache{
 		client:         client,
 		baseUrl:        baseUrl,
 		logger:         logger,
 		indexByChannel: make(map[string]map[string]*model.Snap),
+		arch:           arch,
 	}
 }
 
@@ -149,7 +150,7 @@ func (i *IndexCache) downloadIndex(channel string) (map[string]*model.Snap, erro
 }
 
 func (i *IndexCache) downloadAppInfo(app *model.App, channel string) (*model.Snap, error) {
-	versionUrl := fmt.Sprintf("%s/releases/%s/%s.%s.version", i.baseUrl, channel, app.Name, machine.DPKGArch)
+	versionUrl := fmt.Sprintf("%s/releases/%s/%s.%s.version", i.baseUrl, channel, app.Name, i.arch)
 	i.logger.Info("version", zap.String("url", versionUrl))
 	resp, code, err := i.client.Get(versionUrl)
 	if err != nil {
@@ -159,9 +160,9 @@ func (i *IndexCache) downloadAppInfo(app *model.App, channel string) (*model.Sna
 		return nil, nil
 	}
 	version := resp
-	downloadUrl := fmt.Sprintf("%s/apps/%s_%s_%s.snap", i.baseUrl, app.Name, version, machine.DPKGArch)
+	downloadUrl := fmt.Sprintf("%s/apps/%s_%s_%s.snap", i.baseUrl, app.Name, version, i.arch)
 
-	resp, _, err = i.client.Get(fmt.Sprintf("%s/apps/%s_%s_%s.snap.size", i.baseUrl, app.Name, version, machine.DPKGArch))
+	resp, _, err = i.client.Get(fmt.Sprintf("%s/apps/%s_%s_%s.snap.size", i.baseUrl, app.Name, version, i.arch))
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +174,7 @@ func (i *IndexCache) downloadAppInfo(app *model.App, channel string) (*model.Sna
 		return nil, nil
 	}
 
-	resp, _, err = i.client.Get(fmt.Sprintf("%s/apps/%s_%s_%s.snap.sha384", i.baseUrl, app.Name, version, machine.DPKGArch))
+	resp, _, err = i.client.Get(fmt.Sprintf("%s/apps/%s_%s_%s.snap.sha384", i.baseUrl, app.Name, version, i.arch))
 	if err != nil {
 		return nil, err
 	}

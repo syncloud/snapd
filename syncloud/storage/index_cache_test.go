@@ -54,7 +54,7 @@ func TestIndexCache_Refresh(t *testing.T) {
 		},
 	}
 
-	cache := New(client, "http://localhost", log.Default())
+	cache := New(client, "http://localhost", "amd64", log.Default())
 	err := cache.Refresh()
 	assert.NoError(t, err)
 
@@ -87,7 +87,7 @@ func TestIndexCache_Refresh_EmptySize(t *testing.T) {
 		},
 	}
 
-	cache := New(client, "http://localhost", log.Default())
+	cache := New(client, "http://localhost", "amd64", log.Default())
 	err := cache.Refresh()
 	assert.NoError(t, err)
 
@@ -110,6 +110,7 @@ func TestIndexCache_Find(t *testing.T) {
 				},
 			},
 		},
+		arch:   "amd64",
 		logger: log.Default(),
 	}
 	results := cache.Find("channel1", "")
@@ -127,6 +128,7 @@ func TestIndexCache_Find_PopulateChannel(t *testing.T) {
 				},
 			},
 		},
+		arch:   "amd64",
 		logger: log.Default(),
 	}
 	results := cache.Find("channel", "")
@@ -156,6 +158,7 @@ func TestIndexCache_Info(t *testing.T) {
 				},
 			},
 		},
+		arch:   "amd64",
 		logger: log.Default(),
 	}
 	result := cache.Info("app", "amd64")
@@ -177,6 +180,7 @@ func TestIndexCache_Info_NotFound(t *testing.T) {
 				},
 			},
 		},
+		arch:   "amd64",
 		logger: log.Default(),
 	}
 	result := cache.Info("app1", "amd64")
@@ -198,6 +202,7 @@ func TestIndexCache_Info_FirstOneIsASpecial(t *testing.T) {
 				},
 			},
 		},
+		arch:   "amd64",
 		logger: log.Default(),
 	}
 	result := cache.Info("app", "amd64")
