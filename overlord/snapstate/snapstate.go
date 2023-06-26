@@ -3726,7 +3726,7 @@ func Get(st *state.State, name string, snapst *SnapState) error {
 	if err != nil {
 		return fmt.Errorf("cannot unmarshal snap state: %v", err)
 	}
-	fmt.Printf("get, channel: %s", snapst.Channel)
+	//fmt.Printf("get, channel: %s", snapst.Channel)
 	return nil
 }
 
