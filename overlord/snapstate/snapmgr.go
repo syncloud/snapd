@@ -398,6 +398,7 @@ func readInfo(name string, si *snap.SideInfo, flags int) (*snap.Info, error) {
 			logger.Debugf("cannot read auxiliary store info for snap %q: %v", name, err)
 		}
 	}
+	fmt.Printf("read snap info, channel: %s\n", info.Channel)
 	return info, err
 }
 
