@@ -91,6 +91,8 @@ func TaskSnapSetup(t *state.Task) (*SnapSetup, error) {
 		return nil, err
 	}
 	if err == nil {
+		fmt.Printf("TaskSnapSetup, snap-setup: %s\n", snapsup.Channel)
+		fmt.Printf("TaskSnapSetup, snap-setup: sideinfo %s\n", snapsup.SideInfo.Channel)
 		return &snapsup, nil
 	}
 
@@ -107,6 +109,8 @@ func TaskSnapSetup(t *state.Task) (*SnapSetup, error) {
 	if err := ts.Get("snap-setup", &snapsup); err != nil {
 		return nil, err
 	}
+	fmt.Printf("TaskSnapSetup, snap-setup id: %s\n", snapsup.Channel)
+	fmt.Printf("TaskSnapSetup, snap-setup id: sideinfo %s\n", snapsup.SideInfo.Channel)
 	return &snapsup, nil
 }
 
@@ -141,6 +145,8 @@ func snapSetupAndState(t *state.Task) (*SnapSetup, *SnapState, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	fmt.Printf("snapSetupAndState: %s\n", snapsup.Channel)
+	fmt.Printf("snapSetupAndState, sideinfo: %s\n", snapsup.SideInfo.Channel)
 	var snapst SnapState
 	err = Get(t.State(), snapsup.InstanceName(), &snapst)
 	if err != nil && !errors.Is(err, state.ErrNoState) {

@@ -453,6 +453,9 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 		fromStore = true
 		prepare = st.NewTask("download-snap", fmt.Sprintf(i18n.G("Download snap %q%s from channel %q"), snapsup.InstanceName(), revisionStr, snapsup.Channel))
 	}
+	fmt.Printf("doInstall, snap-setup: %s\n", snapsup.Channel)
+	fmt.Printf("doInstall, snap-setup: sideinfo %s\n", snapsup.SideInfo.Channel)
+
 	prepare.Set("snap-setup", snapsup)
 	//prepare.WaitFor(prereq)
 
