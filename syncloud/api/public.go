@@ -188,43 +188,15 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 			}
 			result.Results = append(result.Results, info)
 		} else {
-			channel := parseChannel(action.Channel)
-			snapName := action.Name
-			if action.SnapID != "" {
-				snapName, _ = deconstructSnapId(action.SnapID)
+			info, err := s.index.InfoById(action.Channel, action.SnapID, action.Action, action.Name)
+			if err != nil {
+				return err
 			}
-			apps, ok := s.index.Read(channel)
-			if !ok {
-				c.Error(fmt.Errorf("no channel: %s in the index", channel))
-				return nil
-			}
-			s.logger.Info("lookup", zap.String("app", snapName))
-			app, ok := apps[snapName]
-			var info *model.StoreResult
-			if !ok {
-				info = s.notFound(info, snapName)
-			} else {
-				info = &model.StoreResult{}
-				info.Result = action.Action
-				info.Snap = app
-			}
-			info.SnapID = action.SnapID
 			info.InstanceKey = action.InstanceKey
 			result.Results = append(result.Results, info)
 		}
 	}
 	return c.JSON(http.StatusOK, result)
-}
-
-func (s *SyncloudStore) notFound(info *model.StoreResult, snapName string) *model.StoreResult {
-	info = &model.StoreResult{}
-	info.Result = "error"
-	info.Name = snapName
-	info.Error = &model.StoreError{
-		Code:    "name-not-found",
-		Message: "name-not-found",
-	}
-	return info
 }
 
 func (s *SyncloudStore) Info(c echo.Context) error {
@@ -285,7 +257,7 @@ func (s *SyncloudStore) AccountKey(c echo.Context) error {
 func (s *SyncloudStore) SnapDeclaration(c echo.Context) error {
 	series := c.Param("series")
 	snapId := c.Param("snap-id")
-	name, _ := deconstructSnapId(snapId)
+	name := model.SnapId(snapId).Name()
 	headers := "" +
 		"series: " + series + "\n" +
 		"snap-id: " + snapId + "\n" +
@@ -360,30 +332,4 @@ func (s *SyncloudStore) sign(assertType string, primaryKey string, headers strin
 
 	assertionText := content + string(signature[:]) + "\n"
 	return assertionText, nil
-}
-
-func parseChannel(channel string) string {
-	switch channel {
-	case "master":
-		return "master"
-	case "master/stable":
-		return "master"
-	case "rc/stable":
-		return "rc"
-	case "rc":
-		return "rc"
-	case "latest/stable":
-		return "stable"
-	default:
-		return "stable"
-	}
-}
-
-func deconstructSnapId(snapId string) (string, string) {
-	if strings.Contains(snapId, ".") {
-		parts := strings.Split(snapId, ".")
-		return parts[0], parts[1]
-	} else {
-		return snapId, ""
-	}
 }

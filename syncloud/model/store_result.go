@@ -9,4 +9,5 @@ type StoreResult struct {
 	Error               *StoreError `json:"error,omitempty"`
 	Key                 string      `json:"key"`
 	AssertionStreamURLs []string    `json:"assertion-stream-urls"`
+	EffectiveChannel    string      `json:"effective-channel,omitempty"`
 }

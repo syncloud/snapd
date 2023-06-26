@@ -164,10 +164,6 @@ func TestIndexCache_Info(t *testing.T) {
 	result := cache.Info("app", "amd64")
 	assert.Equal(t, "app", result.Name)
 	assert.Equal(t, "stable", result.ChannelMap[0].Channel.Name)
-	//jsonString, err := json.MarshalIndent(result, "", "  ")
-	//assert.NoError(t, err)
-	//assert.Equal(t, "", string(jsonString))
-
 }
 
 func TestIndexCache_Info_NotFound(t *testing.T) {
@@ -208,4 +204,37 @@ func TestIndexCache_Info_FirstOneIsASpecial(t *testing.T) {
 	result := cache.Info("app", "amd64")
 	assert.Equal(t, "app", result.Name)
 	assert.Equal(t, "stable", result.ChannelMap[0].Channel.Name)
+}
+
+func TestIndexCache_InfoById(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"stable": {
+				"app": &model.Snap{
+					Name: "app",
+				},
+			},
+		},
+		arch:   "amd64",
+		logger: log.Default(),
+	}
+	result, err := cache.InfoById("stable", "app.1", "action", "actionName")
+	assert.NoError(t, err)
+	assert.Equal(t, "action", result.Result)
+	assert.Equal(t, "stable", result.EffectiveChannel)
+}
+
+func TestIndexCache_InfoById_NotFound(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"stable": {},
+		},
+		arch:   "amd64",
+		logger: log.Default(),
+	}
+	result, err := cache.InfoById("stable", "app.1", "action", "actionName")
+	assert.NoError(t, err)
+	assert.Equal(t, "error", result.Result)
 }

@@ -17,6 +17,7 @@ type Index interface {
 	Read(channel string) (map[string]*model.Snap, bool)
 	Find(channel string, query string) *model.SearchResults
 	Info(name, arch string) *model.StoreInfo
+	InfoById(channel, snapId, action, actionName string) (*model.StoreResult, error)
 }
 
 type IndexCache struct {
@@ -43,6 +44,54 @@ func New(client rest.Client, baseUrl string, arch string, logger *zap.Logger) *I
 		logger:         logger,
 		indexByChannel: make(map[string]map[string]*model.Snap),
 		arch:           arch,
+	}
+}
+
+func (i *IndexCache) InfoById(channelFull, snapId, action, actionName string) (*model.StoreResult, error) {
+	channel := parseChannel(channelFull)
+	snapName := actionName
+	if snapId != "" {
+		snapName = model.SnapId(snapId).Name()
+	}
+	apps, ok := i.Read(channel)
+	if !ok {
+		return nil, fmt.Errorf("no channel: %s in the index", channel)
+	}
+	i.logger.Info("lookup", zap.String("app", snapName))
+	app, ok := apps[snapName]
+	if !ok {
+		return &model.StoreResult{
+			Result: "error",
+			Name:   snapName,
+			Error: &model.StoreError{
+				Code:    "name-not-found",
+				Message: "name-not-found",
+			},
+			SnapID: snapId,
+		}, nil
+	}
+	return &model.StoreResult{
+		Result:           action,
+		Snap:             app,
+		SnapID:           snapId,
+		EffectiveChannel: channel,
+	}, nil
+}
+
+func parseChannel(channel string) string {
+	switch channel {
+	case "master":
+		return "master"
+	case "master/stable":
+		return "master"
+	case "rc/stable":
+		return "rc"
+	case "rc":
+		return "rc"
+	case "latest/stable":
+		return "stable"
+	default:
+		return "stable"
 	}
 }
 
