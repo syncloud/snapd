@@ -88,11 +88,7 @@ func getSnapInfo(c *Command, r *http.Request, user *auth.UserState) Response {
 	}
 
 	sd := servicestate.NewStatusDecorator(progress.Null)
-	jsonString, err := json.MarshalIndent(about.info, "", "  ")
-	if err != nil {
-		fmt.Printf("error: %v", err)
-	}
-	fmt.Printf("local snap info: %s\n", jsonString)
+	fmt.Printf("local snap info channel: %s\n", about.snap.Channel)
 	result := webify(mapLocal(about, sd), url.String())
 
 	return SyncResponse(result)
