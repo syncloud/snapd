@@ -7,6 +7,7 @@ import (
 	"github.com/syncloud/store/model"
 	"github.com/syncloud/store/rest"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"strconv"
 	"sync"
 	"time"
@@ -14,7 +15,6 @@ import (
 
 type Index interface {
 	Refresh() error
-	Read(channel string) (map[string]*model.Snap, bool)
 	Find(channel string, query string) *model.SearchResults
 	Info(name, arch string) *model.StoreInfo
 	InfoById(channel, snapId, action string) (*model.StoreResult, error)
@@ -145,6 +145,9 @@ func (i *IndexCache) Find(channel string, query string) *model.SearchResults {
 			results.Results = append(results.Results, result)
 		}
 	}
+	slices.SortFunc(results.Results, func(a, b *model.SearchResult) bool {
+		return a.Name < b.Name
+	})
 	return results
 }
 

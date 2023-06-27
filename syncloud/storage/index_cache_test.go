@@ -117,6 +117,31 @@ func TestIndexCache_Find(t *testing.T) {
 	assert.Equal(t, 1, len(results.Results))
 	assert.Equal(t, "app1", results.Results[0].Name)
 }
+func TestIndexCache_Find_Sorted(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"channel": {
+				"app1": &model.Snap{
+					Name: "app1",
+				},
+				"app3": &model.Snap{
+					Name: "app3",
+				},
+				"app2": &model.Snap{
+					Name: "app2",
+				},
+			},
+		},
+		arch:   "amd64",
+		logger: log.Default(),
+	}
+	results := cache.Find("channel", "*")
+	assert.Equal(t, 3, len(results.Results))
+	assert.Equal(t, "app1", results.Results[0].Name)
+	assert.Equal(t, "app2", results.Results[1].Name)
+	assert.Equal(t, "app3", results.Results[2].Name)
+}
 
 func TestIndexCache_Find_PopulateChannel(t *testing.T) {
 
