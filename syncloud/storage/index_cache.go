@@ -17,7 +17,7 @@ type Index interface {
 	Refresh() error
 	Find(channel string, query string) *model.SearchResults
 	Info(name, arch string) *model.StoreInfo
-	InfoById(channel, snapId, action string) (*model.StoreResult, error)
+	InfoById(channel, snapId, action, actionName string) (*model.StoreResult, error)
 }
 
 type IndexCache struct {
@@ -47,9 +47,12 @@ func New(client rest.Client, baseUrl string, arch string, logger *zap.Logger) *I
 	}
 }
 
-func (i *IndexCache) InfoById(channelFull, snapId, action string) (*model.StoreResult, error) {
+func (i *IndexCache) InfoById(channelFull, snapId, action, actionName string) (*model.StoreResult, error) {
 	channel := parseChannel(channelFull)
-	snapName := model.SnapId(snapId).Name()
+	snapName := actionName
+	if snapId != "" {
+		snapName = model.SnapId(snapId).Name()
+	}
 	apps, ok := i.Read(channel)
 	if !ok {
 		return nil, fmt.Errorf("no channel: %s in the index", channel)
