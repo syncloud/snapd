@@ -188,7 +188,7 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 			}
 			result.Results = append(result.Results, info)
 		} else {
-			info, err := s.index.InfoById(action.Channel, action.SnapID, action.Action, action.Name)
+			info, err := s.index.InfoById(action.Channel, action.SnapID, action.Action)
 			if err != nil {
 				return err
 			}
@@ -206,11 +206,6 @@ func (s *SyncloudStore) Info(c echo.Context) error {
 	if result == nil {
 		return c.String(http.StatusNotFound, "not found")
 	}
-	jsonString, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		return err
-	}
-	s.logger.Info(string(jsonString))
 	c.Response().Header().Set(echo.HeaderContentType, "application/json")
 	return c.JSON(http.StatusOK, result)
 }
@@ -228,11 +223,6 @@ func (s *SyncloudStore) Find(c echo.Context) error {
 		c.Error(fmt.Errorf("no channel: %s in the index", channel))
 		return nil
 	}
-	jsonString, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		return err
-	}
-	s.logger.Info(string(jsonString))
 	c.Response().Header().Set(echo.HeaderContentType, "application/json")
 	return c.JSON(http.StatusOK, results)
 }

@@ -453,8 +453,6 @@ func doInstall(st *state.State, snapst *SnapState, snapsup *SnapSetup, flags int
 		fromStore = true
 		prepare = st.NewTask("download-snap", fmt.Sprintf(i18n.G("Download snap %q%s from channel %q"), snapsup.InstanceName(), revisionStr, snapsup.Channel))
 	}
-	fmt.Printf("doInstall, snap-setup: %s\n", snapsup.Channel)
-	fmt.Printf("doInstall, snap-setup: sideinfo %s\n", snapsup.SideInfo.Channel)
 
 	prepare.Set("snap-setup", snapsup)
 	//prepare.WaitFor(prereq)
@@ -3729,7 +3727,6 @@ func Get(st *state.State, name string, snapst *SnapState) error {
 	if err != nil {
 		return fmt.Errorf("cannot unmarshal snap state: %v", err)
 	}
-	//fmt.Printf("get, channel: %s", snapst.Channel)
 	return nil
 }
 

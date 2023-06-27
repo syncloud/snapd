@@ -14,3 +14,7 @@ func TestSnapId_Version(t *testing.T) {
 	assert.Equal(t, "1", SnapId("app.1").Version())
 	assert.Equal(t, "", SnapId("app").Version())
 }
+
+func TestSnapId_Id(t *testing.T) {
+	assert.Equal(t, "app.1", SnapId("app.1").Id())
+}

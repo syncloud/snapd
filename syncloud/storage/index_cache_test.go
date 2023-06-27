@@ -219,7 +219,7 @@ func TestIndexCache_InfoById(t *testing.T) {
 		arch:   "amd64",
 		logger: log.Default(),
 	}
-	result, err := cache.InfoById("stable", "app.1", "action", "actionName")
+	result, err := cache.InfoById("stable", "app.1", "action")
 	assert.NoError(t, err)
 	assert.Equal(t, "action", result.Result)
 	assert.Equal(t, "stable", result.EffectiveChannel)
@@ -234,7 +234,21 @@ func TestIndexCache_InfoById_NotFound(t *testing.T) {
 		arch:   "amd64",
 		logger: log.Default(),
 	}
-	result, err := cache.InfoById("stable", "app.1", "action", "actionName")
+	result, err := cache.InfoById("stable", "app.1", "action")
+	assert.NoError(t, err)
+	assert.Equal(t, "error", result.Result)
+}
+
+func TestIndexCache_InfoById_SnapIdEmpty(t *testing.T) {
+
+	cache := &IndexCache{
+		indexByChannel: map[string]map[string]*model.Snap{
+			"stable": {},
+		},
+		arch:   "amd64",
+		logger: log.Default(),
+	}
+	result, err := cache.InfoById("stable", "", "action")
 	assert.NoError(t, err)
 	assert.Equal(t, "error", result.Result)
 }
