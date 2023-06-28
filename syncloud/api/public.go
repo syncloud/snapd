@@ -188,12 +188,7 @@ func (s *SyncloudStore) Refresh(c echo.Context) error {
 			}
 			result.Results = append(result.Results, info)
 		} else {
-			snapName := action.Name
-			snapId := model.SnapId(action.SnapID)
-			if !snapId.IsEmpty() {
-				snapName = snapId.Name()
-			}
-			info, err := s.index.InfoById(action.Channel, snapName, snapId, action.Action)
+			info, err := s.index.InfoById(action.Channel, action.SnapID, action.Action, action.Name)
 			if err != nil {
 				return err
 			}
