@@ -24,43 +24,11 @@ local build(arch) = {
             ]
         },
         {
-            name: "build store",
-            image: "golang:1.18",
-            commands: [
-                "VERSION=$(cat version)",
-                "./syncloud/build.sh $VERSION " + arch
-            ]
-        },
-        {
             name: "build snapd",
             image: "golang:1.18",
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "
-            ]
-        },
-        {
-            name: "build apps",
-            image: "debian:buster-slim",
-            commands: [
-              "apt update && apt install -y squashfs-tools",
-              "./syncloud/test/build-apps.sh",
-              "./syncloud/test/publish.sh " + arch
-            ]
-        },
-        {
-            name: "build test",
-            image: "golang:1.18",
-            commands: [
-              "./syncloud/test/build-tests.sh",
-            ]
-        },
-        {
-            name: "test",
-            image: "debian:buster-slim",
-            commands: [
-              "VERSION=$(cat version)",
-              "./syncloud/test/test.sh device"
             ]
         },
         {
@@ -77,7 +45,7 @@ local build(arch) = {
             commands: [
               "VERSION=$(cat version)",
               "pip install s3cmd",
-              "./syncloud/bin/upload.sh $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
+              "./.syncloud/upload.sh $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
             ],
             when: {
                 branch: ["stable", "master"]
@@ -98,9 +66,6 @@ local build(arch) = {
                 command_timeout: "2m",
                 target: "/home/artifact/repo/" + name + "/${DRONE_BUILD_NUMBER}-" + arch,
                 source: [
-                    "syncloud/test/*.snap",
-                    "syncloud/out/*",
-                    "artifacts/*",
                     "snapd-*.tar.gz"
                 ]
             },
@@ -115,7 +80,7 @@ local build(arch) = {
                 api_key: {
                     from_secret: "github_token"
                 },
-                files: "syncloud/out/*",
+                files: "snapd-*.tar.gz",
                 overwrite: true,
                 file_exists: "overwrite"
             },
@@ -123,39 +88,6 @@ local build(arch) = {
                 event: [ "tag" ]
             }
         },
-    ],
-    services:
-    [
-        {
-            name: "device",
-            image: "syncloud/bootstrap-buster-" + arch,
-            privileged: true,
-            volumes: [
-                {
-                    name: "dbus",
-                    path: "/var/run/dbus"
-                },
-                {
-                    name: "dev",
-                    path: "/dev"
-                }
-            ]
-        },
-        {
-            name: "apps.syncloud.org",
-            image: "syncloud/bootstrap-buster-" + arch,
-            privileged: true,
-            volumes: [
-                {
-                    name: "dbus",
-                    path: "/var/run/dbus"
-                },
-                {
-                    name: "dev",
-                    path: "/dev"
-                }
-            ]
-        }
     ],
     volumes: [
         {
@@ -199,7 +131,7 @@ local promote() = {
         },
         commands: [
           "pip install s3cmd",
-          "./syncloud/bin/promote.sh"
+          "./.syncloud/promote.sh"
         ]
     }
     ],
