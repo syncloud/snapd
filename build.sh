@@ -52,8 +52,8 @@ mkdir ${BUILD_DIR}/lib
 cp -rH /usr/lib/*/libseccomp.so* ${BUILD_DIR}/lib
 
 mkdir ${BUILD_DIR}/conf
-cp ${DIR}/syncloud/config/snapd.service ${BUILD_DIR}/conf/
-cp ${DIR}/syncloud/config/snapd.socket ${BUILD_DIR}/conf/
+cp ${DIR}/.syncloud/config/snapd.service ${BUILD_DIR}/conf/
+cp ${DIR}/.syncloud/config/snapd.socket ${BUILD_DIR}/conf/
 
 mkdir ${BUILD_DIR}/scripts
 cp ${DIR}/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
