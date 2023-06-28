@@ -26,7 +26,7 @@ import (
 	"github.com/snapcore/snapd/snapdtool"
 )
 
-var updateFontconfigCaches = func() error {}
+var updateFontconfigCaches = func() error { return nil }
 var commandFromSystemSnap = snapdtool.CommandFromSystemSnap
 
 // updateFontconfigCaches always update the fontconfig caches
