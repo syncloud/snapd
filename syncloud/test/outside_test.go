@@ -35,9 +35,15 @@ func TestOutside(t *testing.T) {
 
 	output, err = Ssh("device", "snap install testapp2 --channel=master")
 	assert.NoError(t, err, output)
+	assert.NotContain(t, "error", output)
+
+	output, err = Ssh("device", "snap run testapp2.test")
+	assert.NoError(t, err, output)
+	assert.NotContain(t, "error", output)
 
 	output, err = Ssh("device", "snap list")
 	assert.NoError(t, err, output)
+	assert.NotContain(t, "master", output)
 
 	output, err = Ssh("apps.syncloud.org", fmt.Sprintf("/syncloud-release publish -f /testapp1_2_%s.snap -b stable -t %s", arch, StoreDir))
 	assert.NoError(t, err, output)
