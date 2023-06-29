@@ -351,7 +351,7 @@ func showDone(cli *client.Client, names []string, op string, opts *client.SnapOp
 		return err
 	}
 
-	needsPathWarning := !isSnapInPath() && !maybeWithSudoSecurePath()
+	needsPathWarning := false //!isSnapInPath() && !maybeWithSudoSecurePath()
 	for _, snap := range snaps {
 		channelStr := ""
 		if snap.Channel != "" {
