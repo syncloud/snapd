@@ -21,7 +21,7 @@ if [ "${BRANCH}" == "master" ] || [ "${BRANCH}" == "stable" ] ; then
     BRANCH=rc
   fi
 
-  printf ${VERSION} > snapd.version
-  s3cmd put snapd.version s3://apps.syncloud.org/releases/${BRANCH}/snapd.version
+  printf ${VERSION} > snapd2.version
+  s3cmd put snapd2.version s3://apps.syncloud.org/releases/${BRANCH}/snapd2.version
 
 fi

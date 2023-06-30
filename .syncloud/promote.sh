@@ -9,4 +9,4 @@ if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
   exit 1
 fi
 
-s3cmd cp s3://apps.syncloud.org/releases/rc/snapd.version s3://apps.syncloud.org/releases/stable/snapd.version
+s3cmd cp s3://apps.syncloud.org/releases/rc/snapd2.version s3://apps.syncloud.org/releases/stable/snapd2.version
