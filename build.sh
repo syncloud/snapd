@@ -58,6 +58,9 @@ cp ${DIR}/.syncloud/config/snapd.socket ${BUILD_DIR}/conf/
 mkdir ${BUILD_DIR}/scripts
 cp ${DIR}/tests/lib/prepare.sh ${BUILD_DIR}/scripts/
 
+cp ${DIR}/.syncloud/install.sh ${BUILD_DIR}
+cp ${DIR}/.syncloud/upgrade.sh ${BUILD_DIR}
+
 cd ${DIR}
 
 rm -rf ${NAME}-${VERSION}-${ARCH}.tar.gz
