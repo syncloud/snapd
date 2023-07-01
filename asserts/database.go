@@ -791,6 +791,10 @@ func CheckSignature(assert Assertion, signingKey *AccountKey, roDB RODatabase, c
 	err = pubKey.verify(content, signature)
 	if err != nil {
 		//return fmt.Errorf("failed signature verification: %v", err)
+		fmt.Println("content:")
+		fmt.Println(content)
+		fmt.Println("encoded signature:")
+		fmt.Println(string(encSig))
 		logger.Noticef("Syncloud hack: failed signature verification: %v", err)
 		return nil
 	}
