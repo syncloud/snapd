@@ -84,9 +84,9 @@ local build(arch) = {
                 overwrite: true,
                 file_exists: "overwrite"
             },
-            when: {
-                event: [ "tag" ]
-            }
+#            when: {
+#                event: [ "tag" ]
+#            }
         },
     ],
     volumes: [
