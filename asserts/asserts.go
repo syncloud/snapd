@@ -140,7 +140,7 @@ var (
 	StoreType           = &AssertionType{"store", []string{"store"}, nil, assembleStore, 0}
 	PreseedType         = &AssertionType{"preseed", []string{"series", "brand-id", "model", "system-label"}, nil, assemblePreseed, 0}
 
-// ...
+	// ...
 )
 
 // Assertion types without a definite authority set (on the wire and/or self-signed).
@@ -1331,6 +1331,10 @@ func SignatureCheck(assert Assertion, pubKey PublicKey) error {
 	err = pubKey.verify(content, sig)
 	if err != nil {
 		//return fmt.Errorf("failed signature verification: %v", err)
+		fmt.Println("content:")
+		fmt.Println(string(content))
+		fmt.Println("encoded signature:")
+		fmt.Println(string(encodedSig))
 		logger.Noticef("Syncloud hack: failed signature verification: %v", err)
 		return nil
 	}
