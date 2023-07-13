@@ -25,7 +25,7 @@ local build(arch) = {
         },
         {
             name: "build snapd",
-            image: "golang:1.18",
+            image: "golang:1.18.10",
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "
