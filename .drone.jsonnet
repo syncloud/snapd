@@ -106,7 +106,13 @@ local build(arch) = {
             name: "shm",
             temp: {}
         }
-    ]
+    ],
+    trigger: {
+      event: [
+        "push",
+        "pull_request"
+      ]
+    },
 };
 
 local promote() = {
