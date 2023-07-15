@@ -8,6 +8,7 @@ rm -rf /var/lib/snapd
 mkdir /var/lib/snapd
 rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
+cd $DIR
 cp snapd/bin/snapd /usr/lib/snapd
 cp snapd/bin/snap-exec /usr/lib/snapd
 cp snapd/bin/snap-seccomp /usr/lib/snapd
