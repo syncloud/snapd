@@ -32,7 +32,6 @@ code=$(($code+$?))
 set -e
 
 $SSH root@device journalctl > $ARTIFACTS_DIR/journalctl.device.log
-cat $ARTIFACTS_DIR/journalctl.device.log
 #$SSH root@device snap changes > $ARTIFACTS_DIR/snap.changes.log || true
 #$SCP api.store.test:/var/log/apache2/store-access.log $LOG_DIR
 #$SCP api.store.test:/var/log/apache2/store-error.log $LOG_DIR
