@@ -1,5 +1,5 @@
 local name = "snapd";
-local go = "1.19.11";
+local go = "1.20.6";
 
 local build(arch) = {
     kind: "pipeline",
