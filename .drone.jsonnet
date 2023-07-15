@@ -114,7 +114,7 @@ local build(arch) = {
                 }
             ]
         }
-    ]
+    ],
     volumes: [
         {
             name: "dbus",
