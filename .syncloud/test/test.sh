@@ -7,7 +7,6 @@ SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
 ARTIFACTS_DIR=${DIR}/artifacts
 mkdir $ARTIFACTS_DIR
-LOG_DIR=$ARTIFACTS_DIR/log
 SNAP_ARCH=$(dpkg --print-architecture)
 
 apt update
@@ -17,8 +16,6 @@ cd $DIR
 ./wait-for-device.sh device
 #./wait-for-device.sh api.store.test
 #./wait-for-device.sh apps.syncloud.org
-
-mkdir -p $LOG_DIR
 
 #$SCP ${DIR}/../bin/install.sh root@api.store.test:/install.sh
 #$SCP ${DIR}/../out/store-*.tar.gz root@api.store.test:/store.tar.gz
@@ -34,8 +31,8 @@ go test
 code=$(($code+$?))
 set -e
 
-$SSH root@device snap changes > $LOG_DIR/snap.changes.log || true
-$SSH root@device journalctl > $LOG_DIR/journalctl.device.log
+$SSH root@device snap changes > $ARTIFACTS_DIR/snap.changes.log || true
+$SSH root@device journalctl > $ARTIFACTS_DIR/journalctl.device.log
 #$SCP api.store.test:/var/log/apache2/store-access.log $LOG_DIR
 #$SCP api.store.test:/var/log/apache2/store-error.log $LOG_DIR
 #$SSH api.store.test journalctl > $LOG_DIR/journalctl.store.log
