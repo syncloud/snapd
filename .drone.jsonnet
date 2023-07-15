@@ -1,4 +1,5 @@
 local name = "snapd";
+local go = "1.18.10";
 
 local build(arch) = {
     kind: "pipeline",
@@ -25,10 +26,17 @@ local build(arch) = {
         },
         {
             name: "build snapd",
-            image: "golang:1.18.10",
+            image: "golang:" + go,
             commands: [
                 "VERSION=$(cat version)",
                 "./build.sh $VERSION skip-tests "
+            ]
+        },
+        {
+            name: "test",
+            image: "golang:" + go,
+            commands: [
+              ".syncloud/test/test.sh"
             ]
         },
         {
@@ -89,6 +97,24 @@ local build(arch) = {
             }
         },
     ],
+    services:
+    [
+        {
+            name: "device",
+            image: "syncloud/bootstrap-buster-" + arch,
+            privileged: true,
+            volumes: [
+                {
+                    name: "dbus",
+                    path: "/var/run/dbus"
+                },
+                {
+                    name: "dev",
+                    path: "/dev"
+                }
+            ]
+        }
+    ]
     volumes: [
         {
             name: "dbus",
