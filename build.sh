@@ -29,7 +29,7 @@ mkdir -p ${BUILD_DIR}/bin
 
 cd $DIR
 CGO_ENABLED=0 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
-ldd ${BUILD_DIR}/bin/snapd
+ldd ${BUILD_DIR}/bin/snapd || true
 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
