@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/uthng/gossh"
-	"strings"
 	"testing"
 	"time"
 )
@@ -22,16 +21,16 @@ func InstallSnapd(cmd string) (string, error) {
 	if err != nil {
 		return output, err
 	}
-	output, err = SshWaitFor("device", "snap list",
-		func(output string) bool {
-			return strings.Contains(output, "No snaps")
-		},
-	)
-	output, err = SshWaitFor("device", "snap find unknown",
-		func(output string) bool {
-			return !strings.Contains(output, "too early for operation")
-		},
-	)
+	//output, err = SshWaitFor("device", "snap list",
+	//	func(output string) bool {
+	//		return strings.Contains(output, "No snaps")
+	//	},
+	//)
+	//output, err = SshWaitFor("device", "snap find unknown",
+	//	func(output string) bool {
+	//		return !strings.Contains(output, "too early for operation")
+	//	},
+	//)
 	return output, err
 }
 
