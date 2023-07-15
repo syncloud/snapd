@@ -22,7 +22,6 @@ mkdir -p $LOG_DIR
 
 #$SCP ${DIR}/../bin/install.sh root@api.store.test:/install.sh
 #$SCP ${DIR}/../out/store-*.tar.gz root@api.store.test:/store.tar.gz
-ls ${DIR}/../..
 $SCP ${DIR}/../../snapd-*.tar.gz root@device:/snapd.tar.gz
 $SCP ${DIR}/../install.sh root@device:/
 
@@ -30,7 +29,8 @@ $SCP ${DIR}/../install.sh root@device:/
 
 code=0
 set +e
-${DIR}/test
+go test
+#${DIR}/test
 code=$(($code+$?))
 set -e
 
