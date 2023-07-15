@@ -23,8 +23,8 @@ mkdir -p $LOG_DIR
 #$SCP ${DIR}/../bin/install.sh root@api.store.test:/install.sh
 #$SCP ${DIR}/../out/store-*.tar.gz root@api.store.test:/store.tar.gz
 
-$SCP ${DIR}/../snapd*.tar.gz root@device:/snapd.tar.gz
-$SCP ${DIR}/install.sh root@device:/
+$SCP ${DIR}/../build/snapd*.tar.gz root@device:/snapd.tar.gz
+$SCP ${DIR}/../install.sh root@device:/
 
 #$SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@device:/testapp2_1.snap
 
