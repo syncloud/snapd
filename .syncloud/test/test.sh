@@ -5,7 +5,7 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 STORE_DIR=/var/www/html
 SCP="sshpass -p syncloud scp -o StrictHostKeyChecking=no"
 SSH="sshpass -p syncloud ssh -o StrictHostKeyChecking=no"
-ARTIFACTS_DIR=${DIR}/artifacts
+ARTIFACTS_DIR=${DIR}/../../artifacts
 mkdir $ARTIFACTS_DIR
 SNAP_ARCH=$(dpkg --print-architecture)
 
