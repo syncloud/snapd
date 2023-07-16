@@ -34,8 +34,8 @@ set -e
 
 $SSH root@device journalctl > $ARTIFACTS_DIR/journalctl.device.log
 #$SSH root@device snap changes > $ARTIFACTS_DIR/snap.changes.log || true
-$SCP api.store.test:/store.log $LOG_DIR
-$SSH api.store.test journalctl > $LOG_DIR/journalctl.store.log
+$SCP api.store.test:/store.log $ARTIFACTS_DIR
+$SSH api.store.test journalctl > $ARTIFACTS_DIR/journalctl.store.log
 #$SSH api.store.test ls -la /var/www/store > $LOG_DIR/var.www.store.log
 #$SCP -r apps.syncloud.org:$STORE_DIR $ARTIFACTS_DIR/store
 #$SCP apps.syncloud.org:/var/log/nginx/access.log $LOG_DIR/apps.nginx.access.log
