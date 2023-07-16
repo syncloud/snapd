@@ -418,11 +418,11 @@ func New(cfg *Config, dauthCtx DeviceAndAuthContext) *Store {
 	})
 	auth := cfg.Authorizer
 	if auth == nil {
-		if dauthCtx != nil {
-			auth = &deviceAuthorizer{endpointURL: store.endpointURL}
-		} else {
-			auth = UserAuthorizer{}
-		}
+		//if dauthCtx != nil {
+		//	auth = &deviceAuthorizer{endpointURL: store.endpointURL}
+		//} else {
+		auth = UserAuthorizer{}
+		//}
 	}
 	store.auth = auth
 
