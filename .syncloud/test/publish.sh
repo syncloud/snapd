@@ -22,7 +22,7 @@ $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/releases/rc
 $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/releases/stable
 $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/apps
 $SSH root@apps.syncloud.org mkdir -p $STORE_DIR/revisions
-$SCP ${DIR}/../out/syncloud-release root@apps.syncloud.org:/
+$SCP ${DIR}/build/syncloud-release root@apps.syncloud.org:/
 
 $SCP ${DIR}/testapp*.snap root@apps.syncloud.org:/
 
