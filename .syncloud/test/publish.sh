@@ -13,7 +13,6 @@ cd $DIR
 
 ./wait-for-device.sh apps.syncloud.org
 
-mkdir -p $LOG_DIR
 STORE_DIR=/var/www/html
 
 $SSH root@apps.syncloud.org apt update
@@ -30,5 +29,5 @@ $SCP ${DIR}/testapp*.snap root@apps.syncloud.org:/
 $SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/master
 $SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/rc
 $SCP ${DIR}/index-v2 root@apps.syncloud.org:$STORE_DIR/releases/stable
-$SSH root@apps.syncloud.org tree $STORE_DIR > $LOG_DIR/store.tree.log
-$SSH root@apps.syncloud.org systemctl status nginx > $LOG_DIR/nginx.status.log
+$SSH root@apps.syncloud.org tree $STORE_DIR > $ARTIFACTS_DIR/store.tree.log
+$SSH root@apps.syncloud.org systemctl status nginx > $ARTIFACTS_DIR/nginx.status.log
