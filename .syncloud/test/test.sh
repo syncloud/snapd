@@ -20,7 +20,6 @@ cd $DIR
 $SCP ${DIR}/build/store root@api.store.test:/store
 $SSH api.store.test "nohup /store > /store.log &"
 $SCP ${DIR}/../../snapd-*.tar.gz root@device:/snapd.tar.gz
-$SCP ${DIR}/../install.sh root@device:/
 $SCP ${DIR}/install-test.sh root@device:/
 
 #$SCP ${DIR}/testapp2_1_$SNAP_ARCH.snap root@device:/testapp2_1.snap
