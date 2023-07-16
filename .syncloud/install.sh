@@ -6,12 +6,18 @@ systemctl disable snapd.service snapd.socket || true
 
 rm -rf /var/lib/snapd
 mkdir /var/lib/snapd
+
 rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
 cd $DIR
+cp snapd/bin/snapd.sh /usr/lib/snapd
 cp snapd/bin/snapd /usr/lib/snapd
 cp snapd/bin/snap-exec /usr/lib/snapd
+cp snapd/bin/snap-confine /usr/lib/snapd
 cp snapd/bin/snap-seccomp /usr/lib/snapd
+cp snapd/bin/snap-repair /usr/lib/snapd
+cp snapd/bin/snap-update-ns /usr/lib/snapd
+cp snapd/bin/snap-discard-ns /usr/lib/snapd
 cp snapd/bin/snap /usr/bin
 cp snapd/bin/snapctl /usr/bin
 cp snapd/bin/mksquashfs /usr/bin

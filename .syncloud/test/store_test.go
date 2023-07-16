@@ -9,10 +9,7 @@ import (
 )
 
 func TestInstall(t *testing.T) {
-	output, err := Ssh("device", "tar xzvf /snapd.tar.gz -C /")
-	assert.NoError(t, err, output)
-
-	output, err = InstallSnapd("/install.sh")
+	output, err := InstallSnapd("/install-test.sh /snapd.tar.gz")
 	assert.NoError(t, err, output)
 }
 

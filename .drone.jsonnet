@@ -25,6 +25,16 @@ local build(arch) = {
             ]
         },
         {
+            name: "build test store",
+            image: "golang:" + go,
+            commands: [
+              "apt update && apt install -y squashfs-tools",
+              ".syncloud/test/build.sh",
+              ".syncloud/test/build-apps.sh",
+              ".syncloud/test/publish.sh"
+            ]
+        },
+        {
             name: "build snapd",
             image: "golang:" + go,
             commands: [
@@ -75,7 +85,7 @@ local build(arch) = {
                 target: "/home/artifact/repo/" + name + "/${DRONE_BUILD_NUMBER}-" + arch,
                 source: [
                     "snapd-*.tar.gz",
-                    ".syncloud/test/artifacts"
+                    "artifacts/*"
                 ]
             },
             when: {
@@ -102,6 +112,36 @@ local build(arch) = {
     [
         {
             name: "device",
+            image: "syncloud/bootstrap-buster-" + arch,
+            privileged: true,
+            volumes: [
+                {
+                    name: "dbus",
+                    path: "/var/run/dbus"
+                },
+                {
+                    name: "dev",
+                    path: "/dev"
+                }
+            ]
+        },
+         {
+            name: "api.store.test",
+            image: "syncloud/bootstrap-buster-" + arch,
+            privileged: true,
+            volumes: [
+                {
+                    name: "dbus",
+                    path: "/var/run/dbus"
+                },
+                {
+                    name: "dev",
+                    path: "/dev"
+                }
+            ]
+        },
+        {
+            name: "apps.syncloud.org",
             image: "syncloud/bootstrap-buster-" + arch,
             privileged: true,
             volumes: [
