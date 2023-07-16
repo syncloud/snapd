@@ -26,11 +26,11 @@ if [[ ${TESTS} != "skip-tests" ]]; then
 fi
 
 mkdir -p ${BUILD_DIR}/bin
+cp ${DIR}/.syncloud/snapd.sh ${BUILD_DIR}/bin
 
 cd $DIR
 go build -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
 ldd ${BUILD_DIR}/bin/snapd || true
-
 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
 go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
