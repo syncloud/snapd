@@ -10,24 +10,22 @@ mkdir /var/lib/snapd
 rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
 cd $DIR
-cp snapd/bin/snapd.sh /usr/lib/snapd
-cp snapd/bin/snapd /usr/lib/snapd
-cp snapd/bin/snap-exec /usr/lib/snapd
-cp snapd/bin/snap-confine /usr/lib/snapd
-cp snapd/bin/snap-seccomp /usr/lib/snapd
-cp snapd/bin/snap-repair /usr/lib/snapd
-cp snapd/bin/snap-update-ns /usr/lib/snapd
-cp snapd/bin/snap-discard-ns /usr/lib/snapd
-cp snapd/bin/snap /usr/bin
-cp snapd/bin/snapctl /usr/bin
-cp snapd/bin/mksquashfs /usr/bin
-cp snapd/bin/unsquashfs /usr/bin
+cp $DIR/bin/snapd /usr/lib/snapd
+cp $DIR/bin/snap-exec /usr/lib/snapd
+cp $DIR/bin/snap-confine /usr/lib/snapd
+cp $DIR/bin/snap-seccomp /usr/lib/snapd
+cp $DIR/bin/snap-repair /usr/lib/snapd
+cp $DIR/bin/snap-update-ns /usr/lib/snapd
+cp $DIR/bin/snap-discard-ns /usr/lib/snapd
+cp $DIR/bin/snap /usr/bin
+cp $DIR/bin/snapctl /usr/bin
+cp $DIR/bin/mksquashfs /usr/bin
+cp $DIR/bin/unsquashfs /usr/bin
 
 mkdir -p /usr/lib/snapd/lib
-cp snapd/lib/* /usr/lib/snapd/lib
-
-cp snapd/conf/snapd.service /lib/systemd/system/
-cp snapd/conf/snapd.socket /lib/systemd/system/
+cp $DIR/lib/* /usr/lib/snapd/lib
+cp $DIR/conf/snapd.service /lib/systemd/system/
+cp $DIR/conf/snapd.socket /lib/systemd/system/
 
 systemctl enable snapd.service
 systemctl enable snapd.socket

@@ -26,7 +26,7 @@ if [[ ${TESTS} != "skip-tests" ]]; then
 fi
 
 mkdir -p ${BUILD_DIR}/bin
-cp ${DIR}/.syncloud/snapd.sh ${BUILD_DIR}/bin
+#cp ${DIR}/.syncloud/snapd.sh ${BUILD_DIR}/bin
 
 cd $DIR
 go build -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
