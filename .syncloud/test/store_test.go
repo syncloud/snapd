@@ -4,12 +4,20 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/uthng/gossh"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestInstall(t *testing.T) {
+	arch, err := snapArch()
+	assert.NoError(t, err)
+
 	output, err := InstallSnapd("/install-test.sh /snapd.tar.gz")
+	assert.NoError(t, err, output)
+
+	output, err = Ssh("device", fmt.Sprintf("snap install /testapp1_1_%s.snap --devmode", arch))
 	assert.NoError(t, err, output)
 }
 
@@ -65,4 +73,12 @@ func Ssh(host string, command string) (string, error) {
 	result := string(output)
 	fmt.Printf("output: \n%s\n", result)
 	return result, err
+}
+
+func snapArch() (string, error) {
+	output, err := exec.Command("dpkg", "--print-architecture").CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }
