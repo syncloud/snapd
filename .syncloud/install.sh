@@ -9,6 +9,7 @@ mkdir /var/lib/snapd
 
 rm -rf /usr/lib/snapd
 mkdir -p /usr/lib/snapd
+mkdir -p /var/lib/snapd/snaps
 cd $DIR
 cp $DIR/bin/snapd /usr/lib/snapd
 cp $DIR/bin/snap-exec /usr/lib/snapd
