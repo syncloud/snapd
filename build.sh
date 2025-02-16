@@ -38,7 +38,7 @@ go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUIL
 CGO_ENABLED=0 go build -tags netgo -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 
 sed -i 's/-Wl,-Bstatic//g' ${DIR}/cmd/snap-seccomp/main.go
-CGO_ENABLED=0 go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
+go build -ldflags '-linkmode external -extldflags -static' -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
 
 #cd  ${DIR}/cmd
 #autoreconf -i -f
