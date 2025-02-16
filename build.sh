@@ -31,14 +31,14 @@ mkdir -p ${BUILD_DIR}/bin
 cd $DIR
 CGO_ENABLED=0 go build -o ${BUILD_DIR}/bin/snapd github.com/snapcore/snapd/cmd/snapd
 ldd ${BUILD_DIR}/bin/snapd || true
-go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
-go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
-go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
-go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snap-update-ns github.com/snapcore/snapd/cmd/snap-update-ns
-go build -ldflags '-linkmode external -extldflags -static' -tags netgo -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
+CGO_ENABLED=0 go build -tags netgo -o ${BUILD_DIR}/bin/snap github.com/snapcore/snapd/cmd/snap
+CGO_ENABLED=0 go build -tags netgo -o ${BUILD_DIR}/bin/snap-exec github.com/snapcore/snapd/cmd/snap-exec
+CGO_ENABLED=0 go build -tags netgo -o ${BUILD_DIR}/bin/snap-repair github.com/snapcore/snapd/cmd/snap-repair
+CGO_ENABLED=0 go build -tags netgo -o ${BUILD_DIR}/bin/snap-update-ns github.com/snapcore/snapd/cmd/snap-update-ns
+CGO_ENABLED=0 go build -tags netgo -o ${BUILD_DIR}/bin/snapctl github.com/snapcore/snapd/cmd/snapctl
 
 sed -i 's/-Wl,-Bstatic//g' ${DIR}/cmd/snap-seccomp/main.go
-go build -ldflags '-linkmode external -extldflags -static' -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
+CGO_ENABLED=0 go build -o ${BUILD_DIR}/bin/snap-seccomp github.com/snapcore/snapd/cmd/snap-seccomp
 
 #cd  ${DIR}/cmd
 #autoreconf -i -f
