@@ -35,6 +35,19 @@ local build(arch) = {
             ]
         },
         {
+            name: "test squashfs debian-10",
+            image: "debian:buster-slim",
+            commands: [
+                "./build/snapd/bin/unsquashfs -ll .syncloud/test/testapp1_1_*.snap"
+            ]
+        },        {
+            name: "test squashfs debian-12",
+            image: "debian:12-slim",
+            commands: [
+                "./build/snapd/bin/unsquashfs -ll .syncloud/test/testapp1_1_*.snap"
+            ]
+        },
+        {
             name: "build snapd",
             image: "golang:" + go,
             commands: [
