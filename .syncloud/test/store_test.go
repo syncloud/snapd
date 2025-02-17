@@ -21,6 +21,14 @@ func TestInstall(t *testing.T) {
 	assert.NoError(t, err, output)
 }
 
+func TestUnsquashfs_ListWithAttributes(t *testing.T) {
+	arch, err := snapArch()
+	assert.NoError(t, err)
+
+	output, err := Ssh("device", fmt.Sprintf("unsquashfs -ll /testapp1_1_%s.snap", arch))
+	assert.NoError(t, err, output)
+}
+
 func InstallSnapd(cmd string) (string, error) {
 	output, err := Ssh("device", cmd)
 	if err != nil {
