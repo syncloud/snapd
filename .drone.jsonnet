@@ -19,7 +19,7 @@ local build(arch) = {
         },
         {
             name: "build squashfs",
-            image: "debian:buster-slim",
+            image: "debian:12-slim",
             commands: [
                 "./build-squashfs.sh"
             ]
