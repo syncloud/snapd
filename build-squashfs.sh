@@ -5,7 +5,7 @@ apt update
 apt install -y wget xfslibs-dev libzstd-dev liblz-dev liblz4-dev liblzo2-dev zlib1g-dev liblzma-dev build-essential
 NAME=snapd
 BUILD_DIR=${DIR}/build/${NAME}
-VERSION=4.6.1
+VERSION=4.5.1
 
 rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
