@@ -15,7 +15,7 @@ mkdir -p ${BUILD_DIR}
 mkdir ${BUILD_DIR}/bin
 
 wget https://github.com/tukaani-project/xz/releases/download/v$XZ_VERSION/xz-$XZ_VERSION.tar.gz
-tar xz-$XZ_VERSION.tar.gz
+tar xf xz-$XZ_VERSION.tar.gz
 cd xz-$XZ_VERSION
 ./configure --disable-shared
 make
