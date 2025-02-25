@@ -19,7 +19,7 @@ local build(arch) = {
         },
         {
             name: "build squashfs",
-            image: "ubuntu:20.04",
+            image: "debian:10-slim",
             commands: [
                 "./build-squashfs.sh"
             ]
