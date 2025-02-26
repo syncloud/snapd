@@ -1,0 +1,4 @@
+#!/bin/bash -e
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )
+LIBS=$LIBS:$(echo ${DIR}/usr/lib/*linux*)
+exec ${DIR}/lib/ld.so --library-path $DIR/lib ${DIR}/bin/unsquashfs.bin "$@"

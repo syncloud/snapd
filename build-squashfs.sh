@@ -30,6 +30,8 @@ sed -i 's/#LZ4_SUPPORT.*/LZ4_SUPPORT=1/g' Makefile
 sed -i 's/#ZSTD_SUPPORT.*/ZSTD_SUPPORT=1/g' Makefile
 #LDFLAGS=-static
 make
-cp mksquashfs ${BUILD_DIR}/bin
-cp unsquashfs ${BUILD_DIR}/bin
-ldd unsquashfs || trueq
+mkdir ${BUILD_DIR}/squashfs
+cp mksquashfs ${BUILD_DIR}/bin/mksquashfs.bin
+cp unsquashfs ${BUILD_DIR}/bin/unsquashfs.bin
+ldd unsquashfs || true
+cp -r $DIR/.syncloud/bin/* ${BUILD_DIR}/bin
