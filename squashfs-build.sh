@@ -37,7 +37,7 @@ cp -r $DIR/.syncloud/bin/* ${BUILD_DIR}/bin
 cp mksquashfs ${BUILD_DIR}/squashfs/bin
 cp unsquashfs ${BUILD_DIR}/squashfs/bin
 mkdir ${BUILD_DIR}/squashfs/lib
-cp ${DIR}/lib/*/ld-*.so* ${BUILD_DIR}/squashfs/lib/ld.so
+cp /lib/*linux*/ld-*.so* ${BUILD_DIR}/squashfs/lib/ld.so
 cp /lib/x86_64-linux-gnu/libm.so.6 ${BUILD_DIR}/squashfs/lib
 cp /lib/x86_64-linux-gnu/libz.so.1 ${BUILD_DIR}/squashfs/lib
 cp /lib/x86_64-linux-gnu/liblzma.so.5 ${BUILD_DIR}/squashfs/lib
