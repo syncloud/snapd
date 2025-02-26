@@ -30,8 +30,18 @@ sed -i 's/#LZ4_SUPPORT.*/LZ4_SUPPORT=1/g' Makefile
 sed -i 's/#ZSTD_SUPPORT.*/ZSTD_SUPPORT=1/g' Makefile
 #LDFLAGS=-static
 make
-mkdir ${BUILD_DIR}/squashfs
-cp mksquashfs ${BUILD_DIR}/bin/mksquashfs.bin
-cp unsquashfs ${BUILD_DIR}/bin/unsquashfs.bin
 ldd unsquashfs || true
+mkdir ${BUILD_DIR}/squashfs
+mkdir ${BUILD_DIR}/squashfs/bin
 cp -r $DIR/.syncloud/bin/* ${BUILD_DIR}/bin
+cp mksquashfs ${BUILD_DIR}/squashfs/bin
+cp unsquashfs ${BUILD_DIR}/squashfs/bin
+mkdir ${BUILD_DIR}/squashfs/lib
+cp ${DIR}/lib/*/ld-*.so* ${BUILD_DIR}/squashfs/lib/ld.so
+cp /lib/x86_64-linux-gnu/libm.so.6 ${BUILD_DIR}/squashfs/lib
+cp /lib/x86_64-linux-gnu/libz.so.1 ${BUILD_DIR}/squashfs/lib
+cp /lib/x86_64-linux-gnu/liblzma.so.5 ${BUILD_DIR}/squashfs/lib
+cp /lib/x86_64-linux-gnu/liblzo2.so.2 ${BUILD_DIR}/squashfs/lib
+cp /lib/x86_64-linux-gnu/liblz4.so.1 ${BUILD_DIR}/squashfs/lib
+cp /lib/x86_64-linux-gnu/libzstd.so.1 ${BUILD_DIR}/squashfs/lib
+cp /lib/x86_64-linux-gnu/libc.so.6 ${BUILD_DIR}/squashfs/lib
