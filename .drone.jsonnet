@@ -21,7 +21,7 @@ local build(arch) = {
             name: "build squashfs",
             image: "debian:12-slim",
             commands: [
-                "./build-squashfs.sh"
+                "./squashfs-build.sh"
             ]
         },
         {
@@ -34,17 +34,24 @@ local build(arch) = {
               ".syncloud/test/publish.sh"
             ]
         },
+       {
+            name: "test squashfs d8",
+            image: "debian:jessie-slim",
+            commands: [
+                "./squashfs-test.sh"
+            ]
+        },
         {
-            name: "test squashfs debian-10",
+            name: "test squashfs d10",
             image: "debian:buster-slim",
             commands: [
-                "./build/snapd/bin/unsquashfs -ll .syncloud/test/testapp1_1_*.snap"
+                "./squashfs-test.sh"
             ]
         },        {
-            name: "test squashfs debian-12",
+            name: "test squashfs d12",
             image: "debian:12-slim",
             commands: [
-                "./build/snapd/bin/unsquashfs -ll .syncloud/test/testapp1_1_*.snap"
+                "./squashfs-test.sh"
             ]
         },
         {

@@ -1,0 +1,3 @@
+#!/bin/bash -e
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )
+exec ${DIR}/squashfs/lib/ld.so --library-path $DIR/squashfs/lib ${DIR}/squashfs/bin/unsquashfs "$@"

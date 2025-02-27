@@ -17,6 +17,9 @@ cp $DIR/bin/snap /usr/bin
 cp $DIR/bin/snapctl /usr/bin
 cp $DIR/bin/mksquashfs /usr/bin
 cp $DIR/bin/unsquashfs /usr/bin
+rm -rf /usr/squashfs
+cp -r $DIR/squashfs /usr/
+
 mkdir -p /usr/lib/snapd/lib
 cp $DIR/lib/* /usr/lib/snapd/lib
 
