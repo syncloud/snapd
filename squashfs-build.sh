@@ -38,10 +38,10 @@ cp mksquashfs ${BUILD_DIR}/squashfs/bin
 cp unsquashfs ${BUILD_DIR}/squashfs/bin
 mkdir ${BUILD_DIR}/squashfs/lib
 cp /lib/*linux*/ld-*.so* ${BUILD_DIR}/squashfs/lib/ld.so
-cp /lib/x86_64-linux-gnu/libm.so.6 ${BUILD_DIR}/squashfs/lib
-cp /lib/x86_64-linux-gnu/libz.so.1 ${BUILD_DIR}/squashfs/lib
-cp /lib/x86_64-linux-gnu/liblzma.so.5 ${BUILD_DIR}/squashfs/lib
-cp /lib/x86_64-linux-gnu/liblzo2.so.2 ${BUILD_DIR}/squashfs/lib
-cp /lib/x86_64-linux-gnu/liblz4.so.1 ${BUILD_DIR}/squashfs/lib
-cp /lib/x86_64-linux-gnu/libzstd.so.1 ${BUILD_DIR}/squashfs/lib
-cp /lib/x86_64-linux-gnu/libc.so.6 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/libm.so.6 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/libz.so.1 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/liblzma.so.5 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/liblzo2.so.2 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/liblz4.so.1 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/libzstd.so.1 ${BUILD_DIR}/squashfs/lib
+cp /lib/*/libc.so.6 ${BUILD_DIR}/squashfs/lib
