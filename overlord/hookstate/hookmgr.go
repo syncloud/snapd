@@ -476,7 +476,7 @@ func snapCmd() string {
 	return filepath.Join(filepath.Dir(exe), "../../bin/snap")
 }
 
-var defaultHookTimeout = 10 * time.Minute
+var defaultHookTimeout = 120 * time.Minute
 
 func runHookAndWait(snapName string, revision snap.Revision, hookName, hookContext string, timeout time.Duration, tomb *tomb.Tomb) ([]byte, error) {
 	argv := []string{snapCmd(), "run", "--hook", hookName, "-r", revision.String(), snapName}
