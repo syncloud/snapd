@@ -17,6 +17,11 @@ func TestInstall(t *testing.T) {
 	output, err := InstallSnapd("/install-test.sh /snapd.tar.gz")
 	assert.NoError(t, err, output)
 
+	// Validate that SNAPD_CONFIGURE_HOOK_TIMEOUT is set to 2h
+	output, err = Ssh("device", "systemctl show snapd.service --property=Environment | grep SNAPD_CONFIGURE_HOOK_TIMEOUT")
+	assert.NoError(t, err, output)
+	assert.Contains(t, output, "SNAPD_CONFIGURE_HOOK_TIMEOUT=2h", "Configure hook timeout should be set to 2h")
+
 	output, err = Ssh("device", fmt.Sprintf("snap install /testapp1_1_%s.snap --devmode", arch))
 	assert.NoError(t, err, output)
 }
