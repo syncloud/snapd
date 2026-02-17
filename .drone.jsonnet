@@ -1,5 +1,8 @@
 local name = "snapd";
 local go = "1.18.10";
+local debian = 'bookworm-slim';
+local python = '3.12-slim-bookworm';
+local bootstrap = '25.02';
 
 local build(arch) = {
     kind: "pipeline",
@@ -12,7 +15,7 @@ local build(arch) = {
     steps: [
         {
             name: "version",
-            image: "debian:buster-slim",
+            image: "debian:" + debian,
             commands: [
                 "echo $DRONE_BUILD_NUMBER > version"
             ]
@@ -71,7 +74,7 @@ local build(arch) = {
         },
         {
             name: "upload",
-            image: "python:3.9-buster",
+            image: "python:" + python,
             environment: {
                 AWS_ACCESS_KEY_ID: {
                     from_secret: "AWS_ACCESS_KEY_ID"
@@ -86,7 +89,28 @@ local build(arch) = {
               "./.syncloud/upload.sh $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
             ],
             when: {
-                branch: ["stable", "master"]
+                branch: ["stable", "master"],
+                event: ["push"]
+            }
+        },
+        {
+            name: "promote",
+            image: "python:" + python,
+            environment: {
+                AWS_ACCESS_KEY_ID: {
+                    from_secret: "AWS_ACCESS_KEY_ID"
+                },
+                AWS_SECRET_ACCESS_KEY: {
+                    from_secret: "AWS_SECRET_ACCESS_KEY"
+                }
+            },
+            commands: [
+              "pip install s3cmd",
+              "./.syncloud/promote.sh"
+            ],
+            when: {
+                branch: ["stable"],
+                event: ["push"]
             }
         },
         {
@@ -132,7 +156,7 @@ local build(arch) = {
     [
         {
             name: "device",
-            image: "syncloud/bootstrap-buster-" + arch,
+            image: "syncloud/bootstrap-bookworm-" + arch + ":" + bootstrap,
             privileged: true,
             volumes: [
                 {
@@ -147,7 +171,7 @@ local build(arch) = {
         },
          {
             name: "api.store.test",
-            image: "syncloud/bootstrap-buster-" + arch,
+            image: "syncloud/bootstrap-bookworm-" + arch + ":" + bootstrap,
             privileged: true,
             volumes: [
                 {
@@ -162,7 +186,7 @@ local build(arch) = {
         },
         {
             name: "apps.syncloud.org",
-            image: "syncloud/bootstrap-buster-" + arch,
+            image: "syncloud/bootstrap-bookworm-" + arch + ":" + bootstrap,
             privileged: true,
             volumes: [
                 {
@@ -203,42 +227,8 @@ local build(arch) = {
     },
 };
 
-local promote() = {
-    kind: "pipeline",
-    type: "docker",
-    name: "promote",
-    platform: {
-        os: "linux",
-        arch: "amd64"
-    },
-    steps: [
-    {
-        name: "promote",
-        image: "python:3.9-buster",
-        environment: {
-          AWS_ACCESS_KEY_ID: {
-              from_secret: "AWS_ACCESS_KEY_ID"
-          },
-          AWS_SECRET_ACCESS_KEY: {
-              from_secret: "AWS_SECRET_ACCESS_KEY"
-          }
-        },
-        commands: [
-          "pip install s3cmd",
-          "./.syncloud/promote.sh"
-        ]
-    }
-    ],
-    trigger: {
-      event: [
-        "promote"
-      ]
-    }
-};
-
 [
     build("amd64"),
     build("arm64"),
-    build("arm"),
-    promote()
+    build("arm")
 ]

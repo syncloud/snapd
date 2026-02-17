@@ -18,7 +18,7 @@ cd $DIR
 ./wait-for-device.sh apps.syncloud.org
 
 $SCP ${DIR}/build/store root@api.store.test:/store
-$SSH api.store.test "nohup /store > /store.log &"
+$SSH api.store.test "nohup /store > /store.log 2>&1 &"
 $SCP ${DIR}/../../snapd-*.tar.gz root@device:/snapd.tar.gz
 $SCP ${DIR}/install-test.sh root@device:/
 
