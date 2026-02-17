@@ -4,7 +4,7 @@ local debian = 'bookworm-slim';
 local python = '3.12-slim-bookworm';
 local bootstrap = '25.02';
 
-local build(arch) = {
+local build(arch, deb_arch) = {
     kind: "pipeline",
     name: arch,
 
@@ -86,7 +86,7 @@ local build(arch) = {
             commands: [
               "VERSION=$(cat version)",
               "pip install s3cmd",
-              "./.syncloud/upload.sh $DRONE_BRANCH $VERSION " + name + "-$VERSION-$(dpkg-architecture -q DEB_HOST_ARCH).tar.gz"
+              "./.syncloud/upload.sh $DRONE_BRANCH $VERSION " + name + "-$VERSION-" + deb_arch+ ".tar.gz"
             ],
             when: {
                 branch: ["stable", "master"],
@@ -228,7 +228,7 @@ local build(arch) = {
 };
 
 [
-    build("amd64"),
-    build("arm64"),
-    build("arm")
+    build("amd64", "amd64"),
+    build("arm64", "arm64"),
+    build("arm", "armhf")
 ]
