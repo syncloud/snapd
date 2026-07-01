@@ -34,6 +34,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/snapcore/snapd/asserts"
+	"github.com/snapcore/snapd/asserts/sysdb"
 	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/httputil"
 	"github.com/snapcore/snapd/logger"
@@ -431,6 +432,27 @@ func prepareSerialRequest(t *state.Task, regCtx registrationContext, privKey ass
 
 var errPoll = errors.New("serial-request accepted, poll later")
 
+func clashesWithTrusted(a asserts.Assertion) bool {
+	ref := a.Ref()
+	for _, trusted := range sysdb.Trusted() {
+		tref := trusted.Ref()
+		if tref.Type != ref.Type || len(tref.PrimaryKey) != len(ref.PrimaryKey) {
+			continue
+		}
+		same := true
+		for i := range tref.PrimaryKey {
+			if tref.PrimaryKey[i] != ref.PrimaryKey[i] {
+				same = false
+				break
+			}
+		}
+		if same {
+			return true
+		}
+	}
+	return false
+}
+
 func submitSerialRequest(t *state.Task, serialRequest string, client *http.Client, cfg *serialRequestConfig) (*asserts.Serial, *asserts.Batch, error) {
 	st := t.State()
 	st.Unlock()
@@ -477,6 +499,16 @@ func submitSerialRequest(t *state.Task, serialRequest string, client *http.Clien
 			}
 			serial = got.(*asserts.Serial)
 		} else {
+			// Syncloud: the brand account and root account-key are baked
+			// into the trusted assertion set (asserts/sysdb), yet the device
+			// service still streams them alongside the serial. Re-adding an
+			// assertion whose primary key clashes with a trusted one is
+			// refused by the assertion database and fails registration; drop
+			// such assertions as they are already known.
+			if clashesWithTrusted(got) {
+				logger.Noticef("Syncloud: dropping ancillary %q assertion already present in the trusted set: %v", got.Type().Name, got.Ref().PrimaryKey)
+				continue
+			}
 			if batch == nil {
 				batch = asserts.NewBatch(nil)
 			}

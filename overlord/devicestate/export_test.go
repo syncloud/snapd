@@ -565,3 +565,5 @@ func CleanUpEncryptionSetupDataInCache(st *state.State, label string) {
 	key := encryptionSetupDataKey{label}
 	st.Cache(key, nil)
 }
+
+var ClashesWithTrusted = clashesWithTrusted

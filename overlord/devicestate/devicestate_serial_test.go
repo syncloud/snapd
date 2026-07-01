@@ -2376,3 +2376,16 @@ func (s *deviceMgrSerialSuite) TestDeviceSerialRestoreHappy(c *C) {
 	c.Check(log.String(), testutil.Contains,
 		fmt.Sprintf("restored serial serial-1234 for my-brand/pc-20 signed with key %v", devKey.PublicKey().ID()))
 }
+
+func (s *deviceMgrSerialSuite) TestClashesWithTrusted(c *C) {
+	trusted := sysdb.Trusted()
+	c.Assert(trusted, Not(HasLen), 0)
+
+	for _, a := range trusted {
+		c.Check(devicestate.ClashesWithTrusted(a), Equals, true, Commentf("trusted %s %v should clash", a.Type().Name, a.Ref().PrimaryKey))
+	}
+
+	notTrusted := s.storeSigning.StoreAccountKey("")
+	c.Assert(notTrusted, NotNil)
+	c.Check(devicestate.ClashesWithTrusted(notTrusted), Equals, false)
+}
