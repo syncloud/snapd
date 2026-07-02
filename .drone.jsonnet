@@ -133,7 +133,8 @@ local build(arch, deb_arch) = {
                 ]
             },
             when: {
-              status: [ "failure", "success" ]
+              status: [ "failure", "success" ],
+              event: [ "push" ]
             }
         },
         {
@@ -221,7 +222,6 @@ local build(arch, deb_arch) = {
     trigger: {
       event: [
         "push",
-        "pull_request",
         "tag"
       ]
     },
