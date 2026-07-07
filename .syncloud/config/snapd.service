@@ -16,6 +16,9 @@ OnFailure=snapd.failure.service
 # (https://bugs.launchpad.net/snapd/+bug/1709536)
 #Nice=-5
 OOMScoreAdjust=-900
+# Syncloud runs no serial vault, so skip snapd device registration (avoids the
+# perpetual "Initialize device" error from the trusted-baked account-key)
+ExecStartPre=/bin/sh -c 'mkdir -p /run/snapd && touch /run/snapd/noregister'
 ExecStart=/usr/lib/snapd/snapd
 #Environment=LD_LIBRARY_PATH=/usr/lib/snapd/lib
 Environment=SNAPPY_FORCE_API_URL=https://api.store.syncloud.org SNAPD_CONFIGURE_HOOK_TIMEOUT=2h
