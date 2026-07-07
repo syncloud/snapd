@@ -30,7 +30,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/snapcore/snapd/logger"
 	"github.com/snapcore/snapd/osutil"
 	"github.com/snapcore/snapd/snap/naming"
 )
@@ -1330,13 +1329,7 @@ func SignatureCheck(assert Assertion, pubKey PublicKey) error {
 	}
 	err = pubKey.verify(content, sig)
 	if err != nil {
-		//return fmt.Errorf("failed signature verification: %v", err)
-		fmt.Println("content:")
-		fmt.Println(string(content))
-		fmt.Println("encoded signature:")
-		fmt.Println(string(encodedSig))
-		logger.Noticef("Syncloud hack: failed signature verification: %v", err)
-		return nil
+		return fmt.Errorf("failed signature verification: %v", err)
 	}
 	return nil
 }
