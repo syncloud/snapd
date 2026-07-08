@@ -221,7 +221,6 @@ local build(arch, deb_arch) = {
     trigger: {
       event: [
         "push",
-        "pull_request",
         "tag"
       ]
     },
