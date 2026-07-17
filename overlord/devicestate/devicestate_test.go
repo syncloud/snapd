@@ -1036,6 +1036,37 @@ func (s *deviceMgrSuite) TestCanAutoRefreshNoSerialFallback(c *C) {
 	c.Check(canAutoRefresh(), Equals, true)
 }
 
+func (s *deviceMgrSuite) TestCanAutoRefreshNoRegister(c *C) {
+	s.state.Lock()
+	defer s.state.Unlock()
+
+	canAutoRefresh := func() bool {
+		ok, err := devicestate.CanAutoRefresh(s.state)
+		c.Assert(err, IsNil)
+		return ok
+	}
+
+	// seeded, model, no serial, no registration attempts -> no auto-refresh
+	s.state.Set("seeded", true)
+	devicestatetest.SetDevice(s.state, &auth.DeviceState{
+		Brand: "canonical",
+		Model: "pc",
+	})
+	s.makeModelAssertionInState(c, "canonical", "pc", map[string]interface{}{
+		"architecture": "amd64",
+		"kernel":       "pc-kernel",
+		"gadget":       "pc",
+	})
+	c.Check(devicestate.EnsureOperationalAttempts(s.state), Equals, 0)
+	c.Check(canAutoRefresh(), Equals, false)
+
+	// registration deliberately skipped via the noregister marker
+	// -> auto-refresh without a serial or any registration attempts
+	c.Assert(os.MkdirAll(dirs.SnapRunDir, 0755), IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(dirs.SnapRunDir, "noregister"), nil, 0644), IsNil)
+	c.Check(canAutoRefresh(), Equals, true)
+}
+
 func (s *deviceMgrSuite) TestCanAutoRefreshOnClassic(c *C) {
 	release.OnClassic = true
 

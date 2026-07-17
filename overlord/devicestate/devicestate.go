@@ -33,6 +33,7 @@ import (
 
 	"github.com/snapcore/snapd/asserts"
 	"github.com/snapcore/snapd/boot"
+	"github.com/snapcore/snapd/dirs"
 	"github.com/snapcore/snapd/gadget"
 	"github.com/snapcore/snapd/i18n"
 	"github.com/snapcore/snapd/logger"
@@ -127,6 +128,15 @@ func canAutoRefresh(st *state.State) (bool, error) {
 	maxWait := 10 * time.Minute
 	if !devMgr.ntpSyncedOrWaitedLongerThan(maxWait) {
 		return false, nil
+	}
+
+	// Syncloud runs no serial vault and deliberately skips registration via
+	// the noregister marker, so ensureOperational never attempts registration
+	// and ensureOperationalAttempts stays at 0. Without this the serial check
+	// below would disable auto-refresh forever. Allow it when registration was
+	// intentionally opted out.
+	if osutil.FileExists(filepath.Join(dirs.SnapRunDir, "noregister")) {
+		return true, nil
 	}
 
 	// Either we have a serial or we try anyway if we attempted
